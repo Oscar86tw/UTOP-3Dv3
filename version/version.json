@@ -1,25 +1,7 @@
 {
-  "name": "UTOP-3Dv3",
-  "version": "1.5.1",
-  "schema": "5.3",
-  "title": "Cloud Project & 3D UX Fix",
-  "notes": [
-    "3D 視角改為保存 liveCamera，不再因重新掛載自動回到固定預設角度。",
-    "名稱浮標改用設備本體頂部計算並限制高度，避免跑到天上。",
-    "出口橘色車預設隱藏；初始場景不再顯示第二台車。",
-    "預設設備與 Connection 清空，設備由使用者自行從模組庫加入。",
-    "快捷鍵模組/功能下拉選單改成原地更新，不再因 rerender 立即收回。",
-    "3D 工作區加入場景與視野原地選擇器。",
-    "新增 Google Drive / Apps Script 雲端專案：儲存、另存、開啟、刪除、專案清單。",
-    "新增舊版 localStorage 專案手動匯入 Google 雲端流程。"
-  ],
-  "updated": "2026-08-09",
-  "changes": [
-    "Persistent 3D camera",
-    "Device label height clamp",
-    "Empty starter project",
-    "Stable select controls",
-    "Google cloud project manager",
-    "Apps Script Drive backend"
-  ]
+  "product": "UTOP-3Dv3",
+  "version": "1.5.3",
+  "schema": "5.5",
+  "title": "Interaction Core Fix",
+  "updated": "2026-08-09"
 }

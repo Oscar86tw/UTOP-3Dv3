@@ -58,6 +58,7 @@ export function migrateProjectState(state,devices,defaultState,defaultDevices){
   if(!validIds.has(state.selectedDevice))state.selectedDevice=devices[0]?.id||null;
   if(!validIds.has(state.hotkeyEditor?.deviceId))state.hotkeyEditor.deviceId=state.selectedDevice||'';
   if(!state.floors.some(f=>f.id===state.editor.floorFocus))state.editor.floorFocus=state.floors[0]?.id||'1F';
+  if(['select','move','rotate'].includes(state.editor?.mode)||!state.editor?.mode)state.editor.mode='unified';
   const routes=new Set(['overview','simulator','sync2d','scene','layers','hotkeys','display','mission','engineering','network','diagrams','field','project']);
   if(!routes.has(state.route))state.route='overview';
   state.runtimeHealth={...(state.runtimeHealth||{}),webglReady:false,simulatorReady:false,lastError:'',lastValidatedAt:''};

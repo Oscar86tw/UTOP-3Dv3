@@ -1,7 +1,7 @@
 export const state = {
   route:'overview',presentation:false,savedAt:new Date(),selectedDevice:null,
   workspace:{mode:'3d',leftOpen:true,rightOpen:false,fullscreen3d:false,inspectorTab:'controls'},
-  editor:{mode:'select',floorFocus:'1F',snap:true,gridSize:.25},
+  editor:{mode:'unified',floorFocus:'1F',snap:true,gridSize:.25},
   simulator:{
     barrier:false,loop:false,signals:true,zones:true,labels:true,follow:false,cameraPreset:0,
     liveCamera:{yaw:.62,pitch:.42,radius:27,target:[0,1,0]},
@@ -65,7 +65,7 @@ export const state = {
     {id:'RM-002',typeId:'stop-line',name:'停止線',kind:'stop',floor:'1F',x:0,z:4,rotation:0,width:5,length:.35,visible:true}
   ],
   selectedRoadMarking:'RM-001',
-  cloud:{webAppUrl:'',projectId:'',projectName:'未命名專案',lastCloudSavedAt:'',status:'尚未連線 Google 雲端'},
+  cloud:{webAppUrl:'',projectId:'',selectedProjectId:'',projectName:'未命名專案',lastCloudSavedAt:'',status:'尚未連線 Google 雲端',dirty:false,projects:[]},
   debugCenter:{lastRun:'',checks:[]}
 
 };

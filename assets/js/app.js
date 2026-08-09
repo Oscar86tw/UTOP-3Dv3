@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.5.1';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.5.1';
+import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.5.3';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.5.3';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,12 +11,12 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.5.1';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.5.1';
-import {pingCloud,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.5.1';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.5.3';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.5.3';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.5.3';
 
 const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
-let capturing=false,sim3d=null,navEpoch=0,simulatorMountPromise=null,missionTimer=null;
+let capturing=false,sim3d=null,navEpoch=0,simulatorMountPromise=null,missionTimer=null,lastCloudFingerprint='';
 const CLOUD_URL_KEY='utop3dv3.cloud.webAppUrl';
 const LEGACY_STORAGE_KEY='utop3dv3.project.v1';
 const DEFAULTS=cloneDefaults(state,devices);
@@ -35,27 +35,38 @@ function safeHandler(where,fn){return async e=>{try{return await fn(e);}catch(er
 
 function rememberCloudUrl(){try{localStorage.setItem(CLOUD_URL_KEY,state.cloud?.webAppUrl||'');}catch(_){}}
 function restoreCloudUrl(){try{const u=localStorage.getItem(CLOUD_URL_KEY);if(u){state.cloud??={};state.cloud.webAppUrl=u;}}catch(_){}}
-function projectPayload(){return {state,devices};}
+function cloudSerializableState(){
+  const copy=structuredClone(state);delete copy.cloud;delete copy.runtimeHealth;copy.savedAt=copy.savedAt instanceof Date?copy.savedAt.toISOString():copy.savedAt;return copy;
+}
+function projectPayload(){return {state:cloudSerializableState(),devices:structuredClone(devices)};}
+function fingerprintValue(){
+  const text=JSON.stringify(projectPayload());let h=2166136261;for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(16);
+}
+function syncDirtyFlag(){state.cloud??={};state.cloud.dirty=!!lastCloudFingerprint&&fingerprintValue()!==lastCloudFingerprint;return state.cloud.dirty;}
+function markCloudBaseline(){lastCloudFingerprint=fingerprintValue();state.cloud??={};state.cloud.dirty=false;}
+function confirmDiscard(message='目前內容尚未儲存到 Google，確定繼續？'){syncDirtyFlag();return !state.cloud?.dirty||confirm(message);}
 function replaceProjectData(project){
   const keepUrl=state.cloud?.webAppUrl||'';
   const incomingState=project?.state&&typeof project.state==='object'?project.state:{};
   for(const k of Object.keys(state))delete state[k];Object.assign(state,structuredClone(incomingState));
   devices.splice(0,devices.length,...structuredClone(Array.isArray(project?.devices)?project.devices:[]));
   migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
-  state.cloud??={};state.cloud.webAppUrl=keepUrl;state.cloud.projectId=project?.projectId||state.cloud.projectId||'';state.cloud.projectName=project?.projectName||state.cloud.projectName||'未命名專案';state.cloud.lastCloudSavedAt=project?.updatedAt||'';state.cloud.status='已從 Google 雲端開啟';
+  state.cloud??={};state.cloud.webAppUrl=keepUrl;state.cloud.projectId=project?.projectId||state.cloud.projectId||'';state.cloud.projectName=project?.projectName||state.cloud.projectName||'未命名專案';state.cloud.lastCloudSavedAt=project?.updatedAt||'';state.cloud.selectedProjectId=project?.projectId||'';state.cloud.status='已從 Google 雲端開啟';markCloudBaseline();
 }
 function importLegacyLocalProject(){
   const raw=localStorage.getItem(LEGACY_STORAGE_KEY);if(!raw)throw new Error('找不到舊版本機專案資料');const payload=JSON.parse(raw);if(!payload?.state)throw new Error('舊版本機資料格式不正確');replaceProjectData({state:payload.state,devices:Array.isArray(payload.devices)?payload.devices:[],projectId:'',projectName:'舊版本機專案',updatedAt:payload.savedAt||''});state.cloud.projectId='';state.cloud.projectName='舊版本機專案';state.cloud.status='已匯入舊版本機資料，請按「儲存到 Google」完成雲端移轉';return true;
 }
 function resetToBlankProject(){
-  const keepUrl=state.cloud?.webAppUrl||'';const fresh=structuredClone(DEFAULTS.state);for(const k of Object.keys(state))delete state[k];Object.assign(state,fresh);devices.splice(0,devices.length);migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);state.cloud??={};Object.assign(state.cloud,{webAppUrl:keepUrl,projectId:'',projectName:'未命名專案',lastCloudSavedAt:'',status:'新空白專案'});
+  const keepUrl=state.cloud?.webAppUrl||'';const fresh=structuredClone(DEFAULTS.state);for(const k of Object.keys(state))delete state[k];Object.assign(state,fresh);devices.splice(0,devices.length);migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);state.cloud??={};Object.assign(state.cloud,{webAppUrl:keepUrl,projectId:'',projectName:'未命名專案',lastCloudSavedAt:'',selectedProjectId:'',status:'新空白專案',dirty:false});markCloudBaseline();
 }
-async function cloudSave(asNew=false){
+async function cloudSave(asNew=false,force=false){
   state.cloud??={};state.cloud.webAppUrl=String(byId('cloudWebAppUrl')?.value??state.cloud.webAppUrl??'').trim();state.cloud.projectName=String(byId('cloudProjectName')?.value??state.cloud.projectName??'未命名專案').trim()||'未命名專案';rememberCloudUrl();
-  const r=await saveCloudProject(state.cloud.webAppUrl,{projectId:asNew?'':(state.cloud.projectId||''),projectName:state.cloud.projectName,...projectPayload()});state.cloud.projectId=r.projectId;state.cloud.projectName=r.projectName;state.cloud.lastCloudSavedAt=r.updatedAt;state.cloud.status=`✅ 已儲存到 Google：${r.projectName}`;state.savedAt=new Date(r.updatedAt);return r;
+  const args={projectId:asNew?'':(state.cloud.projectId||''),projectName:state.cloud.projectName,...projectPayload(),baseUpdatedAt:asNew?'':(state.cloud.lastCloudSavedAt||''),force};
+  let r;try{r=await saveCloudProject(state.cloud.webAppUrl,args);}catch(err){if(err.code==='REVISION_CONFLICT'&&!force&&confirm('Google 雲端已有較新的版本。仍要用目前畫面覆蓋雲端嗎？'))return cloudSave(asNew,true);throw err;}
+  state.cloud.projectId=r.projectId;state.cloud.selectedProjectId=r.projectId;state.cloud.projectName=r.projectName;state.cloud.lastCloudSavedAt=r.updatedAt;state.cloud.status=`✅ 已儲存到 Google：${r.projectName}`;state.savedAt=new Date(r.updatedAt);markCloudBaseline();return r;
 }
 async function refreshCloudProjectList(){
-  state.cloud??={};state.cloud.webAppUrl=String(byId('cloudWebAppUrl')?.value??state.cloud.webAppUrl??'').trim();rememberCloudUrl();const items=await listCloudProjects(state.cloud.webAppUrl);const sel=byId('cloudProjectList');if(sel){sel.innerHTML='<option value="">請選擇專案</option>';for(const item of items){const o=document.createElement('option');o.value=item.projectId;o.textContent=`${item.projectName} · ${item.updatedAt?new Date(item.updatedAt).toLocaleString('zh-TW'):''}`;sel.appendChild(o);}}state.cloud.status=`已讀取 ${items.length} 個 Google 雲端專案`;const st=byId('cloudStatus');if(st)st.textContent=state.cloud.status;return items;
+  state.cloud??={};state.cloud.webAppUrl=String(byId('cloudWebAppUrl')?.value??state.cloud.webAppUrl??'').trim();rememberCloudUrl();const items=await listCloudProjects(state.cloud.webAppUrl);state.cloud.projects=items;const sel=byId('cloudProjectList');if(sel){sel.innerHTML='<option value="">請選擇專案</option>';for(const item of items){const o=document.createElement('option');o.value=item.projectId;o.textContent=`${item.projectName} · ${item.updatedAt?new Date(item.updatedAt).toLocaleString('zh-TW'):''}`;sel.appendChild(o);}const wanted=state.cloud.selectedProjectId||state.cloud.projectId||'';if(wanted&&items.some(x=>x.projectId===wanted))sel.value=wanted;}state.cloud.status=`已讀取 ${items.length} 個 Google 雲端專案`;const st=byId('cloudStatus');if(st)st.textContent=state.cloud.status;return items;
 }
 
 async function withSimulator(where,fn){
@@ -77,7 +88,7 @@ async function go(route){
   const epoch=++navEpoch;
   if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;simulatorMountPromise=null;}
   if(state.route==='diagrams'&&route!=='diagrams')unmountNeuralView();
-  state.route=route;nav();root.innerHTML=render(route);bind();
+  state.route=route;syncDirtyFlag();nav();root.innerHTML=render(route);bind();
   if(route==='simulator'&&state.workspace.mode!=='2d'){
     simulatorMountPromise=mountSimulator3D({onSelection:id=>syncInspector(id,true),onTransform:id=>syncInspector(id,false)});
     const mounted=await simulatorMountPromise;
@@ -134,11 +145,17 @@ function bindDynamicInspector(){
     updateSettings(id,{showLabel:checked('showLabelSetting'),labelOffsetX:num('labelOffsetX'),labelOffsetY:num('labelOffsetY'),labelOffsetZ:num('labelOffsetZ'),positionLocked:checked('lockPositionSetting')});
     withSimulator('設備屬性套用',s=>{s.applyDeviceTransform(id);s.applyDeviceSettings(id);});syncInspector(id,false);
   });
-  document.getElementById('applyModuleSettings')?.addEventListener('click',()=>{
-    const id=state.selectedDevice,patch={};root.querySelectorAll('[data-setting-param]').forEach(el=>patch[el.dataset.settingParam]=Number(el.value));updateSettings(id,patch);withSimulator('設備參數套用',s=>s.applyDeviceSettings(id));syncInspector(id,false);
-  });
+  root.querySelectorAll('[data-setting-param]').forEach(el=>el.addEventListener('input',()=>{
+    const id=state.selectedDevice;if(!id)return;const n=Number(el.value);if(Number.isFinite(n))updateSettings(id,{[el.dataset.settingParam]:n});
+  }));
+  document.getElementById('applyModuleSettings')?.addEventListener('click',safeHandler('設備參數套用',async()=>{
+    const id=state.selectedDevice,patch={};root.querySelectorAll('[data-setting-param]').forEach(el=>{const n=Number(el.value);if(Number.isFinite(n))patch[el.dataset.settingParam]=n;});
+    updateSettings(id,patch);await withSimulator('設備參數套用',s=>s.applyDeviceSettings(id));
+    const slot=document.getElementById('deviceInspectorPanelContent');if(slot&&state.workspace.inspectorTab==='specs'){slot.innerHTML=renderDeviceInspector(id);bindDynamicInspector();}
+  }));
   root.querySelectorAll('[data-open-selected-inspector]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab='controls';syncInspector(b.dataset.openSelectedInspector,true);}));
   root.querySelectorAll('[data-device-action]').forEach(b=>b.addEventListener('click',safeHandler('設備控制',async()=>{const [id,action]=b.dataset.deviceAction.split('|');await withSimulator('設備控制',s=>s.executeDeviceAction(id,action));setTimeout(()=>syncInspector(id,false),80);})));
+  root.querySelectorAll('[data-io-trigger]').forEach(b=>b.addEventListener('click',safeHandler('DI/DO 模擬',async()=>{const [id,dir,signal]=b.dataset.ioTrigger.split('|');await withSimulator('DI/DO 模擬',s=>s.simulateIo(id,dir,signal));syncInspector(id,false);})));
 }
 function bind(){
   root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{state.simulator.cameraPreset=Number(b.dataset.view);go('simulator').then(()=>sim3d?.gotoView(Number(b.dataset.view)))}));
@@ -203,16 +220,20 @@ function bind(){
   document.getElementById('runAllTests')?.addEventListener('click',()=>{state.tests.forEach(t=>t.result='PASS');go('field')});
   byId('cloudWebAppUrl')?.addEventListener('change',e=>{state.cloud??={};state.cloud.webAppUrl=e.target.value.trim();rememberCloudUrl();});
   byId('cloudProjectName')?.addEventListener('input',e=>{state.cloud??={};state.cloud.projectName=e.target.value;});
-  byId('cloudConnect')?.addEventListener('click',safeHandler('Google 雲端連線',async()=>{state.cloud.webAppUrl=val('cloudWebAppUrl',state.cloud.webAppUrl).trim();rememberCloudUrl();const r=await pingCloud(state.cloud.webAppUrl);state.cloud.status=`✅ Google 雲端已連線 · ${r.service||'UTOP'}`;byId('cloudStatus').textContent=state.cloud.status;}));
+  byId('cloudConnect')?.addEventListener('click',safeHandler('Google 雲端連線',async()=>{state.cloud.webAppUrl=val('cloudWebAppUrl',state.cloud.webAppUrl).trim();rememberCloudUrl();const r=await pingCloud(state.cloud.webAppUrl);state.cloud.status=`✅ Google 雲端已連線 · ${r.service||'UTOP'} · V${r.version||''}`;byId('cloudStatus').textContent=state.cloud.status;}));
+  byId('cloudSelfTest')?.addEventListener('click',safeHandler('Google 雲端自我檢查',async()=>{state.cloud.webAppUrl=val('cloudWebAppUrl',state.cloud.webAppUrl).trim();rememberCloudUrl();const r=await selfTestCloud(state.cloud.webAppUrl);state.cloud.status=`✅ Drive：${r.folderName} · Sheet：${r.sheetName} · ${r.projects} 個專案`;byId('cloudStatus').textContent=state.cloud.status;}));
+  byId('cloudWriteTest')?.addEventListener('click',safeHandler('Google 雲端儲存驗證',async()=>{state.cloud.webAppUrl=val('cloudWebAppUrl',state.cloud.webAppUrl).trim();rememberCloudUrl();const r=await verifyCloudWrite(state.cloud.webAppUrl);state.cloud.status=`✅ Google Drive 寫入／讀取／刪除權限正常 · ${r.folderName}`;byId('cloudStatus').textContent=state.cloud.status;}));
+  byId('cloudRepairIndex')?.addEventListener('click',safeHandler('重建 Google 專案索引',async()=>{const r=await repairCloudIndex(state.cloud.webAppUrl);state.cloud.status=`✅ 已重建 Google 專案索引：${r.count} 筆`;byId('cloudStatus').textContent=state.cloud.status;await refreshCloudProjectList();}));
   byId('cloudRefresh')?.addEventListener('click',safeHandler('讀取雲端專案',refreshCloudProjectList));
   byId('cloudSave')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{await cloudSave(false);byId('cloudStatus').textContent=state.cloud.status;await refreshCloudProjectList();}));
   byId('cloudSaveAs')?.addEventListener('click',safeHandler('Google 雲端另存',async()=>{await cloudSave(true);byId('cloudStatus').textContent=state.cloud.status;await refreshCloudProjectList();}));
   byId('cloudImportLegacy')?.addEventListener('click',safeHandler('匯入舊版本機專案',async()=>{importLegacyLocalProject();await go('project');}));
-  byId('cloudNew')?.addEventListener('click',safeHandler('建立空白專案',async()=>{if(devices.length||state.connections.length){if(!confirm('建立空白專案？目前未儲存內容會從畫面清除。'))return;}resetToBlankProject();await go('simulator');}));
-  byId('cloudOpen')?.addEventListener('click',safeHandler('開啟 Google 專案',async()=>{const id=val('cloudProjectList');if(!id)throw new Error('請先選擇雲端專案');const r=await loadCloudProject(state.cloud.webAppUrl,id);replaceProjectData(r.project);await go('simulator');}));
-  byId('cloudDelete')?.addEventListener('click',safeHandler('刪除 Google 專案',async()=>{const id=val('cloudProjectList');if(!id)throw new Error('請先選擇雲端專案');if(!confirm('確定刪除選取的 Google 雲端專案？'))return;await deleteCloudProject(state.cloud.webAppUrl,id);if(state.cloud.projectId===id)state.cloud.projectId='';state.cloud.status='已刪除 Google 雲端專案';await refreshCloudProjectList();}));
+  byId('cloudNew')?.addEventListener('click',safeHandler('建立空白專案',async()=>{if(!confirmDiscard('建立空白專案？目前尚未儲存到 Google 的內容會被清除。'))return;resetToBlankProject();await go('simulator');}));
+  byId('cloudProjectList')?.addEventListener('change',e=>{state.cloud.selectedProjectId=e.target.value;});
+  byId('cloudOpen')?.addEventListener('click',safeHandler('開啟 Google 專案',async()=>{const id=val('cloudProjectList');if(!id)throw new Error('請先選擇雲端專案');if(!confirmDiscard('開啟其他 Google 專案？目前未儲存內容會被替換。'))return;const r=await loadCloudProject(state.cloud.webAppUrl,id);replaceProjectData(r.project);await go('simulator');}));
+  byId('cloudDelete')?.addEventListener('click',safeHandler('刪除 Google 專案',async()=>{const id=val('cloudProjectList');if(!id)throw new Error('請先選擇雲端專案');if(!confirm('確定刪除選取的 Google 雲端專案？檔案會移到 Google Drive 垃圾桶。'))return;await deleteCloudProject(state.cloud.webAppUrl,id);if(state.cloud.projectId===id){resetToBlankProject();state.cloud.status='已刪除目前 Google 專案，已切換成空白專案';}else state.cloud.status='已刪除 Google 雲端專案';state.cloud.selectedProjectId='';await refreshCloudProjectList();}));
   document.getElementById('runDebugAudit')?.addEventListener('click',()=>{runDebugAudit();go('project');});
-  document.getElementById('repairProjectState')?.addEventListener('click',()=>{migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);saveProjectState(false);runFunctionStateAudit();go('project');});
+  document.getElementById('repairProjectState')?.addEventListener('click',()=>{migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);runFunctionStateAudit();syncDirtyFlag();go('project');});
   document.getElementById('runFunctionStateAudit')?.addEventListener('click',()=>{runFunctionStateAudit();go('project');});
   document.getElementById('neuralReset')?.addEventListener('click',()=>{unmountNeuralView();mountNeuralView();});
   document.getElementById('docDevice')?.addEventListener('change',e=>{state.docsDevice=e.target.value;go('field')});root.querySelectorAll('[data-script-jump]').forEach(b=>b.addEventListener('click',()=>{state.field.scriptIndex=Number(b.dataset.scriptJump);go('field')}));
@@ -236,4 +257,5 @@ byId('presentationToggle')?.addEventListener('click',()=>{state.presentation=!st
 byId('saveBtn')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{if(!state.cloud?.webAppUrl){state.cloud??={};state.cloud.status='請先到「專案 / Debug」設定 Google Apps Script Web App 網址';await go('project');return;}await cloudSave(false);const meta=byId('projectMeta');if(meta)meta.textContent=`Google 已儲存 · ${state.cloud.projectName}`;}));
 restoreCloudUrl();
 migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
+markCloudBaseline();
 go(state.route||'overview');

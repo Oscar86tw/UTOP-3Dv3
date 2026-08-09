@@ -4,8 +4,8 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.5.1';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.5.1';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.5.3';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.5.3';
 
 let active=null;
 const THREE_SOURCES=[
@@ -203,7 +203,7 @@ function createSimulator(THREE,host,callbacks){
     const root=createRealisticDeviceModel(THREE,mats,device,getSettings(device.id));
     markSelectable(root,device.id);createDeviceLabel(device,root);updateDeviceLabel(device,root,true);return root;
   }
-  function ensureDevices(){devices.forEach(d=>{if(!deviceRoots[d.id])createDeviceRoot(d);syncTransform(d.id);applySettings(d.id);});Object.keys(deviceRoots).forEach(id=>{if(!devices.find(d=>d.id===id)){const root=deviceRoots[id];root.parent?.remove(root);delete deviceRoots[id];}});refreshSignals();}
+  function ensureDevices(){let changed=false;devices.forEach(d=>{if(!deviceRoots[d.id]){createDeviceRoot(d);syncTransform(d.id);applySettings(d.id);changed=true;}});Object.keys(deviceRoots).forEach(id=>{if(!devices.find(d=>d.id===id)){const root=deviceRoots[id];root.parent?.remove(root);delete deviceRoots[id];changed=true;}});if(changed)refreshSignals();return changed;}
   function syncTransform(id){const root=deviceRoots[id];if(!root)return;const t=getDeviceTransform(id);const fg=floorGroup(t.floor);if(root.parent!==fg)fg.add(root);root.position.set(t.x,t.y,t.z);root.rotation.set(t.rotationX||0,t.rotationY||0,t.rotationZ||0);}
   function applySettings(id){
     const root=deviceRoots[id],dev=devices.find(d=>d.id===id);if(!root||!dev)return;
@@ -228,7 +228,7 @@ function createSimulator(THREE,host,callbacks){
   function persistCamera(){state.simulator.liveCamera={yaw,pitch,radius,target:[target.x,target.y,target.z]};}
   let laneDemo={running:false,mode:'entry',entry:{step:0,elapsed:0},exit:{step:0,elapsed:0}};
   let selectedId=state.selectedDevice||devices[0]?.id||null;
-  let editorMode=state.editor.mode||'select',snap=!!state.editor.snap,draggingDevice=false,gizmoDragging=false,gizmoKind='',gizmoAxis='',gizmoStart={x:0,y:0},gizmoBase=null,orbiting=false,panning=false,lastX=0,lastY=0,rotateStart=0,rotateBase={x:0,y:0,z:0},rotateAxis='y',moveVertical=false;
+  let editorMode=state.editor.mode||'unified',snap=!!state.editor.snap,draggingDevice=false,gizmoDragging=false,gizmoKind='',gizmoAxis='',gizmoStart={x:0,y:0},gizmoBase=null,orbiting=false,panning=false,lastX=0,lastY=0,rotateStart=0,rotateBase={x:0,y:0,z:0},rotateAxis='y',moveVertical=false;
 
   function refreshSignals(){signalGroup.clear();function curvedLine(a,b,color){const mid=new THREE.Vector3((a.x+b.x)/2,Math.max(a.y,b.y)+2.4,(a.z+b.z)/2);const c=new THREE.QuadraticBezierCurve3(a,mid,b);return new THREE.Line(new THREE.BufferGeometry().setFromPoints(c.getPoints(36)),new THREE.LineBasicMaterial({color,transparent:true,opacity:.9}));}const colors={DI:0x52b7ff,DO:0xff8c25,POWER:0xf5c542,NETWORK:0x4ade80,RS485:0xc084fc,SIGNAL:0xe5e7eb};state.connections.filter(c=>c.enabled!==false).forEach(c=>{const a=deviceRoots[c.fromDevice],b=deviceRoots[c.toDevice];if(!a||!b)return;const ap=new THREE.Vector3(),bp=new THREE.Vector3();a.getWorldPosition(ap);b.getWorldPosition(bp);const line=curvedLine(ap,bp,colors[c.type]||colors.SIGNAL);line.userData.connectionId=c.id;line.userData.fromDevice=c.fromDevice;line.userData.toDevice=c.toDevice;signalGroup.add(line);});applyTraceFocus();}
   function ensureCountdownLabel(id,root){
@@ -252,7 +252,7 @@ function createSimulator(THREE,host,callbacks){
   function updateSelection(){
     if(!selectedId||!deviceRoots[selectedId]){selectionHelper.visible=false;selectionAxes.visible=false;transformGizmo.visible=false;setText('transformHud','XYZ -- / -- / -- · R -- / -- / --');return;}
     const root=deviceRoots[selectedId],tr=getDeviceTransform(selectedId);physicalBoxOf(root,selectionBox);selectionHelper.visible=true;const wp=new THREE.Vector3();root.getWorldPosition(wp);selectionAxes.position.copy(wp);selectionAxes.rotation.copy(root.rotation);selectionAxes.visible=true;
-    transformGizmo.position.copy(wp);transformGizmo.visible=editorMode==='move'||editorMode==='rotate';gizmoMove.visible=editorMode==='move';gizmoRotate.visible=editorMode==='rotate';
+    transformGizmo.position.copy(wp);transformGizmo.visible=['unified','move','rotate'].includes(editorMode);gizmoMove.visible=editorMode==='unified'||editorMode==='move';gizmoRotate.visible=editorMode==='unified'||editorMode==='rotate';
     const dist=camera.position.distanceTo(wp);const gs=Math.max(.48,Math.min(1.25,dist*.032));transformGizmo.scale.setScalar(gs);
     const deg=v=>Math.round((v||0)*180/Math.PI);setText('transformHud',`XYZ ${Number(tr.x).toFixed(2)} / ${Number(tr.y).toFixed(2)} / ${Number(tr.z).toFixed(2)} · R ${deg(tr.rotationX)} / ${deg(tr.rotationY)} / ${deg(tr.rotationZ)}`);
   }
@@ -263,7 +263,7 @@ function createSimulator(THREE,host,callbacks){
   function pointerToNdc(e){const r=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);}
   function hitDevice(e){pointerToNdc(e);const hits=raycaster.intersectObjects(Object.values(deviceRoots),true);if(!hits.length)return null;let o=hits[0].object;while(o&&!o.userData.deviceId)o=o.parent;return o?.userData.deviceId||null;}
   function hitGizmo(e){if(!transformGizmo.visible)return null;pointerToNdc(e);const hits=raycaster.intersectObjects(gizmoObjects,false);const h=hits.find(x=>x.object?.visible!==false);return h?{kind:h.object.userData.gizmoKind,axis:h.object.userData.gizmoAxis}:null;}
-  function moveRootFromWorld(root,world,id){const parent=root.parent;const local=parent.worldToLocal(world.clone());root.position.x=snapVal(local.x);root.position.z=snapVal(local.z);const t=getDeviceTransform(id);updateDeviceTransform(id,{x:root.position.x,z:root.position.z,y:root.position.y,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:t.floor});updateSelection();refreshSignals();callbacks.onTransform?.(id);}
+  function moveRootFromWorld(root,world,id){const parent=root.parent;const local=parent.worldToLocal(world.clone());root.position.x=snapVal(local.x);root.position.z=snapVal(local.z);const t=getDeviceTransform(id);updateDeviceTransform(id,{x:root.position.x,z:root.position.z,y:root.position.y,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:t.floor});updateSelection();}
   function pd(e){
     if(e.button===2){panning=true;lastX=e.clientX;lastY=e.clientY;renderer.domElement.setPointerCapture?.(e.pointerId);return;}
     const gh=hitGizmo(e);
@@ -271,7 +271,13 @@ function createSimulator(THREE,host,callbacks){
     const id=hitDevice(e);
     if(id){
       selectById(id);const root=deviceRoots[id];
-      if(root.userData.positionLocked&&(editorMode==='move'||editorMode==='rotate')){showToast('此設備位置已固定');return;}
+      if(root.userData.positionLocked&&['unified','move','rotate'].includes(editorMode)){showToast('此設備位置已固定');return;}
+      if(editorMode==='unified'){
+        draggingDevice=true;
+        if(e.altKey){rotateStart=e.clientX;rotateBase={x:root.rotation.x,y:root.rotation.y,z:root.rotation.z};rotateAxis=e.shiftKey?'x':(e.ctrlKey?'z':'y');gizmoKind='rotate';}
+        else {gizmoKind='move';moveVertical=!!e.shiftKey;if(moveVertical){lastX=e.clientX;lastY=e.clientY;}else{const worldY=floorElevation(getDeviceTransform(id).floor)+root.position.y;dragPlane.set(new THREE.Vector3(0,1,0),-worldY);pointerToNdc(e);if(raycaster.ray.intersectPlane(dragPlane,hitPoint)){const rootWorld=new THREE.Vector3();root.getWorldPosition(rootWorld);dragOffset.copy(rootWorld).sub(hitPoint);}}}
+        renderer.domElement.setPointerCapture?.(e.pointerId);return;
+      }
       if(editorMode==='move'){
         draggingDevice=true;moveVertical=!!e.shiftKey;
         if(moveVertical){lastX=e.clientX;lastY=e.clientY;}
@@ -293,20 +299,26 @@ function createSimulator(THREE,host,callbacks){
       }else{
         const delta=(dx-dy)*.01;root.rotation.set(gizmoBase.rx,gizmoBase.ry,gizmoBase.rz);root.rotation[gizmoAxis]=(gizmoAxis==='x'?gizmoBase.rx:gizmoAxis==='y'?gizmoBase.ry:gizmoBase.rz)+delta;
       }
-      const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,y:root.position.y,z:root.position.z,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:tr.floor});updateSelection();refreshSignals();callbacks.onTransform?.(selectedId);return;
+      const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,y:root.position.y,z:root.position.z,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:tr.floor});updateSelection();return;
     }
     if(panning&&!state.simulator.follow){const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;const panScale=radius*.0025;const right=new THREE.Vector3();camera.getWorldDirection(right);right.cross(camera.up).normalize();const up=new THREE.Vector3(0,1,0);target.addScaledVector(right,-dx*panScale);target.addScaledVector(up,dy*panScale);persistCamera();return;}
     if(draggingDevice&&selectedId){const root=deviceRoots[selectedId];
-      if(editorMode==='move'){
-        if(moveVertical){const dy=e.clientY-lastY;lastY=e.clientY;root.position.y=snapVal(root.position.y-dy*.025);const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,y:root.position.y,z:root.position.z,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:tr.floor});updateSelection();refreshSignals();callbacks.onTransform?.(selectedId);}
-        else {pointerToNdc(e);if(raycaster.ray.intersectPlane(dragPlane,hitPoint))moveRootFromWorld(root,hitPoint.add(dragOffset),selectedId);}
+      if(editorMode==='unified'){
+        if(gizmoKind==='rotate'){
+          const delta=(e.clientX-rotateStart)*.012;root.rotation.set(rotateBase.x,rotateBase.y,rotateBase.z);root.rotation[rotateAxis]=rotateBase[rotateAxis]+delta;const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,x:root.position.x,y:root.position.y,z:root.position.z,floor:tr.floor});updateSelection();
+        }else if(moveVertical){
+          const dy=e.clientY-lastY;lastY=e.clientY;root.position.y=snapVal(root.position.y-dy*.025);const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,y:root.position.y,z:root.position.z,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:tr.floor});updateSelection();
+        }else {pointerToNdc(e);if(raycaster.ray.intersectPlane(dragPlane,hitPoint)){const parent=root.parent,world=hitPoint.clone().add(dragOffset),local=parent.worldToLocal(world);root.position.x=snapVal(local.x);root.position.z=snapVal(local.z);const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,y:root.position.y,z:root.position.z,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:tr.floor});updateSelection();}}
+      }else if(editorMode==='move'){
+        if(moveVertical){const dy=e.clientY-lastY;lastY=e.clientY;root.position.y=snapVal(root.position.y-dy*.025);const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,y:root.position.y,z:root.position.z,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:tr.floor});updateSelection();}
+        else {pointerToNdc(e);if(raycaster.ray.intersectPlane(dragPlane,hitPoint)){const parent=root.parent,world=hitPoint.clone().add(dragOffset),local=parent.worldToLocal(world);root.position.x=snapVal(local.x);root.position.z=snapVal(local.z);const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,y:root.position.y,z:root.position.z,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:tr.floor});updateSelection();}}
       }else if(editorMode==='rotate'){
-        const delta=(e.clientX-rotateStart)*.012;root.rotation.set(rotateBase.x,rotateBase.y,rotateBase.z);root.rotation[rotateAxis]=rotateBase[rotateAxis]+delta;const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,x:root.position.x,y:root.position.y,z:root.position.z,floor:tr.floor});updateSelection();refreshSignals();callbacks.onTransform?.(selectedId);
+        const delta=(e.clientX-rotateStart)*.012;root.rotation.set(rotateBase.x,rotateBase.y,rotateBase.z);root.rotation[rotateAxis]=rotateBase[rotateAxis]+delta;const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,x:root.position.x,y:root.position.y,z:root.position.z,floor:tr.floor});updateSelection();
       }return;
     }
     if(orbiting&&!state.simulator.follow){const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;yaw-=dx*.008;pitch=Math.max(.12,Math.min(1.35,pitch+dy*.006));persistCamera();}
   }
-  function pu(){draggingDevice=false;gizmoDragging=false;gizmoKind='';gizmoAxis='';orbiting=false;panning=false;moveVertical=false;}
+  function pu(){const changed=draggingDevice||gizmoDragging;const changedId=selectedId;draggingDevice=false;gizmoDragging=false;gizmoKind='';gizmoAxis='';orbiting=false;panning=false;moveVertical=false;if(changed&&changedId){refreshSignals();callbacks.onTransform?.(changedId);}}
   renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());renderer.domElement.addEventListener('pointerdown',pd);renderer.domElement.addEventListener('pointermove',pm);renderer.domElement.addEventListener('pointerup',pu);renderer.domElement.addEventListener('pointercancel',pu);
   renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(7,Math.min(60,radius+e.deltaY*.025));persistCamera();},{passive:false});
   let pinchDist=0;renderer.domElement.addEventListener('touchstart',e=>{if(e.touches.length===2)pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});renderer.domElement.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(pinchDist)radius=Math.max(7,Math.min(60,radius-(d-pinchDist)*.03));pinchDist=d;}},{passive:true});
@@ -384,6 +396,21 @@ function createSimulator(THREE,host,callbacks){
     showToast(triggered.length?`${dev.name} · ${status} · 傳遞 ${triggered.length} 條訊號`:`${dev.name} · ${status}`);callbacks.onSelection?.(id);return true;
   }
 
+  function simulateIo(id,direction,signal){
+    const dev=devices.find(d=>d.id===id),root=deviceRoots[id];if(!dev||!root)return false;
+    const rt=getRuntime(id)||{},io={...(rt.io||{})},key=String(signal),next=!io[key];io[key]=next;updateRuntime(id,{...rt,io,lastIo:`${String(direction).toUpperCase()} ${key} ${next?'ON':'OFF'}`});
+    if(next&&String(direction).toUpperCase()==='DI'){
+      const action=actionForTargetTerminal(dev.type,key);executeDeviceAction(id,action,new Set());
+    }
+    if(next&&String(direction).toUpperCase()==='DO'){
+      const visited=new Set([`${id}:manual-${key}`]);
+      state.connections.filter(c=>c.enabled!==false&&c.fromDevice===id&&String(c.fromTerminal).toUpperCase()===key.toUpperCase()).forEach(conn=>{
+        pulseConnection(conn.id);noteSignal(conn);const targetDev=devices.find(d=>d.id===conn.toDevice);if(targetDev)executeDeviceAction(targetDev.id,actionForTargetTerminal(targetDev.type,conn.toTerminal),visited);
+      });
+    }
+    updateDeviceLabel(dev,root,true);showToast(`${dev.name} · ${String(direction).toUpperCase()} ${key} ${next?'ON':'OFF'}`);return next;
+  }
+
   const controllerApi={
     setBarrier(open){barrierOpen=!!open;state.simulator.barrier=barrierOpen;showToast(open?'Barrier OPEN':'Barrier CLOSE');},
     toggleLoop(){loopOn=!loopOn;state.simulator.loop=loopOn;showToast('Loop '+(loopOn?'ON':'OFF'));},
@@ -407,6 +434,7 @@ function createSimulator(THREE,host,callbacks){
     applyTraceFocus(){const trace=applyTraceFocus();showToast(state.signalTrace?.enabled?'Focus Network ON':'Focus Network OFF');return trace;},
     selectDevice(id){selectById(id);},
     executeDeviceAction(id,action){return executeDeviceAction(id,action);},
+    simulateIo(id,direction,signal){return simulateIo(id,direction,signal);},
     toggleLabels(){state.simulator.labels=state.simulator.labels===false;Object.entries(deviceRoots).forEach(([id,root])=>{const d=devices.find(x=>x.id===id);if(d)updateDeviceLabel(d,root,true)});return state.simulator.labels;},
     runLaneDemo(mode='entry'){
       this.resetCar();laneDemo={running:true,mode,entry:{step:0,elapsed:0},exit:{step:0,elapsed:0}};exitCar.visible=(mode==='exit'||mode==='both');follow=false;yaw=.62;pitch=.50;radius=25;target.set(0,1,0);persistCamera();
@@ -419,7 +447,7 @@ function createSimulator(THREE,host,callbacks){
   ensureDevices();applyProjectState();persistCamera();if(selectedId&&deviceRoots[selectedId])selectById(selectedId,false);
   function resize(){const r=host.getBoundingClientRect(),w=Math.max(1,r.width),h=Math.max(1,r.height);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(host);resize();
 
-  let last=performance.now(),raf=0;function frame(now){const dt=Math.min(.04,(now-last)/1000);last=now;ensureDevices();const forward=keys.has('KeyW')||keys.has('ArrowUp'),back=keys.has('KeyS')||keys.has('ArrowDown'),left=keys.has('KeyA')||keys.has('ArrowLeft'),right=keys.has('KeyD')||keys.has('ArrowRight');const accel=(forward?1:0)-(back?1:0);speed+=accel*8*dt;speed*=Math.pow(.88,dt*60);speed=Math.max(-3.4,Math.min(6.2,speed));const steer=((left?1:0)-(right?1:0))*.95;if(Math.abs(speed)>.05){car.rotation.y+=steer*dt*(speed>=0?1:-1);const dir=new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);car.position.addScaledVector(dir,speed*dt);car.position.x=Math.max(-3.1,Math.min(3.1,car.position.x));car.position.z=Math.max(-19,Math.min(19,car.position.z));}
+  let last=performance.now(),raf=0;function frame(now){const dt=Math.min(.04,(now-last)/1000);last=now;const forward=keys.has('KeyW')||keys.has('ArrowUp'),back=keys.has('KeyS')||keys.has('ArrowDown'),left=keys.has('KeyA')||keys.has('ArrowLeft'),right=keys.has('KeyD')||keys.has('ArrowRight');const accel=(forward?1:0)-(back?1:0);speed+=accel*8*dt;speed*=Math.pow(.88,dt*60);speed=Math.max(-3.4,Math.min(6.2,speed));const steer=((left?1:0)-(right?1:0))*.95;if(Math.abs(speed)>.05){car.rotation.y+=steer*dt*(speed>=0?1:-1);const dir=new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);car.position.addScaledVector(dir,speed*dt);car.position.x=Math.max(-3.1,Math.min(3.1,car.position.x));car.position.z=Math.max(-19,Math.min(19,car.position.z));}
     if(laneDemo.running){
       const runEntry=laneDemo.mode==='entry'||laneDemo.mode==='both',runExit=laneDemo.mode==='exit'||laneDemo.mode==='both';
       if(runEntry){const d=laneDemo.entry;d.elapsed+=dt;
@@ -443,5 +471,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>{const pulsing=(l.userData.signalPulseUntil||0)>now;l.material.opacity=pulsing?1:.22;if(pulsing&&l.material.color){const base=l.userData.baseColor;if(base===undefined)l.userData.baseColor=l.material.color.getHex();l.material.color.setHex(0xfff176);}else if(l.userData.baseColor!==undefined&&l.material.color)l.material.color.setHex(l.userData.baseColor);});
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.5.1 Cloud Project & 3D UX Fix 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.5.3 Interaction Core Fix 已啟動');return controllerApi;
 }
