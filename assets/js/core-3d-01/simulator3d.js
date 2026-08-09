@@ -4,7 +4,7 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.1.2';
+import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.2.0';
 
 let active=null;
 const THREE_SOURCES=[
@@ -95,6 +95,33 @@ function createSimulator(THREE,host,callbacks){
   const car=new THREE.Group();const carBody=new THREE.Mesh(new THREE.BoxGeometry(2.05,.7,4.15),mats.blue);carBody.position.y=.72;carBody.castShadow=true;const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.6,.62,1.9),mats.dark);cabin.position.set(0,1.3,-.2);car.add(carBody,cabin);car.position.set(0,0,15);car.rotation.y=0;floorGroup('1F').add(car);car.userData.layer='vehicle';
 
   const signalGroup=new THREE.Group();signalGroup.userData.layer='signals';floorGroup('1F').add(signalGroup);
+
+  const roadMarkingGroup=new THREE.Group();roadMarkingGroup.userData.layer='road';scene.add(roadMarkingGroup);
+  function clearGroup(group){while(group.children.length){const o=group.children.pop();o.geometry?.dispose?.();if(Array.isArray(o.material))o.material.forEach(m=>m.dispose?.());else o.material?.dispose?.();}}
+  function markingMaterial(color=0xffffff){return new THREE.MeshStandardMaterial({color,roughness:.8,side:THREE.DoubleSide});}
+  function addMarkBox(group,w,d,x,z,y=.13,rot=0,color=0xffffff){const m=new THREE.Mesh(new THREE.BoxGeometry(Math.max(.02,w),.025,Math.max(.02,d)),markingMaterial(color));m.position.set(x,y,z);m.rotation.y=rot;group.add(m);return m;}
+  function rebuildRoadMarkings(){
+    clearGroup(roadMarkingGroup);
+    (state.roadMarkings||[]).filter(x=>x.visible!==false).forEach(mark=>{
+      const g=new THREE.Group();g.position.y=floorElevation(mark.floor||'1F');g.userData.markingId=mark.id;roadMarkingGroup.add(g);
+      const x=Number(mark.x)||0,z=Number(mark.z)||0,rot=(Number(mark.rotation)||0)*Math.PI/180,w=Number(mark.width)||.12,len=Number(mark.length)||3;
+      if(mark.kind==='dash'){
+        for(let i=-Math.floor(len/1.5);i<=Math.floor(len/1.5);i+=2)addMarkBox(g,w,.7,x,z+i*.75,.13,rot,0xffffff);
+      }else if(mark.kind==='double'){
+        const off=.13;addMarkBox(g,w,len,x-off,z,.13,rot,0xf4c542);addMarkBox(g,w,len,x+off,z,.13,rot,0xf4c542);
+      }else if(mark.kind==='zebra'){
+        const count=7;for(let i=0;i<count;i++){const zz=z-len/2+(i+.5)*(len/count);addMarkBox(g,w,.22,x,zz,.13,rot,0xffffff);}
+      }else if(mark.kind==='hatch'){
+        const count=7;for(let i=0;i<count;i++){const off=-w/2+(i+.5)*(w/count);addMarkBox(g,.08,len,x+off,z,.13,rot+Math.PI/4,0xf4c542);}
+      }else if(String(mark.kind).startsWith('arrow')){
+        addMarkBox(g,.15,len*.7,x,z+.25,.13,rot,0xffffff);addMarkBox(g,.15,1,x-.32,z-len*.28,.13,rot-Math.PI/4,0xffffff);addMarkBox(g,.15,1,x+.32,z-len*.28,.13,rot+Math.PI/4,0xffffff);
+      }else{
+        const color=mark.kind==='stop'?0xffffff:0xffffff;addMarkBox(g,w,len,x,z,.13,rot,color);
+      }
+    });
+    roadMarkingGroup.visible=groupVisible('road');
+  }
+  rebuildRoadMarkings();
 
   function markSelectable(root,id){root.userData.deviceId=id;root.traverse(n=>{n.userData.deviceId=id;});selectables.push(root);deviceRoots[id]=root;return root;}
   function basicPole(colorMat){const pole=new THREE.Mesh(new THREE.BoxGeometry(.18,3,.18),mats.dark);pole.position.y=1.5;const head=new THREE.Mesh(new THREE.BoxGeometry(.85,.5,.65),colorMat||mats.blue);head.position.set(0,3,.05);const g=new THREE.Group();g.add(pole,head);return g;}
@@ -224,7 +251,7 @@ function createSimulator(THREE,host,callbacks){
     }
     return trace;
   }
-  function applyProjectState(){const profile=getSceneProfile();scene.background.setHex(profile.sky);scene.fog.color.setHex(profile.fog);hemi.intensity=profile.ambient;sun.intensity=profile.sun;mats.road.color.setHex(profile.road);state.floors.forEach(f=>{const fg=floorGroups[f.id];if(!fg)return;fg.visible=floorVisible(f.id);applyMaterialOpacity(fg,f.opacity)});Object.values(deviceRoots).forEach(root=>{root.visible=groupVisible('devices');applyMaterialOpacity(root,groupOpacity('devices'));});car.visible=groupVisible('vehicle');signalGroup.visible=groupVisible('signals')&&state.simulator.signals;roadObjects.forEach(o=>o.visible=groupVisible('road'));guard.visible=groupVisible('building');Object.values(deviceRoots).forEach(root=>{if(root.userData.zone){const on=groupVisible('signals')&&state.simulator.zones;root.userData.zone.visible=on;}if(root.userData.zoneEdges)root.userData.zoneEdges.visible=groupVisible('signals')&&state.simulator.zones;});applyTraceFocus();showToast(`${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`);}
+  function applyProjectState(){rebuildRoadMarkings();const profile=getSceneProfile();scene.background.setHex(profile.sky);scene.fog.color.setHex(profile.fog);hemi.intensity=profile.ambient;sun.intensity=profile.sun;mats.road.color.setHex(profile.road);state.floors.forEach(f=>{const fg=floorGroups[f.id];if(!fg)return;fg.visible=floorVisible(f.id);applyMaterialOpacity(fg,f.opacity)});Object.values(deviceRoots).forEach(root=>{root.visible=groupVisible('devices');applyMaterialOpacity(root,groupOpacity('devices'));});car.visible=groupVisible('vehicle');signalGroup.visible=groupVisible('signals')&&state.simulator.signals;roadObjects.forEach(o=>o.visible=groupVisible('road'));guard.visible=groupVisible('building');Object.values(deviceRoots).forEach(root=>{if(root.userData.zone){const on=groupVisible('signals')&&state.simulator.zones;root.userData.zone.visible=on;}if(root.userData.zoneEdges)root.userData.zoneEdges.visible=groupVisible('signals')&&state.simulator.zones;});applyTraceFocus();showToast(`${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`);}
   function focusFloor(id){const f=state.floors.find(x=>x.id===id);if(!f)return;setFloorFocus(id);follow=false;target.set(0,f.elevation+1,0);yaw=.58;pitch=.42;radius=29;showToast('聚焦 '+f.name);}
 
   function executeDeviceAction(id,action){
@@ -272,6 +299,7 @@ function createSimulator(THREE,host,callbacks){
     nextView(){state.simulator.cameraPreset=(state.simulator.cameraPreset+1)%state.simulator.viewpoints.length;this.gotoView(state.simulator.cameraPreset);},
     gotoView(i){const v=state.simulator.viewpoints[i];if(!v)return;follow=false;yaw=v.yaw;pitch=v.pitch;radius=v.radius;target.set(...v.target);state.simulator.cameraPreset=i;if(v.floor)setFloorFocus(v.floor);showToast(v.name);},
     applyProjectState(){ensureDevices();applyProjectState();},
+    refreshRoadMarkings(){rebuildRoadMarkings();showToast('道路標線已更新');},
     focusFloor,
     setEditorMode(mode){editorMode=mode;saveEditorMode(mode);showToast('3D工具：'+mode);},
     setSnap(v){snap=!!v;state.editor.snap=snap;},
@@ -294,5 +322,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.1.2 Local Three Core 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.2.0 Scene / Road / Neural 已啟動');return controllerApi;
 }

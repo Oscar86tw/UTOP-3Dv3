@@ -1,19 +1,13 @@
-# UTOP-3Dv3 V1.1.2 Local Three Core Hotfix
+# V1.2.0
 
-## 3D 核心修正
-- 將 Three.js r180 真正放入專案：
-  - `vendor/three/three.module.min.js`
-  - `vendor/three/three.core.min.js`
-- 修正原本「本地 Three.js」實際檔案不存在與相對路徑錯誤問題。
-- 3D 正式核心現在優先且只依賴專案本地檔案，不再需要外部 CDN 才能啟動。
-- 若 WebGL / Three.js 建立仍失敗，自動切換 `core-local3d-01` 備援核心。
+## 新增
+- 場景庫 Situation Presets，場景可直接套用到 3D
+- 道路標線核心與 3D 幾何顯示
+- 3D針球狀接線視圖，由現有 Connection 自動產生
+- Debug Center，可檢查設備、座標、設定、端子連線、快捷鍵衝突、本地 Three.js
 
-## 相容性修正
-- Local 3D 不再強制依賴 Canvas `roundRect()`。
-- 沒有 `ResizeObserver` 時改用 window resize 備援。
-- app / views / simulator / local3d 加入 v1.1.2 快取更新路徑。
-
-## 驗證
-- 本地 Three.js ES Module 實際 import 成功，REVISION = 180。
-- simulator3d ES Module import 成功。
-- 保留 V1.1.1 的 JS Import Hotfix 與 V1.1.0 工作區功能。
+## 延續
+- 本地 Three.js r180
+- V5 Workspace 操作方式
+- 模組圖片、控制、DI/DO、獨立快捷鍵
+- Connection / Signal Trace / Skill Tree

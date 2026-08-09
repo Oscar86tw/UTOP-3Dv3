@@ -117,3 +117,11 @@ body[data-route="simulator"] .three-stage{height:calc(100vh - 270px);min-height:
 .local3d-canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
 .local3d-canvas:active{cursor:grabbing}
 .local3d-badge{position:absolute;left:10px;top:10px;z-index:5;padding:6px 9px;border-radius:999px;background:rgba(17,24,39,.78);color:#fff;font-size:11px;pointer-events:none}
+
+/* V1.2.0 Scene / Road / Neural / Debug */
+.scene-preset-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.scene-preset{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;min-height:92px}.scene-preset small{color:var(--muted)}.scene-preset span{font-size:12px;color:var(--muted)}
+.road-tool-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.road-marking-list{display:flex;gap:8px;flex-wrap:wrap}.road-editor{border-top:1px solid var(--border);padding-top:12px}
+.neural-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--muted);font-size:13px;margin-bottom:8px}.neural-canvas{display:block;width:100%;height:520px;border:1px solid var(--border);border-radius:16px;background:linear-gradient(180deg,#f7f8f6,#ecefe9);touch-action:none}
+.debug-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.debug-row{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:12px;padding:11px;background:var(--panel2)}.debug-row>span{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font-weight:700}.debug-row.ok>span{background:#dcfce7;color:#166534}.debug-row.bad>span{background:#fee2e2;color:#991b1b}.debug-row b,.debug-row small{display:block}.debug-row small{color:var(--muted);margin-top:3px}
+@media(max-width:800px){.scene-preset-grid,.road-tool-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.debug-grid{grid-template-columns:1fr}.neural-canvas{height:420px}}
+@media(max-width:480px){.scene-preset-grid,.road-tool-grid{grid-template-columns:1fr}.neural-canvas{height:360px}}

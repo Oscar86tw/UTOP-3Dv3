@@ -1,15 +1,9 @@
 {
-  "name": "UTOP-3Dv3",
-  "version": "1.1.2",
-  "schema": "4.1",
-  "title": "Local Three Core Hotfix",
-  "updated_at": "2026-08-09",
-  "notes": [
-    "Three.js 正式核心已實際打包進專案 vendor/three",
-    "修正本地 Three.js 相對路徑",
-    "Three.js r180 同時包含 three.module.min.js 與 three.core.min.js",
-    "WebGL 啟動失敗時自動切換 Local 3D 備援核心",
-    "加強 Local 3D 對 roundRect 與 ResizeObserver 的相容處理",
-    "加入 v1.1.2 快取參數，避免部署端沿用舊版 3D 核心"
-  ]
+  "name":"UTOP-3Dv3",
+  "version":"1.2.0",
+  "schema":"4.2",
+  "title":"Scene Road Neural Debug",
+  "updated_at":"2026-08-09",
+  "three":"local r180",
+  "reference":"UTOP V5.1.3.27"
 }

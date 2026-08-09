@@ -1,12 +1,16 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector} from './views.js?v=1.1.2';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.1.2';
+import {render,renderDeviceInspector} from './views.js?v=1.2.0';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.2.0';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
 import {deleteConnection,selectTerminalForBuilder,resetWiringBuilder} from './core-wiring-01/wiring-manager.js';
 import {setTraceFocus,clearTraceFocus} from './core-signal-01/signal-trace.js';
+import {applyScenePreset} from './core-scene-01/scene-library.js';
+import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
+import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
+import {runDebugAudit} from './core-debug-01/debug-center.js';
 
 const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let capturing=false,sim3d=null;
@@ -18,10 +22,12 @@ function nav(){
 }
 async function go(route){
   if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;}
+  if(state.route==='diagrams'&&route!=='diagrams')unmountNeuralView();
   state.route=route;nav();root.innerHTML=render(route);bind();
   if(route==='simulator'&&state.workspace.mode!=='2d'){
     sim3d=await mountSimulator3D({onSelection:id=>syncInspector(id,true),onTransform:id=>syncInspector(id,false)});
   }
+  if(route==='diagrams')mountNeuralView();
 }
 function ensureInspectorShell(){
   const workspace=root.querySelector('.legacy-workspace');if(!workspace)return null;
@@ -68,6 +74,11 @@ function bind(){
   root.querySelectorAll('[data-rename-view]').forEach(b=>b.addEventListener('click',()=>{const i=Number(b.dataset.renameView);const name=prompt('新的視野名稱',state.simulator.viewpoints[i]?.name||'');if(name?.trim()){renameViewpoint(i,name.trim());go('scene')}}));
   root.querySelectorAll('[data-delete-view]').forEach(b=>b.addEventListener('click',()=>{deleteViewpoint(Number(b.dataset.deleteView));go('scene')}));
   document.getElementById('applyScene')?.addEventListener('click',()=>{state.scene={place:scenePlace.value,time:sceneTime.value,weather:sceneWeather.value,event:sceneEvent.value};sceneSummary.textContent=`目前：${state.scene.place} · ${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`;sim3d?.applyProjectState();});
+  root.querySelectorAll('[data-scene-preset]').forEach(b=>b.addEventListener('click',()=>{const p=applyScenePreset(b.dataset.scenePreset);if(!p)return;state.workspace.mode='3d';go('simulator').then(()=>{sim3d?.applyProjectState();if(Number.isInteger(p.view))sim3d?.gotoView(p.view);});}));
+  root.querySelectorAll('[data-add-road-marking]').forEach(b=>b.addEventListener('click',()=>{addRoadMarking(b.dataset.addRoadMarking,state.editor.floorFocus||'1F');go('scene');}));
+  root.querySelectorAll('[data-select-road-marking]').forEach(b=>b.addEventListener('click',()=>{state.selectedRoadMarking=b.dataset.selectRoadMarking;go('scene');}));
+  root.querySelectorAll('[data-delete-road-marking]').forEach(b=>b.addEventListener('click',()=>{deleteRoadMarking(b.dataset.deleteRoadMarking);go('scene');}));
+  document.getElementById('applyRoadMarking')?.addEventListener('click',()=>{const id=state.selectedRoadMarking;if(!id)return;updateRoadMarking(id,{floor:roadFloor.value,x:Number(roadX.value)||0,z:Number(roadZ.value)||0,rotation:Number(roadRot.value)||0,width:Math.max(.02,Number(roadWidth.value)||.1),length:Math.max(.1,Number(roadLength.value)||1)});state.workspace.mode='3d';go('simulator').then(()=>sim3d?.refreshRoadMarkings?.());});
   root.querySelectorAll('[data-floor]').forEach(b=>b.addEventListener('click',()=>{toggleFloor(b.dataset.floor);go('layers')}));
   root.querySelectorAll('[data-floor-focus]').forEach(b=>b.addEventListener('click',()=>{setFloorFocus(b.dataset.floorFocus);go('simulator').then(()=>sim3d?.focusFloor(b.dataset.floorFocus))}));
   root.querySelectorAll('[data-group]').forEach(b=>b.addEventListener('click',()=>{toggleGroup(b.dataset.group);go('layers')}));
@@ -113,6 +124,8 @@ function bind(){
   document.getElementById('compareRange')?.addEventListener('input',e=>{state.field.comparePercent=Number(e.target.value);const el=document.getElementById('compareText');if(el)el.textContent=`目前 ${state.field.comparePercent}% 疊圖比較。`});
   document.getElementById('addPhoto')?.addEventListener('click',()=>{state.photos.push({id:'P-'+String(state.photos.length+1).padStart(3,'0'),title:'新現場照片',device:state.selectedDevice});go('field')});
   document.getElementById('runAllTests')?.addEventListener('click',()=>{state.tests.forEach(t=>t.result='PASS');go('field')});
+  document.getElementById('runDebugAudit')?.addEventListener('click',()=>{runDebugAudit();go('project');});
+  document.getElementById('neuralReset')?.addEventListener('click',()=>{unmountNeuralView();mountNeuralView();});
   document.getElementById('docDevice')?.addEventListener('change',e=>{state.docsDevice=e.target.value;go('field')});root.querySelectorAll('[data-script-jump]').forEach(b=>b.addEventListener('click',()=>{state.field.scriptIndex=Number(b.dataset.scriptJump);go('field')}));
 }
 

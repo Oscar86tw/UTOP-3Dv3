@@ -77,4 +77,13 @@ export const state = {
   ],
   signalTrace:{enabled:false,focusDevice:'DEV-003',mode:'full'},
   wiringBuilder:{fromDevice:'',fromTerminal:'',toDevice:'',toTerminal:'',step:'from',message:'請先點選一個模組的來源端子，再點另一個模組的目標端子。'}
+,
+  sceneLibrary:{activePreset:'community-day'},
+  roadMarkings:[
+    {id:'RM-001',typeId:'solid-white',name:'白色實線',kind:'line',floor:'1F',x:-2,z:-6,rotation:0,width:.12,length:8,visible:true},
+    {id:'RM-002',typeId:'stop-line',name:'停止線',kind:'stop',floor:'1F',x:0,z:4,rotation:0,width:5,length:.35,visible:true}
+  ],
+  selectedRoadMarking:'RM-001',
+  debugCenter:{lastRun:'',checks:[]}
+
 };

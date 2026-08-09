@@ -1,15 +1,16 @@
-# UTOP-3Dv3 V1.1.2 Local Three Core Hotfix
+# UTOP-3Dv3 V1.2.0 Scene / Road / Neural / Debug
 
-本版專門修正「3D 核心載入失敗」。
+以 V1.1.2 本地 Three.js 穩定核心為基礎，繼續整合 V5.1.3.27 的成熟使用方式。
 
-## 根因
-前一版雖然程式會先嘗試「本地 Three.js」，但壓縮檔內沒有真正的 Three.js 核心檔，且相對路徑也不正確，因此仍會落到外部 CDN；當 CDN 無法使用時就會顯示 3D 核心載入失敗。
+## 本版新增
+- Situation Scene Presets 場景庫
+- 3D 道路標線工具
+- 3D 針球狀 Connection 視圖
+- Debug Center 實際專案檢查
+- 保留滿版 3D Workspace、模組庫、設備控制、DI/DO、每模組獨立快捷鍵
 
-## 本版修正
-- Three.js r180 已真正打包至 `vendor/three/`
-- 使用本地 `three.module.min.js` + `three.core.min.js`
-- 不再把外部 CDN 當正式 3D 核心依賴
-- WebGL 無法建立時自動切 Local 3D 備援核心
-- 加入快取版本參數 v1.1.2
+## 道路標線
+目前可加入白色實線、白色虛線、雙黃線、斑馬線、停止線、直行/左右轉箭頭、網狀禁停區，並調整樓層、X/Z、旋轉、寬度與長度。
 
-部署 `1.完整程式碼` 即可。
+## 3D 針球接線
+設備為球狀節點，端子為刺，Connection 為連線；可拖曳旋轉、滾輪縮放。
