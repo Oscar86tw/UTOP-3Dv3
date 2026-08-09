@@ -25,7 +25,7 @@ export function addModule(key,floor='1F'){
   const id=nextDeviceId();const same=devices.filter(d=>d.type===def.type).length+1;
   devices.push({id,modelCode:def.modelCode,name:`${def.name}${String(same).padStart(2,'0')}`,type:def.type,floor,state:'READY'});
   const count=devices.length-1;
-  state.deviceTransforms[id]={x:-3+(count%5)*1.8,y:0,z:-8+Math.floor(count/5)*2.2,rotationY:0,floor};
+  state.deviceTransforms[id]={x:-3+(count%5)*1.8,y:0,z:-8+Math.floor(count/5)*2.2,rotationX:0,rotationY:0,rotationZ:0,floor};
   state.deviceSettings[id]=defaultSettings(def.type);state.deviceRuntime[id]={status:'READY',lastAction:'',active:false};
   state.deviceHotkeys[id]={};state.selectedDevice=id;return id;
 }

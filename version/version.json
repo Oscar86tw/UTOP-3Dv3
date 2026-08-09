@@ -1,14 +1,15 @@
 {
-  "name":"UTOP-3Dv3",
-  "version":"1.3.1",
-  "schema":"4.3",
-  "title":"Real 3D Device Wave 1",
-  "updated_at":"2026-08-09",
-  "notes":[
-    "29 種模組各自使用獨立 3D 幾何外觀",
-    "新增 device-model-factory.js 模型核心",
-    "3D 點選設備後直接顯示設備快速控制列",
-    "快捷鍵與控制列共用設備功能資料",
-    "Generic 正方形不再作為正式設備模型"
-  ]
+  "name": "UTOP-3Dv3",
+  "version": "1.4.0",
+  "schema": "4.4",
+  "title": "Interactive XYZ 3D",
+  "notes": [
+    "設備 Transform 升級為 X/Y/Z + RX/RY/RZ 六軸",
+    "3D 選取設備顯示 XYZ 軸與即時座標 HUD",
+    "空白左鍵旋轉視角、右鍵平移、滾輪縮放",
+    "Move：拖設備調 X/Z，Shift+拖調 Y",
+    "Rotate：拖設備調 RY，Shift+拖調 RX，Alt+拖調 RZ",
+    "保留設備動作動畫與 Connection DI/DO 連動"
+  ],
+  "updated": "2026-08-09"
 }

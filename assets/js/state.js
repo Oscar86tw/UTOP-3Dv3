@@ -25,11 +25,11 @@ export const state = {
     {id:'signals',name:'DI/DO / 感應',visible:true,opacity:1}
   ],
   deviceTransforms:{
-    'DEV-001':{x:3.8,y:0,z:-4.6,rotationY:0,floor:'1F'},
-    'DEV-002':{x:-4.6,y:0,z:7.2,rotationY:0,floor:'1F'},
-    'DEV-003':{x:0,y:0,z:2.2,rotationY:0,floor:'1F'},
-    'DEV-004':{x:-4.9,y:0,z:-4.2,rotationY:0,floor:'1F'},
-    'DEV-005':{x:5.2,y:0,z:7.6,rotationY:0,floor:'1F'}
+    'DEV-001':{x:3.8,y:0,z:-4.6,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
+    'DEV-002':{x:-4.6,y:0,z:7.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
+    'DEV-003':{x:0,y:0,z:2.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
+    'DEV-004':{x:-4.9,y:0,z:-4.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
+    'DEV-005':{x:5.2,y:0,z:7.6,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'}
   },
   deviceSettings:{
     'DEV-001':{width:.34,height:1.03,depth:.28,boomLength:2.5,openTime:3,closeTime:3,installationHeight:0,showLabel:true,positionLocked:false},

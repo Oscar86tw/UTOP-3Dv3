@@ -1,3 +1,3 @@
-# UTOP-3Dv3 V1.3.1 Real 3D Device Wave 1
+# UTOP-3Dv3 V1.4.0 Interactive XYZ 3D
 
-本版重點：把 3D 中常用弱電設備由泛用方塊/簡化模型，升級為更接近現實設備外觀的真實 3D 模型第一波。
+本版把 3D 工作區升級為可操作工程視圖：XYZ、RX/RY/RZ、左鍵旋轉視角、右鍵平移、滾輪縮放、設備拖移/高度/三軸旋轉，並保留設備動畫與 Connection 連動。

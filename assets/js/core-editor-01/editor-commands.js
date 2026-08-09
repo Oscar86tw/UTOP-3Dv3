@@ -1,7 +1,8 @@
 import {state} from '../state.js';
 
 export function getDeviceTransform(id){
-  return state.deviceTransforms[id] || (state.deviceTransforms[id]={x:0,y:0,z:0,rotationY:0,floor:'1F'});
+  const t=state.deviceTransforms[id] || (state.deviceTransforms[id]={x:0,y:0,z:0,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'});
+  if(t.rotationX===undefined)t.rotationX=0;if(t.rotationY===undefined)t.rotationY=0;if(t.rotationZ===undefined)t.rotationZ=0;return t;
 }
 
 export function updateDeviceTransform(id,patch={}){
