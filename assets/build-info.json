@@ -1,6 +1,7 @@
 {
   "product": "UTOP-3Dv3",
-  "version": "1.7.12",
-  "build": "2026-08-10T03:34+08:00",
-  "title": "3D Module Reactions & Vehicle Types"
+  "version": "1.7.13",
+  "build": "2026-08-10T03:47+08:00",
+  "title": "Vehicle Lane & Loop Sensitivity",
+  "label": "Vehicle Lane & Loop Sensitivity"
 }

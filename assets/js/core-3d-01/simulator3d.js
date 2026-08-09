@@ -1,12 +1,12 @@
 import {state} from '../state.js';
-import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.12';
+import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.13';
 import {devices} from '../data.js';
 import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} from '../core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.12';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.12';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.13';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.13';
 
 let active=null;
 const THREE_SOURCES=[
@@ -607,7 +607,7 @@ const controllerApi={
     triggerEtag(){etagFlash=1;showToast('ETAG DETECTED');setText('etagState','DETECTED');setTimeout(()=>setText('etagState','READY'),1200);},
     toggleSignals(){state.simulator.signals=!state.simulator.signals;signalGroup.visible=state.simulator.signals;return state.simulator.signals;},
     toggleZones(){state.simulator.zones=!state.simulator.zones;Object.values(deviceRoots).forEach(root=>{if(root.userData.zone)root.userData.zone.visible=state.simulator.zones;if(root.userData.zoneEdges)root.userData.zoneEdges.visible=state.simulator.zones;});return state.simulator.zones;},
-    resetCar(){car.position.set(-2.05,0,15);car.rotation.y=0;exitCar.position.set(2.05,0,-15);exitCar.rotation.y=Math.PI;exitCar.visible=false;speed=0;keys.clear();showToast((state.simulator.vehicleType==='motorcycle'?'機車':'汽車')+'已重設');},setVehicleType(type){return setVehicleType(type);},
+    resetCar(){car.position.set(-2.05,0,15);car.rotation.y=0;exitCar.position.set(2.05,0,-15);exitCar.rotation.y=Math.PI;exitCar.visible=false;speed=0;keys.clear();showToast((state.simulator.vehicleType==='motorcycle'?'機車':'汽車')+'已重設');},setVehicleType(type){return setVehicleType(type);},setLaneType(type){state.simulator.laneType=(type==='car'||type==='motorcycle')?type:'mixed';showToast('車道類型：'+(state.simulator.laneType==='car'?'汽車道':state.simulator.laneType==='motorcycle'?'機車道':'混合車道'));return state.simulator.laneType;},
     setDrive(dir,on=true){const code={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'}[dir];if(!code)return;if(on)keys.add(code);else keys.delete(code);},
     stop(){keys.clear();speed=0;},
     setFollow(v){follow=!!v;state.simulator.follow=follow;},
@@ -657,10 +657,38 @@ const controllerApi={
       if(entryDone&&exitDone){laneDemo.entry.elapsed+=dt;laneDemo.exit.elapsed+=dt;if(Math.max(laneDemo.entry.elapsed,laneDemo.exit.elapsed)>3.4){laneDemo.running=false;showToast('✅ 雙車道展示完成');}}
     }
     const loopDevice=devices.find(d=>(d.type||'').toLowerCase()==='loop');const barrierDevice=devices.find(d=>(d.type||'').toLowerCase().includes('barrier'));const etagDevice=devices.find(d=>(d.type||'').toLowerCase().includes('etag')||(d.type||'').toLowerCase().includes('uhf'));const loopRoot=loopDevice?deviceRoots[loopDevice.id]:null;const barrierRoot=barrierDevice?deviceRoots[barrierDevice.id]:null;const etagRoot=etagDevice?deviceRoots[etagDevice.id]:null;
-    if(loopRoot){const loopWorld=new THREE.Vector3();loopRoot.getWorldPosition(loopWorld);const ls=getSettings(loopDevice.id),lw=Math.max(.5,Number(ls.width)||2),ld=Math.max(.5,Number(ls.depth)||1);const vehicleBox=new THREE.Box3().setFromObject(car);const loopBox=new THREE.Box3(new THREE.Vector3(loopWorld.x-lw/2,-.05,loopWorld.z-ld/2),new THREE.Vector3(loopWorld.x+lw/2,1.6,loopWorld.z+ld/2));const detected=vehicleBox.intersectsBox(loopBox);if(detected!==loopOn){loopOn=detected;state.simulator.loop=loopOn;if(loopOn)executeDeviceAction(loopDevice.id,'vehicle');else executeDeviceAction(loopDevice.id,'clear');}}
+    if(loopRoot){
+      const loopWorld=new THREE.Vector3();loopRoot.getWorldPosition(loopWorld);
+      const ls=getSettings(loopDevice.id),lw=Math.max(.5,Number(ls.width)||2),ld=Math.max(.5,Number(ls.depth)||1);
+      const detectorDevice=devices.find(d=>(d.type||'').toLowerCase()==='loopdetector');
+      const detectorSettings=detectorDevice?getSettings(detectorDevice.id):{};
+      const sensitivity=Math.max(1,Math.min(10,Number(detectorSettings.sensitivity)||5));
+      const vehicleBox=new THREE.Box3().setFromObject(car);
+      const loopBox=new THREE.Box3(new THREE.Vector3(loopWorld.x-lw/2,-.05,loopWorld.z-ld/2),new THREE.Vector3(loopWorld.x+lw/2,1.6,loopWorld.z+ld/2));
+      const overlap=vehicleBox.clone().intersect(loopBox);
+      const overlapSize=new THREE.Vector3();overlap.getSize(overlapSize);
+      const vehicleSize=new THREE.Vector3();vehicleBox.getSize(vehicleSize);
+      const overlapArea=Math.max(0,overlapSize.x)*Math.max(0,overlapSize.z);
+      const vehicleArea=Math.max(.01,vehicleSize.x*vehicleSize.z);
+      const overlapRatio=Math.min(1,overlapArea/vehicleArea);
+      const intersects=vehicleBox.intersectsBox(loopBox);
+      const vehicleType=state.simulator.vehicleType==='motorcycle'?'motorcycle':'car';
+      const threshold=vehicleType==='motorcycle'?Math.max(.05,.55-sensitivity*.05):Math.max(.02,.16-sensitivity*.012);
+      const detected=intersects&&overlapRatio>=threshold;
+      const insufficient=intersects&&!detected;
+      state.simulator.loopDetectionState=detected?'detected':insufficient?'weak':'clear';
+      if(loopRoot.userData.loopDetectLamp){setLampState(loopRoot.userData.loopDetectLamp,detected,0x35ff70,insufficient?0xffb52e:0x164b25,detected?4.8:insufficient?2.8:0.5);}
+      if(loopRoot.userData.loopDetectGlow)loopRoot.userData.loopDetectGlow.intensity=detected?5.5:insufficient?2.0:0;
+      if(detectorDevice){
+        const dr=deviceRoots[detectorDevice.id];
+        if(dr){setLampState(dr.userData.loopDetectLed,detected,0xffb52e,0x4a2a05,detected?3.8:0.5);setLampState(dr.userData.loopFaultLed,insufficient,0xff3030,0x410808,insufficient?3.0:0.4);}
+        const rt=getRuntime(detectorDevice.id);updateRuntime(detectorDevice.id,{...(rt||{}),status:detected?'PRESENCE':insufficient?'WEAK / MISS':'READY',active:detected||insufficient});
+      }
+      if(detected!==loopOn){loopOn=detected;state.simulator.loop=loopOn;if(loopOn)executeDeviceAction(loopDevice.id,'vehicle');else executeDeviceAction(loopDevice.id,'clear');}
+    }
     Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.reactionPulseUntil>now&&root.userData.activityLamp){const q=.96+.10*(.5+.5*Math.sin(now*.035));root.userData.activityLamp.scale.setScalar(q);}else if(root.userData.activityLamp)root.userData.activityLamp.scale.setScalar(1);if(root.userData.barrierPivot&&root.userData.barrierTarget!==null&&root.userData.barrierTarget!==undefined){const cur=root.userData.barrierPivot.rotation.z,targetAngle=root.userData.barrierTarget,secs=Math.max(.2,root.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){root.userData.barrierPivot.rotation.z=targetAngle;root.userData.barrierTarget=null;const bd=getRuntime(id),settings=getSettings(id);const opened=Math.abs(targetAngle)>0.01;updateRuntime(id,{...(bd||{}),status:opened?'OPEN':'CLOSED',active:opened});if(opened&&root.userData.barrierAutoCloseArmed&&settings.autoCloseEnabled){root.userData.barrierAutoCloseRemaining=Math.max(1,Number(settings.autoCloseSeconds)||5);root.userData.barrierAutoCloseArmed=false;}else if(targetAngle>=0){root.userData.barrierAutoCloseRemaining=null;}}else root.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}if(root.userData.barrierAutoCloseRemaining!==null&&root.userData.barrierAutoCloseRemaining!==undefined){root.userData.barrierAutoCloseRemaining=Math.max(0,root.userData.barrierAutoCloseRemaining-dt);const remain=root.userData.barrierAutoCloseRemaining,rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:`OPEN · AUTO CLOSE ${Math.ceil(remain)}s`,active:true});if(remain<=0){root.userData.barrierAutoCloseRemaining=null;executeDeviceAction(id,'close',new Set());}}if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.trafficRed&&root.userData.trafficFlashRed){root.userData.trafficRed.visible=Math.floor(now/350)%2===0;if(root.userData.trafficRedGlow)root.userData.trafficRedGlow.intensity=root.userData.trafficRed.visible?5.5:0;}else if(root.userData.trafficRed)root.userData.trafficRed.visible=true;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id),devType=String(devices.find(d=>d.id===id)?.type||'').toLowerCase();updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(devType==='ledpanel'&&getSettings(id).lastFiveFlash!==false&&remain<=5&&remain>0&&root.userData.displayPanel)root.userData.displayPanel.visible=Math.floor(now/300)%2===0;else if(root.userData.displayPanel)root.userData.displayPanel.visible=true;if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));root.userData.displayPanel.material.emissive?.setHex(0x550000);root.userData.displayPanel.material.emissiveIntensity=pulse;}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>{const pulsing=(l.userData.signalPulseUntil||0)>now;l.material.opacity=pulsing?1:.22;if(pulsing&&l.material.color){const base=l.userData.baseColor;if(base===undefined)l.userData.baseColor=l.material.color.getHex();l.material.color.setHex(0xfff176);}else if(l.userData.baseColor!==undefined&&l.material.color)l.material.color.setHex(l.userData.baseColor);});
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
-    setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
+    const laneType=state.simulator.laneType||'mixed',vehicleType=state.simulator.vehicleType==='motorcycle'?'motorcycle':'car',laneMismatch=laneType!=='mixed'&&laneType!==vehicleType;const loopText=state.simulator.loopDetectionState==='weak'?'感應不足':loopOn?'ON':'OFF';setText('simStatus',laneMismatch?'⚠ 車種與車道不符':state.simulator.loopDetectionState==='weak'?'⚠ 機車/車輛感應不足':loopOn?'LOOP ON':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopText);setText('laneTypeState',laneType==='car'?'汽車道':laneType==='motorcycle'?'機車道':'混合車道');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
     const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast(`${APP_VERSION_LABEL} ${APP_TITLE} 已啟動`);return controllerApi;
 }

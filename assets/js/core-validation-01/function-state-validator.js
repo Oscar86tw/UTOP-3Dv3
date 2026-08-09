@@ -3,8 +3,8 @@ import {MODULE_DEFINITIONS} from '../core-module-01/module-definitions.js';
 import {devices} from '../data.js';
 import {controlsFor} from '../core-module-01/module-manager.js';
 import {deviceAllConnectables} from '../core-wiring-01/wiring-manager.js';
-import {verifyConnectionActionChains} from '../core-logic-01/connection-runtime.js?v=1.7.12';
-import {APP_VERSION,APP_VERSION_LABEL} from '../core-version-01/version-info.js?v=1.7.12';
+import {verifyConnectionActionChains} from '../core-logic-01/connection-runtime.js?v=1.7.13';
+import {APP_VERSION,APP_VERSION_LABEL} from '../core-version-01/version-info.js?v=1.7.13';
 
 function finite(n){return Number.isFinite(Number(n));}
 function add(arr,name,ok,detail){arr.push({name,ok:!!ok,detail});}
