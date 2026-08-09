@@ -1,10 +1,7 @@
-# V1.4.7
+# V1.4.8
 
-- 全站按鈕 / Select / Range / Data-action 事件稽核。
-- 移除 ES Module 下不穩定的 DOM 全域變數讀法，統一 getElementById。
-- 修正「＋加入裝置」沒有事件綁定。
-- 新增設備後自動選取並在 3D 顯示。
-- 新增刪除目前模組功能，並同步移除相關 Connection。
-- 修正情境、道路標線、2D Transform、Signal Trace 的跨頁與 3D 掛載時序。
-- 加入 UI 錯誤回報，避免點擊失敗時完全無反應。
-- Schema 4.9。
+- 修正快速切頁時 3D 非同步初始化回寫錯頁。
+- 「儲存」改為真正保存 state + devices 至 localStorage。
+- 開啟網頁會自動還原最後儲存的專案。
+- 入口/出口/雙車道展示、重設車輛、切換視野、儲存視野加入 3D Ready 等待。
+- Mission 播放加入單一 timer 保護。

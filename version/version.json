@@ -1,21 +1,20 @@
 {
   "name": "UTOP-3Dv3",
-  "version": "1.4.7",
-  "schema": "4.9",
-  "title": "Full Function Audit & Click Fix",
+  "version": "1.4.8",
+  "schema": "5.0",
+  "title": "Stability & State Sync",
   "notes": [
-    "全站按鈕與互動控制事件稽核。",
-    "DOM 欄位讀取改為明確 getElementById，避免 ES Module / 動態重繪後失效。",
-    "修正加入顯示裝置未綁事件。",
-    "修正 Scene / Road / 2D Transform / Signal Trace 跨頁與 3D 掛載時序。",
-    "新增模組後自動選取並顯示，並新增刪除目前模組功能。",
-    "UI 操作錯誤會回報，不再完全無反應。"
+    "快速切頁加入 navEpoch 保護，舊的 3D 掛載不會覆蓋新頁面。",
+    "儲存按鈕改為真正寫入 localStorage，重新整理後自動還原設備與專案狀態。",
+    "3D 重要操作會等待 WebGL 初始化完成，不再因 sim3d 尚未 ready 而無反應。",
+    "任務播放限制單一計時器，避免連按造成多組流程重疊。"
   ],
   "updated": "2026-08-09",
   "changes": [
-    "257 個預設渲染按鈕事件覆蓋檢查：0 未綁定",
-    "59 項核心功能測試：59 PASS",
-    "29 類 3D 模型建立測試通過",
-    "全部 JavaScript 語法檢查通過"
+    "Navigation race guard",
+    "Persistent local project state",
+    "Simulator readiness gate",
+    "Mission timer deduplication",
+    "JavaScript and ZIP validation"
   ]
 }

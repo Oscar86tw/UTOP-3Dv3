@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.4.7';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.4.7';
+import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.4.8';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.4.8';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -13,7 +13,8 @@ import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js
 import {runDebugAudit} from './core-debug-01/debug-center.js';
 
 const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
-let capturing=false,sim3d=null;
+let capturing=false,sim3d=null,navEpoch=0,simulatorMountPromise=null,missionTimer=null;
+const STORAGE_KEY='utop3dv3.project.v1';
 
 const byId=id=>document.getElementById(id);
 const val=(id,fallback='')=>byId(id)?.value??fallback;
@@ -27,6 +28,36 @@ function reportUiError(where,err){
 }
 function safeHandler(where,fn){return async e=>{try{return await fn(e);}catch(err){reportUiError(where,err);}}}
 
+function saveProjectState(showStatus=true){
+  try{
+    const payload={schema:'4.10',savedAt:new Date().toISOString(),state,devices};
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
+    state.savedAt=new Date(payload.savedAt);
+    if(showStatus){const meta=byId('projectMeta');if(meta)meta.textContent='已儲存 · '+state.savedAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});}
+    return true;
+  }catch(err){reportUiError('儲存專案',err);return false;}
+}
+function restoreProjectState(){
+  try{
+    const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return false;
+    const payload=JSON.parse(raw);if(!payload||typeof payload!=='object')return false;
+    if(payload.state&&typeof payload.state==='object'){
+      for(const [k,v] of Object.entries(payload.state)) state[k]=v;
+      if(payload.savedAt)state.savedAt=new Date(payload.savedAt);
+    }
+    if(Array.isArray(payload.devices)&&payload.devices.length){devices.splice(0,devices.length,...payload.devices);}
+    return true;
+  }catch(err){console.warn('[UTOP] 本機專案狀態還原失敗，改用預設資料',err);return false;}
+}
+async function withSimulator(where,fn){
+  try{
+    if(state.route!=='simulator'){state.workspace.mode='3d';await go('simulator');}
+    if(simulatorMountPromise)await simulatorMountPromise;
+    if(!sim3d)throw new Error('3D 尚未完成初始化');
+    return await fn(sim3d);
+  }catch(err){reportUiError(where,err);return null;}
+}
+
 
 function nav(){
   tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');
@@ -34,13 +65,17 @@ function nav(){
   document.body.dataset.route=state.route;
 }
 async function go(route){
-  if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;}
+  const epoch=++navEpoch;
+  if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;simulatorMountPromise=null;}
   if(state.route==='diagrams'&&route!=='diagrams')unmountNeuralView();
   state.route=route;nav();root.innerHTML=render(route);bind();
   if(route==='simulator'&&state.workspace.mode!=='2d'){
-    sim3d=await mountSimulator3D({onSelection:id=>syncInspector(id,true),onTransform:id=>syncInspector(id,false)});
+    simulatorMountPromise=mountSimulator3D({onSelection:id=>syncInspector(id,true),onTransform:id=>syncInspector(id,false)});
+    const mounted=await simulatorMountPromise;
+    if(epoch!==navEpoch||state.route!=='simulator'){mounted?.destroy?.();return;}
+    sim3d=mounted;simulatorMountPromise=null;
   }
-  if(route==='diagrams')mountNeuralView();
+  if(route==='diagrams'&&epoch===navEpoch)mountNeuralView();
 }
 function ensureInspectorShell(){
   const workspace=root.querySelector('.legacy-workspace');if(!workspace)return null;
@@ -124,7 +159,7 @@ function bind(){
   document.getElementById('toggleSignals')?.addEventListener('click',e=>{const on=sim3d?.toggleSignals();e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線'});
   document.getElementById('toggleZones')?.addEventListener('click',e=>{const on=sim3d?.toggleZones();e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍'});
   document.getElementById('followCar')?.addEventListener('click',e=>{state.simulator.follow=!state.simulator.follow;sim3d?.setFollow(state.simulator.follow);e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角'});
-  document.getElementById('next3DView')?.addEventListener('click',()=>sim3d?.nextView());document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());document.getElementById('toggleDeviceLabels')?.addEventListener('click',e=>{const on=sim3d?.toggleLabels?.();e.currentTarget.textContent=on?'隱藏名稱牌':'顯示名稱牌'});document.getElementById('runEntryLaneDemo')?.addEventListener('click',()=>sim3d?.runLaneDemo?.('entry'));document.getElementById('runExitLaneDemo')?.addEventListener('click',()=>sim3d?.runLaneDemo?.('exit'));document.getElementById('runBothLaneDemo')?.addEventListener('click',()=>sim3d?.runLaneDemo?.('both'));document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
+  document.getElementById('next3DView')?.addEventListener('click',()=>withSimulator('切換3D視野',s=>s.nextView()));document.getElementById('resetCar')?.addEventListener('click',()=>withSimulator('重設車輛',s=>s.resetCar()));document.getElementById('toggleDeviceLabels')?.addEventListener('click',e=>{const on=sim3d?.toggleLabels?.();e.currentTarget.textContent=on?'隱藏名稱牌':'顯示名稱牌'});document.getElementById('runEntryLaneDemo')?.addEventListener('click',()=>withSimulator('入口展示',s=>s.runLaneDemo?.('entry')));document.getElementById('runExitLaneDemo')?.addEventListener('click',()=>withSimulator('出口展示',s=>s.runLaneDemo?.('exit')));document.getElementById('runBothLaneDemo')?.addEventListener('click',()=>withSimulator('雙車道展示',s=>s.runLaneDemo?.('both')));document.getElementById('saveView')?.addEventListener('click',()=>withSimulator('儲存視野',s=>s.saveView()));
 
   byId('applyPlanTransform')?.addEventListener('click',safeHandler('套用平面位置',()=>applyPlanPatch({x:num('planX'),z:num('planZ'),rotationY:num('planRot')*Math.PI/180,floor:val('planFloor','1F')})));
 
@@ -147,7 +182,7 @@ function bind(){
   root.querySelectorAll('[data-trace-device]').forEach(b=>b.addEventListener('click',()=>{setTraceFocus(b.dataset.traceDevice,'full');state.selectedDevice=b.dataset.traceDevice;go('diagrams')}));
   byId('applyTrace')?.addEventListener('click',safeHandler('開始 Signal Trace',()=>{setTraceFocus(val('traceDevice'),val('traceMode','full'));return go('diagrams')}));byId('showTrace3D')?.addEventListener('click',safeHandler('3D 顯示 Signal Trace',async()=>{const deviceId=val('traceDevice'),mode=val('traceMode','full');setTraceFocus(deviceId,mode);state.selectedDevice=deviceId;state.workspace.mode='3d';await go('simulator');sim3d?.applyTraceFocus();}));byId('clearTraceFromDiagram')?.addEventListener('click',()=>{clearTraceFocus();go('diagrams')});
   root.querySelectorAll('[data-diagram]').forEach(b=>b.addEventListener('click',()=>{const el=document.getElementById('diagramStatus');if(el)el.textContent=`已依目前 Connection / Trace 產生：${b.dataset.diagram} 預覽。`}));
-  document.getElementById('playMission')?.addEventListener('click',()=>{const steps=[...document.querySelectorAll('.step')];let i=0;const label=document.getElementById('missionState');if(label)label.textContent='任務執行中';const timer=setInterval(()=>{steps.forEach((s,n)=>s.classList.toggle('active',n===i));if(label)label.textContent=steps[i]?.querySelector('b')?.textContent||'完成';i++;if(i>=steps.length){clearInterval(timer);setTimeout(()=>{if(label)label.textContent='✅ 任務完成';steps.forEach(s=>s.classList.remove('active'))},400)}},600)});
+  document.getElementById('playMission')?.addEventListener('click',()=>{if(missionTimer){clearInterval(missionTimer);missionTimer=null;}const steps=[...document.querySelectorAll('.step')];let i=0;const label=document.getElementById('missionState');if(label)label.textContent='任務執行中';missionTimer=setInterval(()=>{if(state.route!=='mission'){clearInterval(missionTimer);missionTimer=null;return;}steps.forEach((s,n)=>s.classList.toggle('active',n===i));if(label)label.textContent=steps[i]?.querySelector('b')?.textContent||'完成';i++;if(i>=steps.length){clearInterval(missionTimer);missionTimer=null;setTimeout(()=>{if(label)label.textContent='✅ 任務完成';steps.forEach(s=>s.classList.remove('active'))},400)}},600)});
   document.getElementById('compareRange')?.addEventListener('input',e=>{state.field.comparePercent=Number(e.target.value);const el=document.getElementById('compareText');if(el)el.textContent=`目前 ${state.field.comparePercent}% 疊圖比較。`});
   document.getElementById('addPhoto')?.addEventListener('click',()=>{state.photos.push({id:'P-'+String(state.photos.length+1).padStart(3,'0'),title:'新現場照片',device:state.selectedDevice});go('field')});
   document.getElementById('runAllTests')?.addEventListener('click',()=>{state.tests.forEach(t=>t.result='PASS');go('field')});
@@ -171,5 +206,7 @@ window.addEventListener('keydown',e=>{
 
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)go(b.dataset.route)});
 byId('presentationToggle')?.addEventListener('click',()=>{state.presentation=!state.presentation;document.body.classList.toggle('presentation',state.presentation);const b=byId('presentationToggle');if(b)b.textContent=state.presentation?'退出簡報':'簡報模式'});
-byId('saveBtn')?.addEventListener('click',()=>{state.savedAt=new Date();const meta=byId('projectMeta');if(meta)meta.textContent='已儲存 · '+state.savedAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})});
-go('overview');
+byId('saveBtn')?.addEventListener('click',()=>saveProjectState(true));
+window.addEventListener('beforeunload',()=>saveProjectState(false));
+restoreProjectState();
+go(state.route||'overview');
