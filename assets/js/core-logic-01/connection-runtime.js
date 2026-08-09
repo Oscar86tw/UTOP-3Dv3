@@ -28,6 +28,14 @@ export function activeOutputTerminals(deviceType='',action=''){
   if(t==='powersupply'&&a==='on')return ['V+','DC_OK'];
   if(t==='poeswitch'&&a==='on')return ['LAN1','LAN2','LAN3','LAN4','LAN5','LAN6','LAN7','LAN8','UPLINK'];
   if(t==='parkingdisplay'&&a==='full')return ['FULL'];
+  if(t==='ledpanel'&&a==='done')return ['DONE','OUT'];
+  if(t==='signal2way'&&a==='lanea')return ['A-GREEN','B-RED'];
+  if(t==='signal2way'&&a==='laneb')return ['A-RED','B-GREEN'];
+  if(t==='signal2way'&&a==='allstop')return ['A-RED','B-RED'];
+  if(t==='signal3way'&&a==='lanea')return ['A-GREEN','B-RED','C-RED'];
+  if(t==='signal3way'&&a==='laneb')return ['A-RED','B-GREEN','C-RED'];
+  if(t==='signal3way'&&a==='lanec')return ['A-RED','B-RED','C-GREEN'];
+  if(t==='signal3way'&&a==='allstop')return ['A-RED','B-RED','C-RED'];
   if(t==='heightbar'&&a==='overheight')return ['ALARM','OVERHEIGHT'];
   if(a==='open')return ['OPEN','DO1','OUT'];
   if(a==='close')return ['CLOSE','DO2'];

@@ -1,10 +1,3 @@
-UTOP-3Dv3 V1.7.2 Version Sync Hotfix
+UTOP-3Dv3 V1.7.3 Official Module Behavior
 
-本次重點
-1. 首頁左上角版本同步為 V1.7.2。
-2. 總覽、專案/Debug、3D啟動提示、Google Cloud Client、Apps Script 版本同步。
-3. 新增中央版本資訊模組，後續主要畫面不再各自手動寫版本。
-4. Debug Function State 新增「版本同步」檢查。
-
-修改說明事項／後續追蹤
-- 後續每次版本更新，version.json、首頁、Debug、Cloud、Apps Script、快取參數必須同步。
+本版把 DI/DO 脈衝與設備持續狀態分離。車道紅綠燈可設定待機綠/紅/關，脈衝觸發後恢復待機。並依 Garrison / SOYAL 官方資料修正第一波號誌模組。

@@ -1,8 +1,7 @@
-# V1.7.2
+# V1.7.3
 
-- 修正首頁左上角仍顯示 V1.6.4 的版本不同步問題。
-- 首頁 `<title>`、首頁版本文字、總覽「目前整合版」、專案/Debug、3D啟動提示同步為 V1.7.2。
-- Google Cloud Client `clientVersion`、Apps Script 服務版本同步為 V1.7.2。
-- 前端 CSS / JS / ES Module 快取參數同步為 V1.7.2。
-- 新增中央版本資訊模組 `core-version-01/version-info.js`，首頁與主要畫面改由同一版本常數顯示。
-- Function State Audit 新增「版本同步」檢查，後續若首頁 Runtime 版本不同會直接顯示異常。
+- 依 Garrison / SOYAL 官方資料修正號誌類模組行為。
+- DI / DO 維持脈衝，但設備 Runtime 獨立維持或恢復待機狀態。
+- 車道紅綠燈預設待機綠燈，脈衝紅燈後可自動恢復綠燈。
+- LK-1045 倒數上限修正 99 秒，加入紅燈恆亮/閃爍與最後5秒閃動。
+- LK-103 修正 6~100 秒；LK-103A 修正 1~120 秒。

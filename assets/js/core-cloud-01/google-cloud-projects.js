@@ -1,4 +1,4 @@
-import {APP_VERSION} from '../core-version-01/version-info.js?v=1.7.2';
+import {APP_VERSION} from '../core-version-01/version-info.js?v=1.7.3';
 function cleanUrl(url=''){return String(url||'').trim();}
 async function callWebApp(url,payload){
   const endpoint=cleanUrl(url);if(!endpoint)throw new Error('尚未設定 Google Apps Script Web App 網址');

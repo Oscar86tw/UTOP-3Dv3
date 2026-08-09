@@ -12,7 +12,11 @@ export function defaultSettings(type='Generic'){
   const def=definitionForType(type);const out={showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false,allowOverlap:false,installationHeight:0};
   for(const param of def?.parameters||[])out[param.id]=param.value;
   if(out.width===undefined)out.width=1;if(out.height===undefined)out.height=1;if(out.depth===undefined)out.depth=1;
-  if(String(type).toLowerCase()==='barrier'){if(out.armSide===undefined)out.armSide='left';if(out.autoCloseEnabled===undefined)out.autoCloseEnabled=false;if(out.autoCloseSeconds===undefined)out.autoCloseSeconds=5;}
+  const kind=String(type).toLowerCase();
+  if(kind==='barrier'){if(out.armSide===undefined)out.armSide='left';if(out.autoCloseEnabled===undefined)out.autoCloseEnabled=false;if(out.autoCloseSeconds===undefined)out.autoCloseSeconds=5;}
+  if(kind==='traffic'){if(out.idleSignal===undefined)out.idleSignal='green';if(out.restoreAfterPulse===undefined)out.restoreAfterPulse=true;if(out.restoreDelay===undefined)out.restoreDelay=.45;}
+  if(kind==='ledpanel'){if(out.idleSignal===undefined)out.idleSignal='green';if(out.restoreAfterPulse===undefined)out.restoreAfterPulse=true;if(out.redMode===undefined)out.redMode='steady';if(out.lastFiveFlash===undefined)out.lastFiveFlash=true;}
+  if(kind==='signal2way'||kind==='signal3way'){if(out.managementMode===undefined)out.managementMode='timer';if(out.idleLane===undefined)out.idleLane='A';}
   return out;
 }
 export function terminalsFor(type='Generic'){return [...(definitionForType(type)?.terminals||['IN','OUT','COM','V+','GND'])];}

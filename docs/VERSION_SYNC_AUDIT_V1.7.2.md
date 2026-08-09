@@ -1,4 +1,4 @@
-# V1.7.2 Version Sync Audit
+# V1.7.3 Version Sync Audit
 
 ## 同步項目
 - index.html title

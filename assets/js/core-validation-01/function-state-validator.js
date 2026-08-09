@@ -1,8 +1,8 @@
 import {state} from '../state.js';
 import {devices} from '../data.js';
 import {terminalsFor,controlsFor} from '../core-module-01/module-manager.js';
-import {verifyConnectionActionChains} from '../core-logic-01/connection-runtime.js?v=1.7.2';
-import {APP_VERSION,APP_VERSION_LABEL} from '../core-version-01/version-info.js?v=1.7.2';
+import {verifyConnectionActionChains} from '../core-logic-01/connection-runtime.js?v=1.7.3';
+import {APP_VERSION,APP_VERSION_LABEL} from '../core-version-01/version-info.js?v=1.7.3';
 
 function finite(n){return Number.isFinite(Number(n));}
 function add(arr,name,ok,detail){arr.push({name,ok:!!ok,detail});}
