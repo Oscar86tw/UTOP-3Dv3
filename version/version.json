@@ -1,15 +1,14 @@
 {
   "name": "UTOP-3Dv3",
-  "version": "1.4.0",
-  "schema": "4.4",
-  "title": "Interactive XYZ 3D",
+  "version": "1.4.2",
+  "schema": "4.6",
+  "title": "Lane Scene Action Demo",
   "notes": [
-    "設備 Transform 升級為 X/Y/Z + RX/RY/RZ 六軸",
-    "3D 選取設備顯示 XYZ 軸與即時座標 HUD",
-    "空白左鍵旋轉視角、右鍵平移、滾輪縮放",
-    "Move：拖設備調 X/Z，Shift+拖調 Y",
-    "Rotate：拖設備調 RY，Shift+拖調 RX，Alt+拖調 RZ",
-    "保留設備動作動畫與 Connection DI/DO 連動"
+    "3D 車道場景加入雙側人行道、路緣與方向箭頭",
+    "新增入口/出口柵欄機、紅綠燈、倒數計時器示範配置",
+    "每台 3D 設備新增浮動名稱牌與即時 Runtime 狀態",
+    "新增一鍵「車道動作展示」：車輛→地感→控制器→柵欄機→紅綠燈→Timer",
+    "保留 XYZ/RX/RY/RZ、Transform Gizmo、滑鼠旋轉/平移/縮放與設備拖移"
   ],
   "updated": "2026-08-09"
 }

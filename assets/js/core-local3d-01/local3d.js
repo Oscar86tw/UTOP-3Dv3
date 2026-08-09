@@ -4,7 +4,7 @@ import {getDeviceTransform,updateDeviceTransform,selectDevice,setFloorFocus,setE
 import {getRuntime,updateRuntime,controlsFor} from '../core-module-01/module-manager.js';
 import {definitionForType} from '../core-module-01/module-definitions.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.4.0';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.4.2';
 
 function labelFor(d){return d?.name||d?.id||'';}
 function colorFor(type=''){

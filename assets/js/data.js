@@ -33,7 +33,10 @@ export const devices = [
   {id:'DEV-002',modelCode:'LANE-UHF-001',name:'ETAG讀頭01',type:'uhf',floor:'1F',state:'READY'},
   {id:'DEV-003',modelCode:'LANE-LOOP-001',name:'地感01',type:'loop',floor:'1F',state:'OFF'},
   {id:'DEV-004',modelCode:'ACCESS-CTRL-001',name:'Controller01',type:'accesscontroller',floor:'1F',state:'ONLINE'},
-  {id:'DEV-005',modelCode:'CCTV-IPCAM-001',name:'Camera01',type:'ipcamera',floor:'1F',state:'ONLINE'}
+  {id:'DEV-005',modelCode:'CCTV-IPCAM-001',name:'Camera01',type:'ipcamera',floor:'1F',state:'ONLINE'},
+  {id:'DEV-006',modelCode:'PARKING-BARRIER-002',name:'柵欄機02（出口）',type:'barrier',floor:'1F',state:'CLOSED'},
+  {id:'DEV-007',modelCode:'PARKING-LIGHT-001',name:'紅綠燈01',type:'traffic',floor:'1F',state:'RED'},
+  {id:'DEV-008',modelCode:'COUNTDOWN-TIMER-001',name:'倒數計時器01',type:'timer',floor:'1F',state:'IDLE'}
 ];
 
 export const moduleCatalog = MODULE_CATALOG;

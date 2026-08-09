@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.4.0';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.4.0';
+import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.4.2';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.4.2';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -105,7 +105,7 @@ function bind(){
   document.getElementById('toggleSignals')?.addEventListener('click',e=>{const on=sim3d?.toggleSignals();e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線'});
   document.getElementById('toggleZones')?.addEventListener('click',e=>{const on=sim3d?.toggleZones();e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍'});
   document.getElementById('followCar')?.addEventListener('click',e=>{state.simulator.follow=!state.simulator.follow;sim3d?.setFollow(state.simulator.follow);e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角'});
-  document.getElementById('next3DView')?.addEventListener('click',()=>sim3d?.nextView());document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
+  document.getElementById('next3DView')?.addEventListener('click',()=>sim3d?.nextView());document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());document.getElementById('runLaneDemo')?.addEventListener('click',()=>sim3d?.runLaneDemo?.());document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
 
   document.getElementById('applyPlanTransform')?.addEventListener('click',()=>applyPlanPatch({x:Number(planX.value)||0,z:Number(planZ.value)||0,rotationY:(Number(planRot.value)||0)*Math.PI/180,floor:planFloor.value}));
 
