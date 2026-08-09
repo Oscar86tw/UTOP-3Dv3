@@ -1,13 +1,15 @@
 {
   "name": "UTOP-3Dv3",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "schema": "4.1",
-  "title": "Offline 3D Workspace",
+  "title": "Local Three Core Hotfix",
   "updated_at": "2026-08-09",
   "notes": [
-    "Three.js 載入失敗時自動切換專案內建本地 3D 備援核心",
-    "3D 工作區保持寬滿版，左右模組庫與設備設定維持浮動抽屜",
-    "本地備援核心支援設備選取、拖移、接線顯示、車輛控制與基本設備控制",
-    "延續 V5 工作流程與目前 Connection / Signal Trace / Skill Tree 核心"
+    "Three.js 正式核心已實際打包進專案 vendor/three",
+    "修正本地 Three.js 相對路徑",
+    "Three.js r180 同時包含 three.module.min.js 與 three.core.min.js",
+    "WebGL 啟動失敗時自動切換 Local 3D 備援核心",
+    "加強 Local 3D 對 roundRect 與 ResizeObserver 的相容處理",
+    "加入 v1.1.2 快取參數，避免部署端沿用舊版 3D 核心"
   ]
 }

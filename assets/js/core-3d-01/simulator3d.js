@@ -4,14 +4,11 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createLocal3D} from '../core-local3d-01/local3d.js';
+import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.1.2';
 
 let active=null;
 const THREE_SOURCES=[
-  {name:'本地 Three.js',url:'../../vendor/three/three.module.min.js'},
-  {name:'unpkg（V5參考來源）',url:'https://unpkg.com/three@0.180.0/build/three.module.js'},
-  {name:'jsDelivr',url:'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js'},
-  {name:'esm.sh',url:'https://esm.sh/three@0.180.0'}
+  {name:'專案本地 Three.js',url:'../../../vendor/three/three.module.min.js'}
 ];
 function setText(id,text){const el=document.getElementById(id);if(el)el.textContent=text;}
 function showToast(text){const el=document.getElementById('simToast');if(!el)return;el.textContent=text;el.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>el.classList.remove('show'),1500);}
@@ -22,19 +19,22 @@ async function loadThree(){
       setText('threeLoading',`正在載入 3D 核心：${source.name}…`);
       const mod=await import(source.url);
       if(mod?.Scene&&mod?.WebGLRenderer)return {THREE:mod,source:source.name};
-      throw new Error('模組內容不完整');
+      throw new Error('本地 Three.js 模組內容不完整');
     }catch(err){
-      console.warn(`[UTOP-3D] ${source.name} 載入失敗`,err);
+      console.error(`[UTOP-3D] ${source.name} 載入失敗`,err);
       errors.push(`${source.name}: ${err?.message||err}`);
     }
   }
-  const error=new Error('所有 Three.js 來源皆載入失敗');
+  const error=new Error('專案本地 Three.js 載入失敗');
   error.details=errors;
   throw error;
 }
 export function unmountSimulator3D(){if(!active)return;active.destroy();active=null;}
 export async function mountSimulator3D(callbacks={}){
-  unmountSimulator3D();const host=document.getElementById('threeStage');if(!host)return null;setText('threeLoading','正在載入 Three.js 3D Editor…');
+  unmountSimulator3D();
+  const host=document.getElementById('threeStage');
+  if(!host)return null;
+  setText('threeLoading','正在載入專案內建 3D 核心…');
   try{
     const loaded=await loadThree();
     if(!document.getElementById('threeStage'))return null;
@@ -42,12 +42,20 @@ export async function mountSimulator3D(callbacks={}){
     setText('simStatus',`3D READY · ${loaded.source}`);
     return active;
   }catch(err){
-    console.warn('[UTOP-3D] Three.js 來源皆失敗，切換本地 3D 備援核心',err);
+    console.warn('[UTOP-3D] WebGL Three.js 啟動失敗，切換 Local 3D 備援核心',err);
     if(!document.getElementById('threeStage'))return null;
-    active=createLocal3D(host,callbacks);
-    setText('simStatus','LOCAL 3D READY');
-    const toast=document.getElementById('simToast');if(toast){toast.textContent='外部 Three.js 無法載入，已自動切換本地 3D 核心';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2400);}
-    return active;
+    try{
+      active=createLocal3D(host,callbacks);
+      setText('simStatus','LOCAL 3D READY');
+      const toast=document.getElementById('simToast');
+      if(toast){toast.textContent='WebGL 3D 無法啟動，已切換專案內建 Local 3D';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2400);}
+      return active;
+    }catch(fallbackErr){
+      console.error('[UTOP-3D] Local 3D 備援核心也啟動失敗',fallbackErr);
+      host.innerHTML=`<div class="three-error"><b>3D 核心啟動失敗</b><br><small>${String(err?.message||err)}</small><br><small>${String(fallbackErr?.message||fallbackErr)}</small></div>`;
+      setText('simStatus','3D ERROR');
+      return null;
+    }
   }
 }
 function createSimulator(THREE,host,callbacks){
@@ -286,5 +294,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.1.0 Offline 3D Workspace 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.1.2 Local Three Core 已啟動');return controllerApi;
 }

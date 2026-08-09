@@ -1,10 +1,15 @@
-# UTOP-3Dv3 V1.1.0 Offline 3D Workspace
+# UTOP-3Dv3 V1.1.2 Local Three Core Hotfix
 
-本版重點是讓 3D 工作區不再因 CDN 或外部 Three.js 載入失敗而整個無法使用。
+本版專門修正「3D 核心載入失敗」。
 
-## 啟動順序
-1. 嘗試專案 Three.js 路徑
-2. 嘗試外部 Three.js 來源
-3. 若全部失敗，自動啟動專案內建 `Local 3D` 備援核心
+## 根因
+前一版雖然程式會先嘗試「本地 Three.js」，但壓縮檔內沒有真正的 Three.js 核心檔，且相對路徑也不正確，因此仍會落到外部 CDN；當 CDN 無法使用時就會顯示 3D 核心載入失敗。
 
-Local 3D 會直接讀目前 UTOP 的 `devices`、`deviceTransforms`、`connections`、`signalTrace` 與 `deviceRuntime`，因此不是獨立示意畫面，而是同一份專案資料的備援 3D 工作區。
+## 本版修正
+- Three.js r180 已真正打包至 `vendor/three/`
+- 使用本地 `three.module.min.js` + `three.core.min.js`
+- 不再把外部 CDN 當正式 3D 核心依賴
+- WebGL 無法建立時自動切 Local 3D 備援核心
+- 加入快取版本參數 v1.1.2
+
+部署 `1.完整程式碼` 即可。
