@@ -14,8 +14,8 @@ export const state = {
   scene:{place:'社區入口',time:'白天',weather:'晴天',event:'正常進場'},
   floors:[
     {id:'1F',name:'1F 入口層',visible:true,opacity:1,elevation:0,height:3.2},
-    {id:'B1',name:'B1 地下室',visible:true,opacity:.72,elevation:-4,height:3.2},
-    {id:'B2',name:'B2 地下室',visible:true,opacity:.55,elevation:-8,height:3.2}
+    {id:'B1',name:'B1 地下室',visible:false,opacity:.72,elevation:-4,height:3.2},
+    {id:'B2',name:'B2 地下室',visible:false,opacity:.55,elevation:-8,height:3.2}
   ],
   groups:[
     {id:'road',name:'道路/標線',visible:true,opacity:1},
@@ -25,18 +25,18 @@ export const state = {
     {id:'signals',name:'DI/DO / 感應',visible:true,opacity:1}
   ],
   deviceTransforms:{
-    'DEV-001':{x:3.8,y:0,z:-4.6,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-002':{x:-4.6,y:0,z:7.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-003':{x:0,y:0,z:2.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-004':{x:-4.9,y:0,z:-4.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-005':{x:5.2,y:0,z:7.6,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-006':{x:2.2,y:0,z:5.4,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'},
-    'DEV-007':{x:3.25,y:0,z:2.8,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-008':{x:-3.4,y:0,z:-3.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
+    'DEV-001':{x:-3.75,y:0,z:-4.6,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'},
+    'DEV-002':{x:-3.65,y:0,z:7.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
+    'DEV-003':{x:-2.0,y:0,z:2.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
+    'DEV-004':{x:-5.2,y:0,z:-4.0,rotationX:0,rotationY:Math.PI/2,rotationZ:0,floor:'1F'},
+    'DEV-005':{x:5.0,y:0,z:6.8,rotationX:0,rotationY:-Math.PI/2,rotationZ:0,floor:'1F'},
+    'DEV-006':{x:3.75,y:0,z:5.4,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
+    'DEV-007':{x:-3.45,y:0,z:2.8,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
+    'DEV-008':{x:-3.55,y:0,z:-2.7,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
     'DEV-009':{x:2.0,y:0,z:-2.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-010':{x:4.9,y:0,z:4.2,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'},
-    'DEV-011':{x:-3.25,y:0,z:-2.8,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'},
-    'DEV-012':{x:3.4,y:0,z:3.2,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'}
+    'DEV-010':{x:5.2,y:0,z:4.0,rotationX:0,rotationY:-Math.PI/2,rotationZ:0,floor:'1F'},
+    'DEV-011':{x:3.45,y:0,z:-2.8,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'},
+    'DEV-012':{x:3.55,y:0,z:2.7,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'}
   },
   deviceSettings:{
     'DEV-001':{width:.34,height:1.03,depth:.28,boomLength:2.5,openTime:3,closeTime:3,installationHeight:0,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},

@@ -1,15 +1,14 @@
 {
   "name": "UTOP-3Dv3",
-  "version": "1.4.4",
-  "schema": "4.7",
-  "title": "Startup Order Hotfix",
+  "version": "1.4.6",
+  "schema": "4.8",
+  "title": "3D Scene Alignment & Vehicle Direction Hotfix",
   "notes": [
-    "入口與出口為兩條獨立車道連動鏈",
-    "新增第二台車輛，可播放入口、出口或雙車道同時展示",
-    "每條車道各自包含地感、Controller、柵欄機、紅綠燈與倒數計時器",
-    "所有柵欄機各自執行時間式升降動畫",
-    "設備名稱牌可全域顯示/隱藏，並可個別調整 XYZ 偏移",
-    "保留 XYZ/RX/RY/RZ、Transform Gizmo、滑鼠旋轉/平移/縮放與設備拖移"
+    "修正車輛 W/S/A/D 方向與車頭視覺。",
+    "修正設備選取框誤把 UHF 感應區與浮標算入 Bounding Box。",
+    "預設只顯示 1F，B1/B2 需切換後顯示。",
+    "入口/出口設備重新對準雙車道。",
+    "攝影機與控制器補安裝支架/高度。"
   ],
   "updated": "2026-08-09",
   "changes": [
