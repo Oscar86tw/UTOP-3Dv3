@@ -1,14 +1,12 @@
 {
   "name": "UTOP-3Dv3",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "schema": "3.6",
-  "title": "Signal Trace & Skill Tree",
+  "title": "Vehicle Direction Hotfix",
   "updated_at": "2026-08-09",
   "notes": [
-    "Signal Trace 支援完整鏈、上游、下游",
-    "3D Focus Network 高亮相關設備並淡化無關設備",
-    "Dependency Skill Tree 由 Connection 自動生成",
-    "Mission 節點改為依目前專案連線資料建立",
-    "保留 V0.7.0 模組庫、端子與接線核心"
+    "修正 3D 車輛上下左右四個方向全部相反問題",
+    "前進 / 後退 / 左轉 / 右轉的鍵盤與手機方向鍵同步修正",
+    "保留 V0.8.0 Signal Trace、Focus Network、Skill Tree 與模組接線功能"
   ]
 }

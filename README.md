@@ -1,4 +1,4 @@
-# UTOP-3Dv3 V0.8.0 Signal Trace & Skill Tree
+# UTOP-3Dv3 V0.8.1 Signal Trace & Skill Tree
 
 本版把 V0.7.0 已建立的 `state.connections` 正式往上延伸成分析核心。
 
@@ -15,3 +15,7 @@
 2. 到圖表/流程頁選設備與追蹤方向。
 3. 點「在3D顯示」即可進入 Focus Network。
 4. 未相關設備會淡化，相關設備與連線會保留高亮。
+
+
+## V0.8.1 Hotfix
+已校正車輛四向控制：前進、後退、左轉、右轉。
