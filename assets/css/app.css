@@ -69,3 +69,4 @@ button{border:1px solid var(--border);background:var(--panel);color:var(--text);
 .terminal-chip.role-other{background:#e5e7eb;border-color:#cbd5e1}
 .terminal-chip.active{outline:3px solid rgba(59,130,246,.28);transform:translateY(-1px)}
 @media(max-width:900px){.wiring-card-grid{grid-template-columns:1fr}}
+.three-error-list{margin:10px auto 0;max-width:680px;text-align:left;font-size:12px;line-height:1.5;word-break:break-word}.three-error small{display:block;margin-top:10px}

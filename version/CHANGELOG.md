@@ -1,16 +1,13 @@
-# UTOP-3Dv3 V0.9.0 Wiring Card Builder
+# UTOP-3Dv3 V0.9.1 3D Core Loading Hotfix
 
-## 新增
-- 工程頁新增 **卡片式接線圖**
-- 每個模組顯示為獨立卡片並列出端子群組
-- 支援點選端子建立接線：先點來源，再點目標
-- 新增接線建構器狀態顯示與清除按鈕
-- 新增從接線卡片或接線清單直接切到 3D 顯示
+## 修正
+- 修正 3D 核心載入只依賴單一 jsDelivr CDN 的問題。
+- Three.js 改為多來源備援載入：本地 → jsDelivr → unpkg → esm.sh。
+- 若某一來源失敗，會自動切換下一個來源，不再立即讓 3D 整頁失效。
+- 若所有來源都失敗，畫面會列出各來源失敗原因，方便後續診斷。
 
-## 改善
-- 接線資料仍共用 `state.connections`，可被 3D Signal、Signal Trace 與 Skill Tree 共用
-- 端子以輸入 / 輸出 / 通訊 / 電源分類顯示，手機更容易操作
-
-## 延續保留
-- 車輛方向 hotfix 保留
-- 3D 模組庫、Signal Trace、Skill Tree 保留
+## 保留
+- V0.9.0 卡片式接線圖
+- 3D 模組庫
+- Signal Trace / Skill Tree
+- 車輛四方向控制修正

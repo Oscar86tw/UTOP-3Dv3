@@ -6,14 +6,46 @@ import {getSettings,defaultSettings} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
 
 let active=null;
-const THREE_URL='https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js';
+const THREE_SOURCES=[
+  {name:'本地 Three.js',url:'../../vendor/three/three.module.min.js'},
+  {name:'jsDelivr',url:'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js'},
+  {name:'unpkg',url:'https://unpkg.com/three@0.180.0/build/three.module.js'},
+  {name:'esm.sh',url:'https://esm.sh/three@0.180.0'}
+];
 function setText(id,text){const el=document.getElementById(id);if(el)el.textContent=text;}
 function showToast(text){const el=document.getElementById('simToast');if(!el)return;el.textContent=text;el.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>el.classList.remove('show'),1500);}
+async function loadThree(){
+  const errors=[];
+  for(const source of THREE_SOURCES){
+    try{
+      setText('threeLoading',`正在載入 3D 核心：${source.name}…`);
+      const mod=await import(source.url);
+      if(mod?.Scene&&mod?.WebGLRenderer)return {THREE:mod,source:source.name};
+      throw new Error('模組內容不完整');
+    }catch(err){
+      console.warn(`[UTOP-3D] ${source.name} 載入失敗`,err);
+      errors.push(`${source.name}: ${err?.message||err}`);
+    }
+  }
+  const error=new Error('所有 Three.js 來源皆載入失敗');
+  error.details=errors;
+  throw error;
+}
 export function unmountSimulator3D(){if(!active)return;active.destroy();active=null;}
 export async function mountSimulator3D(callbacks={}){
   unmountSimulator3D();const host=document.getElementById('threeStage');if(!host)return null;setText('threeLoading','正在載入 Three.js 3D Editor…');
-  try{const THREE=await import(THREE_URL);if(!document.getElementById('threeStage'))return null;active=createSimulator(THREE,host,callbacks);return active;}
-  catch(err){console.error(err);host.innerHTML='<div class="three-error"><b>3D 核心載入失敗</b><br>請確認網路可連到 jsDelivr CDN。其他 UTOP 功能仍可使用。</div>';setText('simStatus','3D OFFLINE');return null;}
+  try{
+    const loaded=await loadThree();
+    if(!document.getElementById('threeStage'))return null;
+    active=createSimulator(loaded.THREE,host,callbacks);
+    setText('simStatus',`3D READY · ${loaded.source}`);
+    return active;
+  }catch(err){
+    console.error(err);
+    const details=(err.details||[]).map(x=>`<li>${String(x).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}</li>`).join('');
+    host.innerHTML=`<div class="three-error"><b>3D 核心載入失敗</b><br>已依序嘗試本地、jsDelivr、unpkg、esm.sh。<ul class="three-error-list">${details}</ul><small>其他 UTOP 功能仍可使用。</small></div>`;
+    setText('simStatus','3D OFFLINE');return null;
+  }
 }
 function createSimulator(THREE,host,callbacks){
   host.innerHTML='';
@@ -173,5 +205,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V0.9.0 Wiring Card Builder 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V0.9.1 3D Core Hotfix 已啟動');return controllerApi;
 }
