@@ -226,3 +226,16 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
 
 /* V1.6.4 Device Transform Controls */
 .transform-slider-grid{display:grid;grid-template-columns:1fr;gap:12px}.axis-control,.rotation-control{border:1px solid var(--border);border-radius:14px;padding:10px;background:var(--panel2)}.axis-control-head{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:center}.axis-control-head label{font-weight:800}.axis-control-head input{min-width:0}.transform-range{width:100%;margin-top:8px;accent-color:#f59e0b}.range-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px}.rotation-presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.rotation-presets button{padding:8px 4px;border-radius:10px;font-size:12px}.rotation-presets button:hover{background:#fff3d6;border-color:#f59e0b}@media(min-width:900px){.transform-slider-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
+
+/* V1.6.8 - control pulse / stable native select / larger quick scene & view */
+.quick-scene-view{gap:10px;margin-left:0;align-items:stretch}
+.quick-scene-view label{min-height:48px;display:flex;align-items:center;gap:8px;padding:4px 10px 4px 14px;border:1px solid var(--border);border-radius:14px;background:#fff;font-size:15px;font-weight:800;white-space:nowrap}
+.quick-scene-view select{min-width:190px;max-width:260px;min-height:40px;border:0;background:#fff;padding:5px 30px 5px 8px;font-size:15px;font-weight:700;outline:none;pointer-events:auto;position:relative;z-index:30}
+.floating-tool-window select,.dockable-sidebar select{pointer-events:auto;touch-action:auto;user-select:auto}
+.floating-tool-window[data-tool-route]{contain:none}
+.barrier-auto-close-field{border:1px solid #f4c75e;border-radius:12px;padding:10px;background:#fff9e8}
+.check-line.single{display:flex;align-items:center;gap:7px;font-size:13px}
+.inline-field{display:grid;grid-template-columns:auto minmax(80px,1fr) auto;gap:8px;align-items:center}.inline-field input{min-height:40px}
+.io-trigger{transition:background .1s,border-color .1s,box-shadow .1s,transform .08s}.io-trigger:active{transform:scale(.985)}
+@media(max-width:760px){.quick-scene-view label{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr)}.quick-scene-view select{width:100%;max-width:none;min-width:0}}

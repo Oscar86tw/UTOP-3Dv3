@@ -1,9 +1,11 @@
-UTOP-3Dv3 V1.6.7 Realistic Device Scene Upgrade
+UTOP-3Dv3 V1.6.8 Controls & Select Stability
 
-本版重點
-1. 常用車道設備的 3D 本體細節再深化，不只是提升路面畫質。
-2. 柵欄機、UHF/eTag、卡機、紅綠燈加入更多金屬、燈罩、反光與面板層次。
-3. 保留左桿/右桿、桿長、動作動畫、XYZ/RX/RY/RZ、Persistent Workspace、Google 雲端。
+本次修改
+1. DI / DO 全面改成一次性脈衝觸發，預設 OFF，按下約 0.45 秒後自動回 OFF。
+2. 柵欄機加入「內建自動關閉」與倒數秒數，預設 5 秒。
+3. 修正大量下拉式選單點一下就收回的問題。
+4. 上方場景 / 視野快速選單放大，操作尺寸接近主要工具按鈕。
 
 後續追蹤
-- 若要更接近高階賽車遊戲畫質，下一階段最有效的是導入 PBR 貼圖（BaseColor/Normal/Roughness）、HDRI 環境反射、SSAO/Bloom，以及更高細節車輛模型。
+- 建議實際部署後逐一測試 29 類模組的 DI / DO 脈衝與 Connection 連動。
+- 柵欄機自動關閉後續可再加入「防砸輸入有效時暫停倒數 / 禁止落桿」邏輯。

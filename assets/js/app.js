@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.6.7';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.7';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.6.8';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.8';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,9 +11,9 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.7';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.7';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.7';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.8';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.8';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.8';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -251,7 +251,7 @@ function resetFloatingPanelLayouts(){
 }
 function enableFloatingPanelDrag(panel){
   const route=panel.dataset.toolRoute||'',handle=panel.querySelector('.floating-tool-header');let drag=null;
-  const startFront=()=>bringPanelToFront(panel);panel.addEventListener('pointerdown',startFront,{capture:true});
+  const startFront=e=>{if(e.target.closest('select,option,input,textarea,button,label,a,[contenteditable="true"]'))return;bringPanelToFront(panel);};panel.addEventListener('pointerdown',startFront,{capture:true});
   handle?.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;if((panel.dataset.dockEdge||'')||window.innerWidth<=900)return;const r=panel.getBoundingClientRect();drag={dx:e.clientX-r.left,dy:e.clientY-r.top};panel.style.right='auto';bringPanelToFront(panel);handle.setPointerCapture?.(e.pointerId);});
   handle?.addEventListener('pointermove',e=>{if(!drag)return;const maxX=Math.max(0,window.innerWidth-panel.offsetWidth),maxY=Math.max(72,window.innerHeight-panel.offsetHeight);panel.style.left=Math.max(0,Math.min(maxX,e.clientX-drag.dx))+'px';panel.style.top=Math.max(72,Math.min(maxY,e.clientY-drag.dy))+'px';});
   const stop=()=>{if(drag)savePanelLayout(panel,route);drag=null;};handle?.addEventListener('pointerup',stop);handle?.addEventListener('pointercancel',stop);
@@ -376,15 +376,19 @@ function bindDynamicInspector(){
     updateSettings(id,{[el.dataset.settingParam]:n});scheduleLiveDeviceSettings(id);
   }));
   document.getElementById('barrierArmSide')?.addEventListener('change',()=>{const id=state.selectedDevice;if(!id)return;updateSettings(id,{armSide:val('barrierArmSide','left')});scheduleLiveDeviceSettings(id);});
+  document.getElementById('barrierAutoCloseEnabled')?.addEventListener('change',()=>{const id=state.selectedDevice;if(!id)return;updateSettings(id,{autoCloseEnabled:checked('barrierAutoCloseEnabled')});scheduleLiveDeviceSettings(id);});
+  document.getElementById('barrierAutoCloseSeconds')?.addEventListener('input',()=>{const id=state.selectedDevice;if(!id)return;const seconds=Math.max(1,Math.min(120,Number(val('barrierAutoCloseSeconds',5))||5));updateSettings(id,{autoCloseSeconds:seconds});scheduleLiveDeviceSettings(id);});
   document.getElementById('applyModuleSettings')?.addEventListener('click',safeHandler('設備參數套用',async()=>{
     const id=state.selectedDevice,patch={};workspaceRoot.querySelectorAll('[data-setting-param]').forEach(el=>{const n=Number(el.value);if(Number.isFinite(n))patch[el.dataset.settingParam]=n;});
     const sideSelect=document.getElementById('barrierArmSide');if(sideSelect)patch.armSide=sideSelect.value||'left';
+    const autoClose=document.getElementById('barrierAutoCloseEnabled');if(autoClose)patch.autoCloseEnabled=!!autoClose.checked;
+    const autoSeconds=document.getElementById('barrierAutoCloseSeconds');if(autoSeconds)patch.autoCloseSeconds=Math.max(1,Math.min(120,Number(autoSeconds.value)||5));
     updateSettings(id,patch);await withSimulator('設備參數套用',s=>s.applyDeviceSettings(id));
     refreshInspectorPreserveScroll(id);
   }));
   workspaceRoot.querySelectorAll('[data-open-selected-inspector]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab='controls';syncInspector(b.dataset.openSelectedInspector,true);}));
   workspaceRoot.querySelectorAll('[data-device-action]').forEach(b=>b.addEventListener('click',safeHandler('設備控制',async()=>{const [id,action]=b.dataset.deviceAction.split('|');await withSimulator('設備控制',s=>s.executeDeviceAction(id,action));setTimeout(()=>refreshInspectorPreserveScroll(id),80);})));
-  workspaceRoot.querySelectorAll('[data-io-trigger]').forEach(b=>b.addEventListener('click',safeHandler('DI/DO 模擬',async()=>{const [id,dir,signal]=b.dataset.ioTrigger.split('|');await withSimulator('DI/DO 模擬',s=>s.simulateIo(id,dir,signal));refreshInspectorPreserveScroll(id);})));
+  workspaceRoot.querySelectorAll('[data-io-trigger]').forEach(b=>b.addEventListener('click',safeHandler('DI/DO 脈衝',async()=>{const [id,dir,signal]=b.dataset.ioTrigger.split('|');await withSimulator('DI/DO 脈衝',s=>s.simulateIo(id,dir,signal));refreshInspectorPreserveScroll(id);setTimeout(()=>{if(state.selectedDevice===id)refreshInspectorPreserveScroll(id);},520);})));
 }
 function bind(){
   root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{state.simulator.cameraPreset=Number(b.dataset.view);go('simulator').then(()=>sim3d?.gotoView(Number(b.dataset.view)))}));

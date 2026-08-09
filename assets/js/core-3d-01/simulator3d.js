@@ -4,8 +4,8 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.6.7';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.6.7';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.6.8';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.6.8';
 
 let active=null;
 const THREE_SOURCES=[
@@ -421,9 +421,9 @@ function createVehicle(colorMat,x,z,rot=0){
     const visitKey=`${id}:${String(action).toLowerCase()}`;if(visited.has(visitKey))return false;visited.add(visitKey);
     const dev=devices.find(d=>d.id===id),root=deviceRoots[id];if(!dev||!root)return false;const type=(dev.type||'').toLowerCase();let status=String(action).toUpperCase();
     if(type==='barrier'){
-      const s=getSettings(id);if(action==='open'){barrierOpen=true;state.simulator.barrier=true;root.userData.barrierTarget=-Math.PI/2;root.userData.barrierSeconds=Math.max(.2,Number(s.openTime)||3);status='OPENING';}
-      else if(action==='close'||action==='reset'){barrierOpen=false;state.simulator.barrier=false;root.userData.barrierTarget=0;root.userData.barrierSeconds=Math.max(.2,Number(s.closeTime)||3);status='CLOSING';}
-      else if(action==='stop'){root.userData.barrierTarget=null;status='STOPPED';}else if(action==='safety'){barrierOpen=true;root.userData.barrierTarget=-Math.PI/2;root.userData.barrierSeconds=Math.max(.2,Number(s.openTime)||3);status='SAFETY → OPENING';}
+      const s=getSettings(id);if(action==='open'){barrierOpen=true;state.simulator.barrier=true;root.userData.barrierTarget=-Math.PI/2;root.userData.barrierSeconds=Math.max(.2,Number(s.openTime)||3);root.userData.barrierAutoCloseArmed=!!s.autoCloseEnabled;root.userData.barrierAutoCloseRemaining=null;status='OPENING';}
+      else if(action==='close'||action==='reset'){barrierOpen=false;state.simulator.barrier=false;root.userData.barrierTarget=0;root.userData.barrierSeconds=Math.max(.2,Number(s.closeTime)||3);root.userData.barrierAutoCloseArmed=false;root.userData.barrierAutoCloseRemaining=null;status='CLOSING';}
+      else if(action==='stop'){root.userData.barrierTarget=null;root.userData.barrierAutoCloseArmed=false;root.userData.barrierAutoCloseRemaining=null;status='STOPPED';}else if(action==='safety'){barrierOpen=true;root.userData.barrierTarget=-Math.PI/2;root.userData.barrierSeconds=Math.max(.2,Number(s.openTime)||3);root.userData.barrierAutoCloseArmed=false;root.userData.barrierAutoCloseRemaining=null;status='SAFETY → OPENING';}
     }else if(type==='loop'){if(action==='vehicle'){loopOn=true;state.simulator.loop=true;status='ON';}else if(action==='clear'){loopOn=false;state.simulator.loop=false;status='OFF';}}
     else if(type==='uhf'){if(action==='read'){etagFlash=1;status='TAG DETECTED';}else status='READY';}
     else if(type==='traffic'||type==='ledpanel'){
@@ -457,22 +457,29 @@ function createVehicle(colorMat,x,z,rot=0){
     showToast(triggered.length?`${dev.name} · ${status} · 傳遞 ${triggered.length} 條訊號`:`${dev.name} · ${status}`);callbacks.onSelection?.(id);return true;
   }
 
-  function simulateIo(id,direction,signal){
-    const dev=devices.find(d=>d.id===id),root=deviceRoots[id];if(!dev||!root)return false;
-    const rt=getRuntime(id)||{},io={...(rt.io||{})},key=String(signal),next=!io[key];io[key]=next;updateRuntime(id,{...rt,io,lastIo:`${String(direction).toUpperCase()} ${key} ${next?'ON':'OFF'}`});
-    if(next&&String(direction).toUpperCase()==='DI'){
-      const action=actionForTargetTerminal(dev.type,key);executeDeviceAction(id,action,new Set());
-    }
-    if(next&&String(direction).toUpperCase()==='DO'){
-      const visited=new Set([`${id}:manual-${key}`]);
-      state.connections.filter(c=>c.enabled!==false&&c.fromDevice===id&&String(c.fromTerminal).toUpperCase()===key.toUpperCase()).forEach(conn=>{
-        pulseConnection(conn.id);noteSignal(conn);const targetDev=devices.find(d=>d.id===conn.toDevice);if(targetDev)executeDeviceAction(targetDev.id,actionForTargetTerminal(targetDev.type,conn.toTerminal),visited);
-      });
-    }
-    updateDeviceLabel(dev,root,true);showToast(`${dev.name} · ${String(direction).toUpperCase()} ${key} ${next?'ON':'OFF'}`);return next;
+function simulateIo(id,direction,signal){
+  const dev=devices.find(d=>d.id===id),root=deviceRoots[id];if(!dev||!root)return false;
+  const dir=String(direction).toUpperCase(),key=String(signal),rt=getRuntime(id)||{},io={...(rt.io||{})};
+  // DI / DO are pulse inputs in the simulator: default OFF, click -> ON briefly -> automatic OFF.
+  io[key]=true;updateRuntime(id,{...rt,io,lastIo:`${dir} ${key} PULSE ON`});updateDeviceLabel(dev,root,true);
+  if(dir==='DI'){
+    const action=actionForTargetTerminal(dev.type,key);executeDeviceAction(id,action,new Set());
   }
+  if(dir==='DO'){
+    const visited=new Set([`${id}:manual-${key}`]);
+    state.connections.filter(c=>c.enabled!==false&&c.fromDevice===id&&String(c.fromTerminal).toUpperCase()===key.toUpperCase()).forEach(conn=>{
+      pulseConnection(conn.id);noteSignal(conn);const targetDev=devices.find(d=>d.id===conn.toDevice);if(targetDev)executeDeviceAction(targetDev.id,actionForTargetTerminal(targetDev.type,conn.toTerminal),visited);
+    });
+  }
+  callbacks.onSelection?.(id);showToast(`${dev.name} · ${dir} ${key} 觸發`);
+  clearTimeout(root.userData.ioPulseTimers?.[`${dir}:${key}`]);root.userData.ioPulseTimers??={};
+  root.userData.ioPulseTimers[`${dir}:${key}`]=setTimeout(()=>{
+    const latest=getRuntime(id)||{},nextIo={...(latest.io||{})};nextIo[key]=false;updateRuntime(id,{...latest,io:nextIo,lastIo:`${dir} ${key} OFF`});updateDeviceLabel(dev,root,true);callbacks.onSelection?.(id);
+  },450);
+  return true;
+}
 
-  const controllerApi={
+const controllerApi={
     setBarrier(open){barrierOpen=!!open;state.simulator.barrier=barrierOpen;showToast(open?'Barrier OPEN':'Barrier CLOSE');},
     toggleLoop(){loopOn=!loopOn;state.simulator.loop=loopOn;showToast('Loop '+(loopOn?'ON':'OFF'));},
     triggerEtag(){etagFlash=1;showToast('ETAG DETECTED');setText('etagState','DETECTED');setTimeout(()=>setText('etagState','READY'),1200);},
@@ -529,9 +536,9 @@ function createVehicle(colorMat,x,z,rot=0){
     }
     const loopDevice=devices.find(d=>(d.type||'').toLowerCase().includes('loop'));const barrierDevice=devices.find(d=>(d.type||'').toLowerCase().includes('barrier'));const etagDevice=devices.find(d=>(d.type||'').toLowerCase().includes('etag')||(d.type||'').toLowerCase().includes('uhf'));const loopRoot=loopDevice?deviceRoots[loopDevice.id]:null;const barrierRoot=barrierDevice?deviceRoots[barrierDevice.id]:null;const etagRoot=etagDevice?deviceRoots[etagDevice.id]:null;
     if(loopRoot){const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);const loopWorld=new THREE.Vector3();loopRoot.getWorldPosition(loopWorld);const detected=Math.abs(carWorld.x-loopWorld.x)<3.15&&Math.abs(carWorld.z-loopWorld.z)<2.1;if(detected!==loopOn){loopOn=detected;state.simulator.loop=loopOn;if(loopOn)executeDeviceAction(loopDevice.id,'vehicle');else executeDeviceAction(loopDevice.id,'clear');}if(loopRoot.userData.zoneMat)loopRoot.userData.zoneMat.opacity=loopOn?.55:.2;}
-    Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.barrierPivot&&root.userData.barrierTarget!==null&&root.userData.barrierTarget!==undefined){const cur=root.userData.barrierPivot.rotation.z,targetAngle=root.userData.barrierTarget,secs=Math.max(.2,root.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){root.userData.barrierPivot.rotation.z=targetAngle;root.userData.barrierTarget=null;const bd=getRuntime(id);updateRuntime(id,{...(bd||{}),status:targetAngle<0?'OPEN':'CLOSED',active:targetAngle<0});}else root.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));root.userData.displayPanel.material.emissive?.setHex(0x550000);root.userData.displayPanel.material.emissiveIntensity=pulse;}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
+    Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.barrierPivot&&root.userData.barrierTarget!==null&&root.userData.barrierTarget!==undefined){const cur=root.userData.barrierPivot.rotation.z,targetAngle=root.userData.barrierTarget,secs=Math.max(.2,root.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){root.userData.barrierPivot.rotation.z=targetAngle;root.userData.barrierTarget=null;const bd=getRuntime(id),settings=getSettings(id);updateRuntime(id,{...(bd||{}),status:targetAngle<0?'OPEN':'CLOSED',active:targetAngle<0});if(targetAngle<0&&root.userData.barrierAutoCloseArmed&&settings.autoCloseEnabled){root.userData.barrierAutoCloseRemaining=Math.max(1,Number(settings.autoCloseSeconds)||5);root.userData.barrierAutoCloseArmed=false;}else if(targetAngle>=0){root.userData.barrierAutoCloseRemaining=null;}}else root.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}if(root.userData.barrierAutoCloseRemaining!==null&&root.userData.barrierAutoCloseRemaining!==undefined){root.userData.barrierAutoCloseRemaining=Math.max(0,root.userData.barrierAutoCloseRemaining-dt);const remain=root.userData.barrierAutoCloseRemaining,rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:`OPEN · AUTO CLOSE ${Math.ceil(remain)}s`,active:true});if(remain<=0){root.userData.barrierAutoCloseRemaining=null;executeDeviceAction(id,'close',new Set());}}if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));root.userData.displayPanel.material.emissive?.setHex(0x550000);root.userData.displayPanel.material.emissiveIntensity=pulse;}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>{const pulsing=(l.userData.signalPulseUntil||0)>now;l.material.opacity=pulsing?1:.22;if(pulsing&&l.material.color){const base=l.userData.baseColor;if(base===undefined)l.userData.baseColor=l.material.color.getHex();l.material.color.setHex(0xfff176);}else if(l.userData.baseColor!==undefined&&l.material.color)l.material.color.setHex(l.userData.baseColor);});
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.6.7 Realistic Device Scene Upgrade 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.6.8 Controls & Select Stability 已啟動');return controllerApi;
 }
