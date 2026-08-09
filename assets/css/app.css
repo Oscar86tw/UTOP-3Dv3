@@ -111,3 +111,9 @@ body[data-route="simulator"] .main-tabs{padding-inline:8px}body[data-route="simu
 .left-sidebar{left:8px}.right-sidebar{right:8px;width:340px}
 body[data-route="simulator"] .three-stage{height:calc(100vh - 270px);min-height:540px;width:100%;}
 @media(max-width:900px){.legacy-sidebar{top:120px;bottom:64px;width:min(88vw,360px)}.right-sidebar{width:min(88vw,360px)}body[data-route="simulator"] .three-stage{height:62vh;min-height:430px}}
+
+/* V1.1.0 local 3D fallback */
+.local3d-wrap{position:relative;width:100%;height:100%;min-height:inherit;background:#dbe7ee;overflow:hidden;border-radius:12px}
+.local3d-canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.local3d-canvas:active{cursor:grabbing}
+.local3d-badge{position:absolute;left:10px;top:10px;z-index:5;padding:6px 9px;border-radius:999px;background:rgba(17,24,39,.78);color:#fff;font-size:11px;pointer-events:none}

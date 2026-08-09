@@ -1,28 +1,19 @@
-# UTOP-3Dv3 V1.0.0 Legacy Workflow Merge
+# UTOP-3Dv3 V1.1.0 Offline 3D Workspace
 
-## 參考母版
-- UTOP V5.1.3.27 完整檢查與版本快取同步修正版。
-- 本版不是直接覆蓋舊程式，而是把成熟的操作方式、模組資產與工作區概念移植到目前 UTOP-3Dv3 新核心。
+## 核心修正
+- 新增 `core-local3d-01/local3d.js` 本地 3D 備援核心。
+- Three.js 本地/外部來源全部失敗時，不再顯示空白 `3D OFFLINE`，會自動進入 Local 3D。
+- Local 3D 不依賴 CDN，可直接使用目前專案的設備座標、Connection、Signal Trace 與 Runtime 狀態。
 
-## 主要新增 / 重構
-- 3D 工作區改為 V5 型態：左側模組庫、中央 3D/2D、右側設備設定。
-- 左右面板可收合，並改為浮動抽屜，中央 3D 維持寬滿版。
-- 工作區支援：兩區 / 看3D / 看2D / 3D滿版。
-- 匯入 29 張 V5 模組圖片資產。
-- 建立 29 類模組定義，圖片、名稱、型號、參數、控制、DI/DO、端子綁在同一份資料。
-- 點選 3D 設備後，設備設定可切換：屬性 / 規格參數 / 實體尺寸 / 控制 / DI/DO。
-- 3D 模組控制改為依設備類型顯示，不同模組有不同控制動作。
-- 快捷鍵改為每台設備、每個功能獨立設定；所有新設備預設未設定。
-- 模組庫新增設備後，同步建立設定、runtime、hotkey 容器。
+## Local 3D 可用功能
+- 設備選取
+- 拖移設備位置
+- 車輛前進 / 後退 / 左 / 右
+- 接線曲線顯示
+- Focus Network 淡化/高亮
+- 柵欄、地感、ETAG 等基本 Runtime 控制
 
-## 保留新版核心
-- Connection / 卡片式接線圖。
-- Signal Trace / Focus Network。
-- Dependency Skill Tree。
-- 2D/3D 共用座標。
-- Saved Viewpoints / 場景 / 多螢幕 / 現場工具。
-- V0.8.1 車輛四向控制修正。
-
-## 3D 載入
-- 依序嘗試專案本地 Three.js 路徑、unpkg、jsDelivr、esm.sh。
-- 優先加入 V5 使用的 unpkg 來源作為網路載入來源。
+## 工作區
+- 3D 維持寬滿版。
+- 左側模組庫與右側設備設定維持浮動抽屜，不縮小中央 3D。
+- 保留 V5 風格 Workspace：3D、2D、兩區、3D滿版。
