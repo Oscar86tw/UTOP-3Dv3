@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.6.4';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.4';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.6.7';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.7';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,9 +11,9 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.4';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.4';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.4';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.7';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.7';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.7';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -375,8 +375,10 @@ function bindDynamicInspector(){
     const id=state.selectedDevice;if(!id)return;const n=Number(el.value);if(!Number.isFinite(n))return;
     updateSettings(id,{[el.dataset.settingParam]:n});scheduleLiveDeviceSettings(id);
   }));
+  document.getElementById('barrierArmSide')?.addEventListener('change',()=>{const id=state.selectedDevice;if(!id)return;updateSettings(id,{armSide:val('barrierArmSide','left')});scheduleLiveDeviceSettings(id);});
   document.getElementById('applyModuleSettings')?.addEventListener('click',safeHandler('設備參數套用',async()=>{
     const id=state.selectedDevice,patch={};workspaceRoot.querySelectorAll('[data-setting-param]').forEach(el=>{const n=Number(el.value);if(Number.isFinite(n))patch[el.dataset.settingParam]=n;});
+    const sideSelect=document.getElementById('barrierArmSide');if(sideSelect)patch.armSide=sideSelect.value||'left';
     updateSettings(id,patch);await withSimulator('設備參數套用',s=>s.applyDeviceSettings(id));
     refreshInspectorPreserveScroll(id);
   }));

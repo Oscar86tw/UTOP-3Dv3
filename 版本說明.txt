@@ -1,10 +1,9 @@
-版本：UTOP-3Dv3 V1.6.4 Device Transform Controls
+UTOP-3Dv3 V1.6.7 Realistic Device Scene Upgrade
 
-本版新增：
-1. 設備屬性新增「顯示3D操作線」，可隱藏橘色選取框、XYZ軸、移動箭頭與RX/RY/RZ旋轉環。
-2. RX／RY／RZ 每軸新增 0°／90°／180°／270° 快速按鈕。
-3. XYZ 新增 -100 ～ +300 左右拉桿，拖曳時即時同步真正 WebGL 3D。
-4. 數字欄仍可直接輸入，位置限制同步為 -100 ～ +300。
-5. Persistent Workspace、Google Cloud Project Manager、Dockable/CAD Workspace 全部保留。
+本版重點
+1. 常用車道設備的 3D 本體細節再深化，不只是提升路面畫質。
+2. 柵欄機、UHF/eTag、卡機、紅綠燈加入更多金屬、燈罩、反光與面板層次。
+3. 保留左桿/右桿、桿長、動作動畫、XYZ/RX/RY/RZ、Persistent Workspace、Google 雲端。
 
-本版未刪除檔案。
+後續追蹤
+- 若要更接近高階賽車遊戲畫質，下一階段最有效的是導入 PBR 貼圖（BaseColor/Normal/Roughness）、HDRI 環境反射、SSAO/Bloom，以及更高細節車輛模型。

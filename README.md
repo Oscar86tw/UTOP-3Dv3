@@ -1,3 +1,21 @@
-# UTOP-3Dv3 V1.6.4 Device Transform Controls
+# UTOP-3Dv3 V1.6.6 Device Transform Controls
 
 本版延續 Persistent Workspace / CAD Workspace，強化設備 Transform 操作：可隱藏 3D 編輯操作線、RX/RY/RZ 提供 0/90/180/270 快速角度、XYZ 提供 -100～+300 即時拉桿。Google 雲端專案管理與浮動/停靠工具桌皆保留。
+
+
+## V1.6.5
+- 柵欄機新增左桿/右桿。
+- 桿長由機箱樞紐點往車道方向延伸。
+- 3D 畫質與光影品質提升。
+
+
+## V1.6.6
+- 升級場景材質與燈光，讓車道展示更接近實景。
+- 車輛模型增加輪胎、玻璃、車尾等細節。
+- Google Apps Script 橋接文件更新，明確區分 Drive 與 Sheet 的角色。
+
+
+## V1.6.7
+- 常用車道設備 3D 模型深化。
+- 強化金屬、反光、燈罩、面板與發光材質。
+- 保留所有既有工程操作與 Google 雲端。
