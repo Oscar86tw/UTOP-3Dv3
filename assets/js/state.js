@@ -1,9 +1,10 @@
 export const state = {
-  route:'overview',presentation:false,savedAt:new Date(),selectedDevice:'DEV-001',
+  route:'overview',presentation:false,savedAt:new Date(),selectedDevice:null,
   workspace:{mode:'3d',leftOpen:true,rightOpen:false,fullscreen3d:false,inspectorTab:'controls'},
   editor:{mode:'select',floorFocus:'1F',snap:true,gridSize:.25},
   simulator:{
     barrier:false,loop:false,signals:true,zones:true,labels:true,follow:false,cameraPreset:0,
+    liveCamera:{yaw:.62,pitch:.42,radius:27,target:[0,1,0]},
     viewpoints:[
       {name:'入口車道全景',yaw:0.62,pitch:0.42,radius:27,target:[0,1,0],floor:'1F'},
       {name:'地感俯視',yaw:0.02,pitch:1.17,radius:22,target:[0,0,1],floor:'1F'},
@@ -24,52 +25,13 @@ export const state = {
     {id:'vehicle',name:'車輛',visible:true,opacity:1},
     {id:'signals',name:'DI/DO / 感應',visible:true,opacity:1}
   ],
-  deviceTransforms:{
-    'DEV-001':{x:-3.75,y:0,z:-4.6,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'},
-    'DEV-002':{x:-3.65,y:0,z:7.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-003':{x:-2.0,y:0,z:2.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-004':{x:-5.2,y:0,z:-4.0,rotationX:0,rotationY:Math.PI/2,rotationZ:0,floor:'1F'},
-    'DEV-005':{x:5.0,y:0,z:6.8,rotationX:0,rotationY:-Math.PI/2,rotationZ:0,floor:'1F'},
-    'DEV-006':{x:3.75,y:0,z:5.4,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-007':{x:-3.45,y:0,z:2.8,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-008':{x:-3.55,y:0,z:-2.7,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-009':{x:2.0,y:0,z:-2.2,rotationX:0,rotationY:0,rotationZ:0,floor:'1F'},
-    'DEV-010':{x:5.2,y:0,z:4.0,rotationX:0,rotationY:-Math.PI/2,rotationZ:0,floor:'1F'},
-    'DEV-011':{x:3.45,y:0,z:-2.8,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'},
-    'DEV-012':{x:3.55,y:0,z:2.7,rotationX:0,rotationY:Math.PI,rotationZ:0,floor:'1F'}
-  },
-  deviceSettings:{
-    'DEV-001':{width:.34,height:1.03,depth:.28,boomLength:2.5,openTime:3,closeTime:3,installationHeight:0,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-002':{width:.23,height:.23,depth:.06,range:6,angle:55,installationHeight:2.4,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-003':{width:2,depth:1,turns:4,installationHeight:0,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-004':{doorCount:2,width:1.1,height:.7,depth:.15,installationHeight:1.2,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-005':{range:20,fov:80,width:.18,height:.14,depth:.18,installationHeight:2.8,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-006':{width:.34,height:1.03,depth:.28,boomLength:2.8,openTime:3,closeTime:3,installationHeight:0,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-007':{width:.55,height:1.5,depth:.38,installationHeight:0,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-008':{width:.487,height:.270,depth:.032,mountHeight:2.0,seconds:10,installationHeight:0,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-009':{width:2,depth:1,turns:4,installationHeight:0,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-010':{doorCount:2,width:1.1,height:.7,depth:.15,installationHeight:1.2,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-011':{width:.55,height:1.5,depth:.38,installationHeight:0,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false},
-    'DEV-012':{width:.487,height:.270,depth:.032,mountHeight:2.0,seconds:10,installationHeight:0,showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false}
-  },
-  deviceRuntime:{
-    'DEV-001':{status:'CLOSED',lastAction:'',active:false},
-    'DEV-002':{status:'READY',lastAction:'',active:false},
-    'DEV-003':{status:'OFF',lastAction:'',active:false},
-    'DEV-004':{status:'ONLINE',lastAction:'',active:false},
-    'DEV-005':{status:'ONLINE',lastAction:'',active:false},
-    'DEV-006':{status:'CLOSED',lastAction:'',active:false},
-    'DEV-007':{status:'RED',lastAction:'',active:true},
-    'DEV-008':{status:'IDLE',lastAction:'',active:false},
-    'DEV-009':{status:'OFF',lastAction:'',active:false},
-    'DEV-010':{status:'ONLINE',lastAction:'',active:false},
-    'DEV-011':{status:'RED',lastAction:'',active:true},
-    'DEV-012':{status:'IDLE',lastAction:'',active:false}
-  },
+  deviceTransforms:{},
+  deviceSettings:{},
+  deviceRuntime:{},
   /* 每個模組的每個功能預設都沒有快捷鍵，使用者自行設定 */
-  deviceHotkeys:{'DEV-001':{},'DEV-002':{},'DEV-003':{},'DEV-004':{},'DEV-005':{},'DEV-006':{},'DEV-007':{},'DEV-008':{},'DEV-009':{},'DEV-010':{},'DEV-011':{},'DEV-012':{}},
+  deviceHotkeys:{},
   hotkeys:[],
-  hotkeyEditor:{deviceId:'DEV-001',actionId:'',capture:false,message:'請先選擇模組與功能，再按「設定按鍵」。'},
+  hotkeyEditor:{deviceId:'',actionId:'',capture:false,message:'請先從模組庫加入設備，再選擇模組與功能。'},
   displays:[
     {name:'會議室電視',mode:'簡報同步',view:'跟隨主控',resolution:'4K',quality:'高',state:'ONLINE',signals:true,hud:true},
     {name:'工程平板',mode:'多視角',view:'地感俯視',resolution:'1920×1200',quality:'平衡',state:'ONLINE',signals:true,hud:true},
@@ -82,6 +44,7 @@ export const state = {
     {name:'ETAG 讀取',result:'未測試'},{name:'地感觸發',result:'未測試'},{name:'Controller DI1',result:'未測試'},
     {name:'Relay NO',result:'未測試'},{name:'DO1 輸出',result:'未測試'},{name:'柵欄 OPEN / CLOSE',result:'未測試'}
   ],
+  activeSignals:{},
   eventLog:['10:02:14 ETAG01 DETECTED','10:02:15 DI1 ON','10:02:15 Relay01 NO CLOSED','10:02:16 DO1 ON','10:02:16 Barrier01 OPEN'],
   field:{comparePercent:50,replaySpeed:'1x',currentView:'入口車道全景',barrierState:'CLOSED',scriptIndex:0,remoteState:'遙控器待命。'},
   scripts:[
@@ -91,18 +54,9 @@ export const state = {
     {id:'04',view:'DI/DO視圖',note:'顯示訊號追蹤與設備連動'},
     {id:'05',view:'完成畫面',note:'說明施工後整體效果'}
   ],
-  docsDevice:'DEV-001',moduleLibrary:{search:'',group:'全部'},
-  connections:[
-    {id:'CON-001',fromDevice:'DEV-003',fromTerminal:'OUT',toDevice:'DEV-004',toTerminal:'DI1',type:'DI',enabled:true},
-    {id:'CON-002',fromDevice:'DEV-004',fromTerminal:'DO1',toDevice:'DEV-001',toTerminal:'OPEN',type:'DO',enabled:true},
-    {id:'CON-003',fromDevice:'DEV-004',fromTerminal:'DO1',toDevice:'DEV-007',toTerminal:'GREEN',type:'DO',enabled:true},
-    {id:'CON-004',fromDevice:'DEV-007',fromTerminal:'GREEN',toDevice:'DEV-008',toTerminal:'DI1',type:'DI',enabled:true},
-    {id:'CON-005',fromDevice:'DEV-009',fromTerminal:'OUT',toDevice:'DEV-010',toTerminal:'DI1',type:'DI',enabled:true},
-    {id:'CON-006',fromDevice:'DEV-010',fromTerminal:'DO1',toDevice:'DEV-006',toTerminal:'OPEN',type:'DO',enabled:true},
-    {id:'CON-007',fromDevice:'DEV-010',fromTerminal:'DO1',toDevice:'DEV-011',toTerminal:'GREEN',type:'DO',enabled:true},
-    {id:'CON-008',fromDevice:'DEV-011',fromTerminal:'GREEN',toDevice:'DEV-012',toTerminal:'DI1',type:'DI',enabled:true}
-  ],
-  signalTrace:{enabled:false,focusDevice:'DEV-003',mode:'full'},
+  docsDevice:'',moduleLibrary:{search:'',group:'全部'},
+  connections:[],
+  signalTrace:{enabled:false,focusDevice:'',mode:'full'},
   wiringBuilder:{fromDevice:'',fromTerminal:'',toDevice:'',toTerminal:'',step:'from',message:'請先點選一個模組的來源端子，再點另一個模組的目標端子。'}
 ,
   sceneLibrary:{activePreset:'community-day'},
@@ -111,6 +65,7 @@ export const state = {
     {id:'RM-002',typeId:'stop-line',name:'停止線',kind:'stop',floor:'1F',x:0,z:4,rotation:0,width:5,length:.35,visible:true}
   ],
   selectedRoadMarking:'RM-001',
+  cloud:{webAppUrl:'',projectId:'',projectName:'未命名專案',lastCloudSavedAt:'',status:'尚未連線 Google 雲端'},
   debugCenter:{lastRun:'',checks:[]}
 
 };

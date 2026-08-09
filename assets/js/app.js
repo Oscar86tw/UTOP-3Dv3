@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.4.9';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.4.9';
+import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.5.1';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.5.1';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,12 +11,14 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.4.9';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.4.9';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.5.1';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.5.1';
+import {pingCloud,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.5.1';
 
 const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let capturing=false,sim3d=null,navEpoch=0,simulatorMountPromise=null,missionTimer=null;
-const STORAGE_KEY='utop3dv3.project.v1';
+const CLOUD_URL_KEY='utop3dv3.cloud.webAppUrl';
+const LEGACY_STORAGE_KEY='utop3dv3.project.v1';
 const DEFAULTS=cloneDefaults(state,devices);
 
 const byId=id=>document.getElementById(id);
@@ -31,34 +33,31 @@ function reportUiError(where,err){
 }
 function safeHandler(where,fn){return async e=>{try{return await fn(e);}catch(err){reportUiError(where,err);}}}
 
-function saveProjectState(showStatus=true){
-  try{
-    const payload={schema:'4.10',savedAt:new Date().toISOString(),state,devices};
-    localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
-    state.savedAt=new Date(payload.savedAt);
-    if(showStatus){const meta=byId('projectMeta');if(meta)meta.textContent='已儲存 · '+state.savedAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'});}
-    return true;
-  }catch(err){reportUiError('儲存專案',err);return false;}
+function rememberCloudUrl(){try{localStorage.setItem(CLOUD_URL_KEY,state.cloud?.webAppUrl||'');}catch(_){}}
+function restoreCloudUrl(){try{const u=localStorage.getItem(CLOUD_URL_KEY);if(u){state.cloud??={};state.cloud.webAppUrl=u;}}catch(_){}}
+function projectPayload(){return {state,devices};}
+function replaceProjectData(project){
+  const keepUrl=state.cloud?.webAppUrl||'';
+  const incomingState=project?.state&&typeof project.state==='object'?project.state:{};
+  for(const k of Object.keys(state))delete state[k];Object.assign(state,structuredClone(incomingState));
+  devices.splice(0,devices.length,...structuredClone(Array.isArray(project?.devices)?project.devices:[]));
+  migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
+  state.cloud??={};state.cloud.webAppUrl=keepUrl;state.cloud.projectId=project?.projectId||state.cloud.projectId||'';state.cloud.projectName=project?.projectName||state.cloud.projectName||'未命名專案';state.cloud.lastCloudSavedAt=project?.updatedAt||'';state.cloud.status='已從 Google 雲端開啟';
 }
-function restoreProjectState(){
-  try{
-    const raw=localStorage.getItem(STORAGE_KEY);
-    if(raw){
-      const payload=JSON.parse(raw);
-      if(payload?.state&&typeof payload.state==='object'){
-        for(const [k,v] of Object.entries(payload.state)) state[k]=v;
-        if(payload.savedAt)state.savedAt=new Date(payload.savedAt);
-      }
-      if(Array.isArray(payload?.devices)&&payload.devices.length)devices.splice(0,devices.length,...payload.devices);
-    }
-    migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
-    return !!raw;
-  }catch(err){
-    console.warn('[UTOP] 本機專案狀態還原失敗，執行完整性修復',err);
-    migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
-    return false;
-  }
+function importLegacyLocalProject(){
+  const raw=localStorage.getItem(LEGACY_STORAGE_KEY);if(!raw)throw new Error('找不到舊版本機專案資料');const payload=JSON.parse(raw);if(!payload?.state)throw new Error('舊版本機資料格式不正確');replaceProjectData({state:payload.state,devices:Array.isArray(payload.devices)?payload.devices:[],projectId:'',projectName:'舊版本機專案',updatedAt:payload.savedAt||''});state.cloud.projectId='';state.cloud.projectName='舊版本機專案';state.cloud.status='已匯入舊版本機資料，請按「儲存到 Google」完成雲端移轉';return true;
 }
+function resetToBlankProject(){
+  const keepUrl=state.cloud?.webAppUrl||'';const fresh=structuredClone(DEFAULTS.state);for(const k of Object.keys(state))delete state[k];Object.assign(state,fresh);devices.splice(0,devices.length);migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);state.cloud??={};Object.assign(state.cloud,{webAppUrl:keepUrl,projectId:'',projectName:'未命名專案',lastCloudSavedAt:'',status:'新空白專案'});
+}
+async function cloudSave(asNew=false){
+  state.cloud??={};state.cloud.webAppUrl=String(byId('cloudWebAppUrl')?.value??state.cloud.webAppUrl??'').trim();state.cloud.projectName=String(byId('cloudProjectName')?.value??state.cloud.projectName??'未命名專案').trim()||'未命名專案';rememberCloudUrl();
+  const r=await saveCloudProject(state.cloud.webAppUrl,{projectId:asNew?'':(state.cloud.projectId||''),projectName:state.cloud.projectName,...projectPayload()});state.cloud.projectId=r.projectId;state.cloud.projectName=r.projectName;state.cloud.lastCloudSavedAt=r.updatedAt;state.cloud.status=`✅ 已儲存到 Google：${r.projectName}`;state.savedAt=new Date(r.updatedAt);return r;
+}
+async function refreshCloudProjectList(){
+  state.cloud??={};state.cloud.webAppUrl=String(byId('cloudWebAppUrl')?.value??state.cloud.webAppUrl??'').trim();rememberCloudUrl();const items=await listCloudProjects(state.cloud.webAppUrl);const sel=byId('cloudProjectList');if(sel){sel.innerHTML='<option value="">請選擇專案</option>';for(const item of items){const o=document.createElement('option');o.value=item.projectId;o.textContent=`${item.projectName} · ${item.updatedAt?new Date(item.updatedAt).toLocaleString('zh-TW'):''}`;sel.appendChild(o);}}state.cloud.status=`已讀取 ${items.length} 個 Google 雲端專案`;const st=byId('cloudStatus');if(st)st.textContent=state.cloud.status;return items;
+}
+
 async function withSimulator(where,fn){
   try{
     if(state.route!=='simulator'){state.workspace.mode='3d';await go('simulator');}
@@ -161,6 +160,8 @@ function bind(){
   document.getElementById('toggleInspectorSidebar')?.addEventListener('click',()=>{state.workspace.rightOpen=!state.workspace.rightOpen;go('simulator')});
   document.getElementById('closeModuleSidebar')?.addEventListener('click',()=>{state.workspace.leftOpen=false;go('simulator')});
   root.querySelectorAll('[data-workspace-mode]').forEach(b=>b.addEventListener('click',()=>{state.workspace.mode=b.dataset.workspaceMode;go('simulator')}));
+  byId('quickScenePreset')?.addEventListener('change',safeHandler('切換場景',async e=>{const p=applyScenePreset(e.target.value);if(!p)return;await withSimulator('切換場景',sim=>sim.applyProjectState());}));
+  byId('quickViewSelect')?.addEventListener('change',safeHandler('切換視野',async e=>{const i=Number(e.target.value);state.simulator.cameraPreset=i;await withSimulator('切換視野',sim=>sim.gotoView(i));}));
   document.getElementById('toggle3DFullscreen')?.addEventListener('click',()=>{state.workspace.fullscreen3d=!state.workspace.fullscreen3d;go('simulator')});
   root.querySelectorAll('[data-editor-mode]').forEach(b=>b.addEventListener('click',safeHandler('切換3D編輯模式',async()=>{setEditorMode(b.dataset.editorMode);root.querySelectorAll('[data-editor-mode]').forEach(x=>x.classList.toggle('active',x.dataset.editorMode===state.editor.mode));await withSimulator('切換3D編輯模式',s=>s.setEditorMode(state.editor.mode));})));
   document.getElementById('toggleSnap')?.addEventListener('click',safeHandler('Snap切換',async e=>{state.editor.snap=!state.editor.snap;e.currentTarget.classList.toggle('active',state.editor.snap);e.currentTarget.textContent=`Snap ${state.editor.snap?'ON':'OFF'}`;await withSimulator('Snap切換',s=>s.setSnap(state.editor.snap));}));
@@ -177,8 +178,8 @@ function bind(){
 
   byId('applyPlanTransform')?.addEventListener('click',safeHandler('套用平面位置',()=>applyPlanPatch({x:num('planX'),z:num('planZ'),rotationY:num('planRot')*Math.PI/180,floor:val('planFloor','1F')})));
 
-  document.getElementById('hotkeyDevice')?.addEventListener('change',e=>{state.hotkeyEditor.deviceId=e.target.value;state.hotkeyEditor.actionId='';state.hotkeyEditor.message='請選擇這台模組要設定的功能。';go('hotkeys')});
-  document.getElementById('hotkeyAction')?.addEventListener('change',e=>{state.hotkeyEditor.actionId=e.target.value;state.hotkeyEditor.message=e.target.value?'按「設定按鍵」後，直接按你要使用的按鍵。':'請選擇功能。';go('hotkeys')});
+  document.getElementById('hotkeyDevice')?.addEventListener('change',e=>{state.hotkeyEditor.deviceId=e.target.value;state.hotkeyEditor.actionId='';state.hotkeyEditor.message='請選擇這台模組要設定的功能。';const actionSel=byId('hotkeyAction');if(actionSel){actionSel.innerHTML='<option value="">請選擇功能</option>';for(const a of controlsFor(e.target.value?devices.find(d=>d.id===e.target.value)?.type:'')||[]){const o=document.createElement('option');o.value=a.id;o.textContent=a.label;actionSel.appendChild(o);}}const cap=byId('captureHotkey');if(cap)cap.disabled=true;const st=byId('captureStatus');if(st)st.textContent=state.hotkeyEditor.message;});
+  document.getElementById('hotkeyAction')?.addEventListener('change',e=>{state.hotkeyEditor.actionId=e.target.value;state.hotkeyEditor.message=e.target.value?'按「設定按鍵」後，直接按你要使用的按鍵。':'請選擇功能。';const cap=byId('captureHotkey');if(cap)cap.disabled=!e.target.value;const st=byId('captureStatus');if(st)st.textContent=state.hotkeyEditor.message;});
   document.getElementById('captureHotkey')?.addEventListener('click',()=>{if(!state.hotkeyEditor.actionId)return;capturing=true;state.hotkeyEditor.capture=true;const el=document.getElementById('captureStatus');if(el)el.textContent='請直接按下單鍵或組合鍵；Esc 取消，Delete 清除此功能按鍵。'});
   root.querySelectorAll('[data-clear-device-hotkey]').forEach(b=>b.addEventListener('click',()=>{const [id,action]=b.dataset.clearDeviceHotkey.split('|');if(state.deviceHotkeys[id])delete state.deviceHotkeys[id][action];state.hotkeyEditor.message='已清除快捷鍵。';go('hotkeys')}));
 
@@ -200,6 +201,16 @@ function bind(){
   document.getElementById('compareRange')?.addEventListener('input',e=>{state.field.comparePercent=Number(e.target.value);const el=document.getElementById('compareText');if(el)el.textContent=`目前 ${state.field.comparePercent}% 疊圖比較。`});
   document.getElementById('addPhoto')?.addEventListener('click',()=>{state.photos.push({id:'P-'+String(state.photos.length+1).padStart(3,'0'),title:'新現場照片',device:state.selectedDevice});go('field')});
   document.getElementById('runAllTests')?.addEventListener('click',()=>{state.tests.forEach(t=>t.result='PASS');go('field')});
+  byId('cloudWebAppUrl')?.addEventListener('change',e=>{state.cloud??={};state.cloud.webAppUrl=e.target.value.trim();rememberCloudUrl();});
+  byId('cloudProjectName')?.addEventListener('input',e=>{state.cloud??={};state.cloud.projectName=e.target.value;});
+  byId('cloudConnect')?.addEventListener('click',safeHandler('Google 雲端連線',async()=>{state.cloud.webAppUrl=val('cloudWebAppUrl',state.cloud.webAppUrl).trim();rememberCloudUrl();const r=await pingCloud(state.cloud.webAppUrl);state.cloud.status=`✅ Google 雲端已連線 · ${r.service||'UTOP'}`;byId('cloudStatus').textContent=state.cloud.status;}));
+  byId('cloudRefresh')?.addEventListener('click',safeHandler('讀取雲端專案',refreshCloudProjectList));
+  byId('cloudSave')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{await cloudSave(false);byId('cloudStatus').textContent=state.cloud.status;await refreshCloudProjectList();}));
+  byId('cloudSaveAs')?.addEventListener('click',safeHandler('Google 雲端另存',async()=>{await cloudSave(true);byId('cloudStatus').textContent=state.cloud.status;await refreshCloudProjectList();}));
+  byId('cloudImportLegacy')?.addEventListener('click',safeHandler('匯入舊版本機專案',async()=>{importLegacyLocalProject();await go('project');}));
+  byId('cloudNew')?.addEventListener('click',safeHandler('建立空白專案',async()=>{if(devices.length||state.connections.length){if(!confirm('建立空白專案？目前未儲存內容會從畫面清除。'))return;}resetToBlankProject();await go('simulator');}));
+  byId('cloudOpen')?.addEventListener('click',safeHandler('開啟 Google 專案',async()=>{const id=val('cloudProjectList');if(!id)throw new Error('請先選擇雲端專案');const r=await loadCloudProject(state.cloud.webAppUrl,id);replaceProjectData(r.project);await go('simulator');}));
+  byId('cloudDelete')?.addEventListener('click',safeHandler('刪除 Google 專案',async()=>{const id=val('cloudProjectList');if(!id)throw new Error('請先選擇雲端專案');if(!confirm('確定刪除選取的 Google 雲端專案？'))return;await deleteCloudProject(state.cloud.webAppUrl,id);if(state.cloud.projectId===id)state.cloud.projectId='';state.cloud.status='已刪除 Google 雲端專案';await refreshCloudProjectList();}));
   document.getElementById('runDebugAudit')?.addEventListener('click',()=>{runDebugAudit();go('project');});
   document.getElementById('repairProjectState')?.addEventListener('click',()=>{migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);saveProjectState(false);runFunctionStateAudit();go('project');});
   document.getElementById('runFunctionStateAudit')?.addEventListener('click',()=>{runFunctionStateAudit();go('project');});
@@ -222,7 +233,7 @@ window.addEventListener('keydown',e=>{
 
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)go(b.dataset.route)});
 byId('presentationToggle')?.addEventListener('click',()=>{state.presentation=!state.presentation;document.body.classList.toggle('presentation',state.presentation);const b=byId('presentationToggle');if(b)b.textContent=state.presentation?'退出簡報':'簡報模式'});
-byId('saveBtn')?.addEventListener('click',()=>saveProjectState(true));
-window.addEventListener('beforeunload',()=>saveProjectState(false));
-restoreProjectState();
+byId('saveBtn')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{if(!state.cloud?.webAppUrl){state.cloud??={};state.cloud.status='請先到「專案 / Debug」設定 Google Apps Script Web App 網址';await go('project');return;}await cloudSave(false);const meta=byId('projectMeta');if(meta)meta.textContent=`Google 已儲存 · ${state.cloud.projectName}`;}));
+restoreCloudUrl();
+migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
 go(state.route||'overview');

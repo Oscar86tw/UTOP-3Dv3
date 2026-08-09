@@ -4,7 +4,7 @@ import {terminalsFor} from '../core-module-01/module-manager.js';
 
 export function runDebugAudit(){
   const checks=[];const add=(name,ok,detail)=>checks.push({name,ok,detail});
-  add('設備資料',devices.length>0,`${devices.length} 台設備`);
+  add('設備資料',true,devices.length?`${devices.length} 台設備`:'空白專案，尚未加入設備');
   const missingTransform=devices.filter(d=>!state.deviceTransforms?.[d.id]);add('3D 座標',missingTransform.length===0,missingTransform.length?`缺少：${missingTransform.map(x=>x.name).join('、')}`:'全部設備都有座標');
   const missingSettings=devices.filter(d=>!state.deviceSettings?.[d.id]);add('設備設定',missingSettings.length===0,missingSettings.length?`缺少 ${missingSettings.length} 台`:'全部設備都有設定');
   const invalidConnections=(state.connections||[]).filter(c=>{const a=devices.find(d=>d.id===c.fromDevice),b=devices.find(d=>d.id===c.toDevice);return !a||!b||!terminalsFor(a.type).includes(c.fromTerminal)||!terminalsFor(b.type).includes(c.toTerminal);});

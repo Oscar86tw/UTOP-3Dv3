@@ -4,8 +4,8 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.4.9';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.4.9';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.5.1';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.5.1';
 
 let active=null;
 const THREE_SOURCES=[
@@ -131,7 +131,7 @@ function createSimulator(THREE,host,callbacks){
   }
   const car=createVehicle(mats.blue,-2.05,15,0);
   const exitCarMat=new THREE.MeshStandardMaterial({color:0xb45309,roughness:.55,metalness:.08});
-  const exitCar=createVehicle(exitCarMat,2.05,-15,Math.PI);
+  const exitCar=createVehicle(exitCarMat,2.05,-15,Math.PI);exitCar.visible=false;exitCar.userData.demoOnly=true;
 
   const signalGroup=new THREE.Group();signalGroup.userData.layer='signals';floorGroup('1F').add(signalGroup);
 
@@ -173,6 +173,12 @@ function createSimulator(THREE,host,callbacks){
     hidden.forEach(o=>o.visible=true);
     return targetBox;
   }
+  function deviceLabelY(root,s){
+    const bbox=physicalBoxOf(root,new THREE.Box3()),world=new THREE.Vector3();root.getWorldPosition(world);
+    const localTop=Math.max(.25,bbox.max.y-world.y);
+    const offset=Math.max(-3,Math.min(3,Number(s.labelOffsetY)||0));
+    return Math.min(5.2,Math.max(.65,localTop+.42+offset));
+  }
   function createDeviceLabel(device,root){
     const s=getSettings(device.id);if(s.showLabel===false)return null;
     const canvas=document.createElement('canvas');canvas.width=640;canvas.height=170;const ctx=canvas.getContext('2d');
@@ -180,13 +186,13 @@ function createSimulator(THREE,host,callbacks){
     const material=new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false,depthWrite:false});
     const sprite=new THREE.Sprite(material);sprite.renderOrder=1000;sprite.userData.isDeviceLabel=true;sprite.userData.deviceId=device.id;
     root.add(sprite);root.userData.nameLabel=sprite;root.userData.nameLabelCanvas=canvas;root.userData.nameLabelCtx=ctx;root.userData.nameLabelTexture=texture;root.userData.nameLabelText='';
-    const bbox=physicalBoxOf(root,new THREE.Box3());const height=Math.max(.35,bbox.max.y-bbox.min.y);sprite.position.set(Number(s.labelOffsetX)||0,height+0.72+(Number(s.labelOffsetY)||0),Number(s.labelOffsetZ)||0);sprite.scale.set(3.6,.96,1);
+    sprite.position.set(Number(s.labelOffsetX)||0,deviceLabelY(root,s),Number(s.labelOffsetZ)||0);sprite.scale.set(2.8,.74,1);
     return sprite;
   }
   function updateDeviceLabel(device,root,force=false){
     const s=getSettings(device.id),sprite=root.userData.nameLabel;
     if(s.showLabel===false||state.simulator.labels===false){if(sprite)sprite.visible=false;return;}
-    const target=sprite||createDeviceLabel(device,root);if(!target)return;target.visible=true;const bbox=physicalBoxOf(root,new THREE.Box3());const height=Math.max(.35,bbox.max.y-bbox.min.y);target.position.set(Number(s.labelOffsetX)||0,height+0.72+(Number(s.labelOffsetY)||0),Number(s.labelOffsetZ)||0);
+    const target=sprite||createDeviceLabel(device,root);if(!target)return;target.visible=true;target.position.set(Number(s.labelOffsetX)||0,deviceLabelY(root,s),Number(s.labelOffsetZ)||0);
     const rt=getRuntime(device.id)||{};const text=`${device.name}|${rt.status||device.state||'READY'}`;if(!force&&root.userData.nameLabelText===text)return;root.userData.nameLabelText=text;
     const c=root.userData.nameLabelCanvas,ctx=root.userData.nameLabelCtx;ctx.clearRect(0,0,c.width,c.height);
     ctx.fillStyle='rgba(9,20,31,.88)';ctx.beginPath();ctx.roundRect(5,5,c.width-10,c.height-10,28);ctx.fill();ctx.strokeStyle='#67c8ed';ctx.lineWidth=6;ctx.stroke();
@@ -218,7 +224,8 @@ function createSimulator(THREE,host,callbacks){
   // Keep these declarations above the first initialization call to avoid TDZ startup errors.
   const keys=new Set();
   let speed=0,loopOn=false,barrierOpen=!!state.simulator.barrier;
-  let yaw=.62,pitch=.42,radius=27,target=new THREE.Vector3(0,1,0),follow=!!state.simulator.follow,etagFlash=0;
+  const live=state.simulator.liveCamera||{yaw:.62,pitch:.42,radius:27,target:[0,1,0]};let yaw=Number(live.yaw??.62),pitch=Number(live.pitch??.42),radius=Number(live.radius??27),target=new THREE.Vector3(...(Array.isArray(live.target)?live.target:[0,1,0])),follow=false,etagFlash=0;state.simulator.follow=false;
+  function persistCamera(){state.simulator.liveCamera={yaw,pitch,radius,target:[target.x,target.y,target.z]};}
   let laneDemo={running:false,mode:'entry',entry:{step:0,elapsed:0},exit:{step:0,elapsed:0}};
   let selectedId=state.selectedDevice||devices[0]?.id||null;
   let editorMode=state.editor.mode||'select',snap=!!state.editor.snap,draggingDevice=false,gizmoDragging=false,gizmoKind='',gizmoAxis='',gizmoStart={x:0,y:0},gizmoBase=null,orbiting=false,panning=false,lastX=0,lastY=0,rotateStart=0,rotateBase={x:0,y:0,z:0},rotateAxis='y',moveVertical=false;
@@ -288,7 +295,7 @@ function createSimulator(THREE,host,callbacks){
       }
       const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,y:root.position.y,z:root.position.z,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:tr.floor});updateSelection();refreshSignals();callbacks.onTransform?.(selectedId);return;
     }
-    if(panning&&!state.simulator.follow){const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;const panScale=radius*.0025;const right=new THREE.Vector3();camera.getWorldDirection(right);right.cross(camera.up).normalize();const up=new THREE.Vector3(0,1,0);target.addScaledVector(right,-dx*panScale);target.addScaledVector(up,dy*panScale);return;}
+    if(panning&&!state.simulator.follow){const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;const panScale=radius*.0025;const right=new THREE.Vector3();camera.getWorldDirection(right);right.cross(camera.up).normalize();const up=new THREE.Vector3(0,1,0);target.addScaledVector(right,-dx*panScale);target.addScaledVector(up,dy*panScale);persistCamera();return;}
     if(draggingDevice&&selectedId){const root=deviceRoots[selectedId];
       if(editorMode==='move'){
         if(moveVertical){const dy=e.clientY-lastY;lastY=e.clientY;root.position.y=snapVal(root.position.y-dy*.025);const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,y:root.position.y,z:root.position.z,rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,floor:tr.floor});updateSelection();refreshSignals();callbacks.onTransform?.(selectedId);}
@@ -297,11 +304,11 @@ function createSimulator(THREE,host,callbacks){
         const delta=(e.clientX-rotateStart)*.012;root.rotation.set(rotateBase.x,rotateBase.y,rotateBase.z);root.rotation[rotateAxis]=rotateBase[rotateAxis]+delta;const tr=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{rotationX:root.rotation.x,rotationY:root.rotation.y,rotationZ:root.rotation.z,x:root.position.x,y:root.position.y,z:root.position.z,floor:tr.floor});updateSelection();refreshSignals();callbacks.onTransform?.(selectedId);
       }return;
     }
-    if(orbiting&&!state.simulator.follow){const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;yaw-=dx*.008;pitch=Math.max(.12,Math.min(1.35,pitch+dy*.006));}
+    if(orbiting&&!state.simulator.follow){const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;yaw-=dx*.008;pitch=Math.max(.12,Math.min(1.35,pitch+dy*.006));persistCamera();}
   }
   function pu(){draggingDevice=false;gizmoDragging=false;gizmoKind='';gizmoAxis='';orbiting=false;panning=false;moveVertical=false;}
   renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());renderer.domElement.addEventListener('pointerdown',pd);renderer.domElement.addEventListener('pointermove',pm);renderer.domElement.addEventListener('pointerup',pu);renderer.domElement.addEventListener('pointercancel',pu);
-  renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(7,Math.min(60,radius+e.deltaY*.025));},{passive:false});
+  renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(7,Math.min(60,radius+e.deltaY*.025));persistCamera();},{passive:false});
   let pinchDist=0;renderer.domElement.addEventListener('touchstart',e=>{if(e.touches.length===2)pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});renderer.domElement.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(pinchDist)radius=Math.max(7,Math.min(60,radius-(d-pinchDist)*.03));pinchDist=d;}},{passive:true});
 
   function onKeyDown(e){const el=document.activeElement;if(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName))return;if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}}
@@ -329,8 +336,13 @@ function createSimulator(THREE,host,callbacks){
     }
     return trace;
   }
-  function applyProjectState(){rebuildRoadMarkings();const profile=getSceneProfile();scene.background.setHex(profile.sky);scene.fog.color.setHex(profile.fog);hemi.intensity=profile.ambient;sun.intensity=profile.sun;mats.road.color.setHex(profile.road);state.floors.forEach(f=>{const fg=floorGroups[f.id];if(!fg)return;fg.visible=floorVisible(f.id);applyMaterialOpacity(fg,f.opacity)});Object.values(deviceRoots).forEach(root=>{root.visible=groupVisible('devices');applyMaterialOpacity(root,groupOpacity('devices'));});car.visible=groupVisible('vehicle');exitCar.visible=groupVisible('vehicle');signalGroup.visible=groupVisible('signals')&&state.simulator.signals;roadObjects.forEach(o=>{const link=o.userData?.floorLink;o.visible=groupVisible('road')&&(!link||link.some(fid=>floorVisible(fid)));});guard.visible=groupVisible('building');Object.values(deviceRoots).forEach(root=>{if(root.userData.zone){const on=groupVisible('signals')&&state.simulator.zones;root.userData.zone.visible=on;}if(root.userData.zoneEdges)root.userData.zoneEdges.visible=groupVisible('signals')&&state.simulator.zones;});applyTraceFocus();showToast(`${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`);}
-  function focusFloor(id){const f=state.floors.find(x=>x.id===id);if(!f)return;setFloorFocus(id);follow=false;target.set(0,f.elevation+1,0);yaw=.58;pitch=.42;radius=29;showToast('聚焦 '+f.name);}
+  function applyProjectState(){rebuildRoadMarkings();const profile=getSceneProfile();scene.background.setHex(profile.sky);scene.fog.color.setHex(profile.fog);hemi.intensity=profile.ambient;sun.intensity=profile.sun;mats.road.color.setHex(profile.road);state.floors.forEach(f=>{const fg=floorGroups[f.id];if(!fg)return;fg.visible=floorVisible(f.id);applyMaterialOpacity(fg,f.opacity)});Object.values(deviceRoots).forEach(root=>{root.visible=groupVisible('devices');applyMaterialOpacity(root,groupOpacity('devices'));});car.visible=groupVisible('vehicle');if(!laneDemo.running)exitCar.visible=false;else exitCar.visible=groupVisible('vehicle')&&(laneDemo.mode==='exit'||laneDemo.mode==='both');signalGroup.visible=groupVisible('signals')&&state.simulator.signals;roadObjects.forEach(o=>{const link=o.userData?.floorLink;o.visible=groupVisible('road')&&(!link||link.some(fid=>floorVisible(fid)));});guard.visible=groupVisible('building');Object.values(deviceRoots).forEach(root=>{if(root.userData.zone){const on=groupVisible('signals')&&state.simulator.zones;root.userData.zone.visible=on;}if(root.userData.zoneEdges)root.userData.zoneEdges.visible=groupVisible('signals')&&state.simulator.zones;});applyTraceFocus();showToast(`${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`);}
+  function focusFloor(id){const f=state.floors.find(x=>x.id===id);if(!f)return;setFloorFocus(id);follow=false;target.set(0,f.elevation+1,0);yaw=.58;pitch=.42;radius=29;persistCamera();showToast('聚焦 '+f.name);}
+
+  function pulseConnection(connectionId){
+    const line=signalGroup.children.find(x=>x.userData?.connectionId===connectionId);
+    if(line){line.userData.signalPulseUntil=performance.now()+900;line.material.opacity=1;line.material.linewidth=3;}
+  }
 
   function executeDeviceAction(id,action,visited=new Set()){
     const visitKey=`${id}:${String(action).toLowerCase()}`;if(visited.has(visitKey))return false;visited.add(visitKey);
@@ -364,7 +376,7 @@ function createSimulator(THREE,host,callbacks){
     updateRuntime(id,{status,lastAction:action,active:!['off','clear','reset','close'].includes(action)});dev.state=status;
     const triggered=connectionsTriggeredBy(id,action);
     for(const conn of triggered){
-      noteSignal(conn);
+      noteSignal(conn);pulseConnection(conn.id);
       const target=devices.find(d=>d.id===conn.toDevice);if(!target)continue;
       const nextAction=actionForTargetTerminal(target.type,conn.toTerminal);
       executeDeviceAction(target.id,nextAction,visited);
@@ -378,13 +390,13 @@ function createSimulator(THREE,host,callbacks){
     triggerEtag(){etagFlash=1;showToast('ETAG DETECTED');setText('etagState','DETECTED');setTimeout(()=>setText('etagState','READY'),1200);},
     toggleSignals(){state.simulator.signals=!state.simulator.signals;signalGroup.visible=state.simulator.signals;return state.simulator.signals;},
     toggleZones(){state.simulator.zones=!state.simulator.zones;Object.values(deviceRoots).forEach(root=>{if(root.userData.zone)root.userData.zone.visible=state.simulator.zones;if(root.userData.zoneEdges)root.userData.zoneEdges.visible=state.simulator.zones;});return state.simulator.zones;},
-    resetCar(){car.position.set(-2.05,0,15);car.rotation.y=0;exitCar.position.set(2.05,0,-15);exitCar.rotation.y=Math.PI;speed=0;keys.clear();showToast('入口／出口車輛已重設');},
+    resetCar(){car.position.set(-2.05,0,15);car.rotation.y=0;exitCar.position.set(2.05,0,-15);exitCar.rotation.y=Math.PI;exitCar.visible=false;speed=0;keys.clear();showToast('車輛已重設');},
     setDrive(dir,on=true){const code={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'}[dir];if(!code)return;if(on)keys.add(code);else keys.delete(code);},
     stop(){keys.clear();speed=0;},
     setFollow(v){follow=!!v;state.simulator.follow=follow;},
     saveView(){const floor=state.editor.floorFocus||'1F',v={name:'視野 '+(state.simulator.viewpoints.length+1),yaw,pitch,radius,target:[target.x,target.y,target.z],floor};addViewpoint(v);showToast('已儲存目前視野');return v;},
     nextView(){state.simulator.cameraPreset=(state.simulator.cameraPreset+1)%state.simulator.viewpoints.length;this.gotoView(state.simulator.cameraPreset);},
-    gotoView(i){const v=state.simulator.viewpoints[i];if(!v)return;follow=false;yaw=v.yaw;pitch=v.pitch;radius=v.radius;target.set(...v.target);state.simulator.cameraPreset=i;if(v.floor)setFloorFocus(v.floor);showToast(v.name);},
+    gotoView(i){const v=state.simulator.viewpoints[i];if(!v)return;follow=false;yaw=v.yaw;pitch=v.pitch;radius=v.radius;target.set(...v.target);state.simulator.cameraPreset=i;if(v.floor)setFloorFocus(v.floor);persistCamera();showToast(v.name);},
     applyProjectState(){ensureDevices();applyProjectState();},
     refreshRoadMarkings(){rebuildRoadMarkings();showToast('道路標線已更新');},
     focusFloor,
@@ -397,14 +409,14 @@ function createSimulator(THREE,host,callbacks){
     executeDeviceAction(id,action){return executeDeviceAction(id,action);},
     toggleLabels(){state.simulator.labels=state.simulator.labels===false;Object.entries(deviceRoots).forEach(([id,root])=>{const d=devices.find(x=>x.id===id);if(d)updateDeviceLabel(d,root,true)});return state.simulator.labels;},
     runLaneDemo(mode='entry'){
-      this.resetCar();laneDemo={running:true,mode,entry:{step:0,elapsed:0},exit:{step:0,elapsed:0}};follow=false;yaw=.62;pitch=.50;radius=25;target.set(0,1,0);
+      this.resetCar();laneDemo={running:true,mode,entry:{step:0,elapsed:0},exit:{step:0,elapsed:0}};exitCar.visible=(mode==='exit'||mode==='both');follow=false;yaw=.62;pitch=.50;radius=25;target.set(0,1,0);persistCamera();
       ['DEV-001','DEV-006'].forEach(id=>executeDeviceAction(id,'close'));['DEV-007','DEV-011'].forEach(id=>executeDeviceAction(id,'red'));['DEV-008','DEV-012'].forEach(id=>executeDeviceAction(id,'reset'));
       showToast(mode==='both'?'▶ 雙車道動作展示開始':mode==='exit'?'▶ 出口車道展示開始':'▶ 入口車道展示開始');return true;
     },
     destroy(){cancelAnimationFrame(raf);resizeObserver.disconnect();window.removeEventListener('keydown',onKeyDown);window.removeEventListener('keyup',onKeyUp);renderer.domElement.removeEventListener('pointerdown',pd);renderer.domElement.removeEventListener('pointermove',pm);renderer.domElement.removeEventListener('pointerup',pu);renderer.dispose();host.innerHTML='';}
   };
 
-  ensureDevices();applyProjectState();focusFloor(state.editor.floorFocus||'1F');if(selectedId&&deviceRoots[selectedId])selectById(selectedId,false);
+  ensureDevices();applyProjectState();persistCamera();if(selectedId&&deviceRoots[selectedId])selectById(selectedId,false);
   function resize(){const r=host.getBoundingClientRect(),w=Math.max(1,r.width),h=Math.max(1,r.height);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(host);resize();
 
   let last=performance.now(),raf=0;function frame(now){const dt=Math.min(.04,(now-last)/1000);last=now;ensureDevices();const forward=keys.has('KeyW')||keys.has('ArrowUp'),back=keys.has('KeyS')||keys.has('ArrowDown'),left=keys.has('KeyA')||keys.has('ArrowLeft'),right=keys.has('KeyD')||keys.has('ArrowRight');const accel=(forward?1:0)-(back?1:0);speed+=accel*8*dt;speed*=Math.pow(.88,dt*60);speed=Math.max(-3.4,Math.min(6.2,speed));const steer=((left?1:0)-(right?1:0))*.95;if(Math.abs(speed)>.05){car.rotation.y+=steer*dt*(speed>=0?1:-1);const dir=new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);car.position.addScaledVector(dir,speed*dt);car.position.x=Math.max(-3.1,Math.min(3.1,car.position.x));car.position.z=Math.max(-19,Math.min(19,car.position.z));}
@@ -412,15 +424,15 @@ function createSimulator(THREE,host,callbacks){
       const runEntry=laneDemo.mode==='entry'||laneDemo.mode==='both',runExit=laneDemo.mode==='exit'||laneDemo.mode==='both';
       if(runEntry){const d=laneDemo.entry;d.elapsed+=dt;
         if(d.step===0){car.position.z-=dt*4.6;if(car.position.z<4.5){d.step=1;d.elapsed=0;executeDeviceAction('DEV-003','vehicle');showToast('入口地感 ON → 入口 Controller');}}
-        else if(d.step===1&&d.elapsed>.65){executeDeviceAction('DEV-001','open');executeDeviceAction('DEV-007','green');executeDeviceAction('DEV-008','start');d.step=2;d.elapsed=0;}
+        else if(d.step===1&&d.elapsed>.65){d.step=2;d.elapsed=0;showToast('入口 Connection 鏈已完成 OPEN / GREEN / TIMER');}
         else if(d.step===2&&d.elapsed>2.8){d.step=3;d.elapsed=0;}
-        else if(d.step===3){car.position.z-=dt*4.8;if(car.position.z<-8){executeDeviceAction('DEV-003','clear');executeDeviceAction('DEV-001','close');executeDeviceAction('DEV-007','red');d.step=4;d.elapsed=0;}}
+        else if(d.step===3){car.position.z-=dt*4.8;if(car.position.z<-8){executeDeviceAction('DEV-003','clear');d.step=4;d.elapsed=0;showToast('入口離車 Connection 鏈 → CLOSE / RED / RESET');}}
       }
       if(runExit){const d=laneDemo.exit;d.elapsed+=dt;
         if(d.step===0){exitCar.position.z+=dt*4.4;if(exitCar.position.z>-4.5){d.step=1;d.elapsed=0;executeDeviceAction('DEV-009','vehicle');showToast('出口地感 ON → 出口 Controller');}}
-        else if(d.step===1&&d.elapsed>.65){executeDeviceAction('DEV-006','open');executeDeviceAction('DEV-011','green');executeDeviceAction('DEV-012','start');d.step=2;d.elapsed=0;}
+        else if(d.step===1&&d.elapsed>.65){d.step=2;d.elapsed=0;showToast('出口 Connection 鏈已完成 OPEN / GREEN / TIMER');}
         else if(d.step===2&&d.elapsed>2.8){d.step=3;d.elapsed=0;}
-        else if(d.step===3){exitCar.position.z+=dt*4.8;if(exitCar.position.z>8){executeDeviceAction('DEV-009','clear');executeDeviceAction('DEV-006','close');executeDeviceAction('DEV-011','red');d.step=4;d.elapsed=0;}}
+        else if(d.step===3){exitCar.position.z+=dt*4.8;if(exitCar.position.z>8){executeDeviceAction('DEV-009','clear');d.step=4;d.elapsed=0;showToast('出口離車 Connection 鏈 → CLOSE / RED / RESET');}}
       }
       const entryDone=!runEntry||laneDemo.entry.step>=4,exitDone=!runExit||laneDemo.exit.step>=4;
       if(entryDone&&exitDone){laneDemo.entry.elapsed+=dt;laneDemo.exit.elapsed+=dt;if(Math.max(laneDemo.entry.elapsed,laneDemo.exit.elapsed)>3.4){laneDemo.running=false;showToast('✅ 雙車道展示完成');}}
@@ -428,8 +440,8 @@ function createSimulator(THREE,host,callbacks){
     const loopDevice=devices.find(d=>(d.type||'').toLowerCase().includes('loop'));const barrierDevice=devices.find(d=>(d.type||'').toLowerCase().includes('barrier'));const etagDevice=devices.find(d=>(d.type||'').toLowerCase().includes('etag')||(d.type||'').toLowerCase().includes('uhf'));const loopRoot=loopDevice?deviceRoots[loopDevice.id]:null;const barrierRoot=barrierDevice?deviceRoots[barrierDevice.id]:null;const etagRoot=etagDevice?deviceRoots[etagDevice.id]:null;
     if(loopRoot){const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);const loopWorld=new THREE.Vector3();loopRoot.getWorldPosition(loopWorld);const detected=Math.abs(carWorld.x-loopWorld.x)<3.15&&Math.abs(carWorld.z-loopWorld.z)<2.1;if(detected!==loopOn){loopOn=detected;state.simulator.loop=loopOn;if(loopOn)executeDeviceAction(loopDevice.id,'vehicle');else executeDeviceAction(loopDevice.id,'clear');}if(loopRoot.userData.zoneMat)loopRoot.userData.zoneMat.opacity=loopOn?.55:.2;}
     Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.barrierPivot&&root.userData.barrierTarget!==null&&root.userData.barrierTarget!==undefined){const cur=root.userData.barrierPivot.rotation.z,targetAngle=root.userData.barrierTarget,secs=Math.max(.2,root.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){root.userData.barrierPivot.rotation.z=targetAngle;root.userData.barrierTarget=null;const bd=getRuntime(id);updateRuntime(id,{...(bd||{}),status:targetAngle<0?'OPEN':'CLOSED',active:targetAngle<0});}else root.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));root.userData.displayPanel.material.emissive?.setHex(0x550000);root.userData.displayPanel.material.emissiveIntensity=pulse;}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
-    if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
+    if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>{const pulsing=(l.userData.signalPulseUntil||0)>now;l.material.opacity=pulsing?1:.22;if(pulsing&&l.material.color){const base=l.userData.baseColor;if(base===undefined)l.userData.baseColor=l.material.color.getHex();l.material.color.setHex(0xfff176);}else if(l.userData.baseColor!==undefined&&l.material.color)l.material.color.setHex(l.userData.baseColor);});
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.4.9 功能狀態驗證版已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.5.1 Cloud Project & 3D UX Fix 已啟動');return controllerApi;
 }

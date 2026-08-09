@@ -3,12 +3,17 @@ import {devices} from '../data.js';
 import {updateRuntime} from '../core-module-01/module-manager.js';
 
 const uniq=a=>[...new Set(a.filter(Boolean).map(x=>String(x).toUpperCase()))];
+const upper=v=>String(v||'').toUpperCase();
+const lower=v=>String(v||'').toLowerCase();
 
 export function activeOutputTerminals(deviceType='',action=''){
-  const t=String(deviceType).toLowerCase(),a=String(action).toLowerCase();
+  const t=lower(deviceType),a=lower(action);
   if(t==='loop'&&a==='vehicle')return ['OUT','NO','PRESENCE'];
+  if(t==='loop'&&a==='clear')return ['NC','CLEAR'];
   if(t==='loopdetector'&&['presence','pulse'].includes(a))return ['OUT','NO',a==='pulse'?'PULSE':'PRESENCE'];
+  if(t==='loopdetector'&&['clear','reset'].includes(a))return ['NC','CLEAR'];
   if(t==='infrared'&&a==='blocked')return ['OUT','NO','BLOCKED'];
+  if(t==='infrared'&&a==='clear')return ['NC','CLEAR'];
   if(t==='uhf'&&a==='read')return ['DATA','TAG_OK','OUT'];
   if(t==='cardreader'&&a==='valid')return ['D0','VALID','OUT'];
   if(t==='lpr'&&a==='valid')return ['ALARM OUT','PLATE_OK','OUT'];
@@ -16,8 +21,9 @@ export function activeOutputTerminals(deviceType='',action=''){
   if(t==='relay'&&a==='off')return ['NC'];
   if(t==='accesscontroller'&&['di1','on','unlock'].includes(a))return ['DO1','LOCK'];
   if(t==='accesscontroller'&&a==='di2')return ['DO2','ALARM'];
-  if(t==='timer'&&['start','done'].includes(a))return ['DO1'];
-  if(['delaytimer','powerondelay'].includes(t)&&['start','on','done'].includes(a))return ['OUT','NO'];
+  if(t==='accesscontroller'&&a==='di3')return ['DO3'];
+  if(t==='timer'&&a==='done')return ['DO1','DONE'];
+  if(['delaytimer','powerondelay'].includes(t)&&a==='done')return ['OUT','NO','DONE'];
   if(t==='poweroffdelay'&&a==='off')return ['NO','OUT'];
   if(t==='powersupply'&&a==='on')return ['V+','DC_OK'];
   if(t==='poeswitch'&&a==='on')return ['LAN1','LAN2','LAN3','LAN4','LAN5','LAN6','LAN7','LAN8','UPLINK'];
@@ -31,11 +37,21 @@ export function activeOutputTerminals(deviceType='',action=''){
   if(a==='green')return ['GREEN'];
   if(a==='on')return ['ON','OUT','NO','DO1'];
   if(a==='off')return ['OFF','NC'];
-  return [String(action).toUpperCase()];
+  return [upper(action)];
 }
 
 export function actionForTargetTerminal(targetType='',terminal=''){
-  const t=String(targetType).toLowerCase(),term=String(terminal).toUpperCase();
+  const t=lower(targetType),term=upper(terminal);
+  if(t==='timer'){
+    if(term==='DI1'||term==='START')return 'start';
+    if(term==='DI2'||term==='PAUSE')return 'pause';
+    if(term==='DI3'||term==='RESET')return 'reset';
+  }
+  if(['delaytimer','powerondelay','poweroffdelay'].includes(t)){
+    if(['START','DI1','POWER'].includes(term))return t==='poweroffdelay'?'on':'start';
+    if(['STOP','DI2','OFF'].includes(term))return 'stop';
+    if(['RESET','DI3'].includes(term))return 'reset';
+  }
   if(term==='OPEN')return 'open';
   if(term==='CLOSE')return 'close';
   if(term==='STOP')return 'stop';
@@ -54,10 +70,38 @@ export function actionForTargetTerminal(targetType='',terminal=''){
   return term.toLowerCase();
 }
 
-export function connectionsTriggeredBy(deviceId,action){
+export function connectionsTriggeredBy(deviceId,action,connections=state.connections||[]){
   const dev=devices.find(d=>d.id===deviceId);if(!dev)return [];
   const active=uniq(activeOutputTerminals(dev.type,action));
-  return (state.connections||[]).filter(c=>c.enabled!==false&&c.fromDevice===deviceId&&active.includes(String(c.fromTerminal).toUpperCase()));
+  return connections.filter(c=>c.enabled!==false&&c.fromDevice===deviceId&&active.includes(upper(c.fromTerminal)));
+}
+
+export function buildActionChain(startDeviceId,startAction,{connections=state.connections||[],maxSteps=64}={}){
+  const queue=[{deviceId:startDeviceId,action:lower(startAction),via:null,depth:0}],steps=[],seen=new Set();
+  while(queue.length&&steps.length<maxSteps){
+    const cur=queue.shift(),key=`${cur.deviceId}:${cur.action}`;if(seen.has(key))continue;seen.add(key);
+    const dev=devices.find(d=>d.id===cur.deviceId);if(!dev)continue;
+    steps.push({...cur,type:dev.type,name:dev.name});
+    for(const conn of connectionsTriggeredBy(cur.deviceId,cur.action,connections)){
+      const target=devices.find(d=>d.id===conn.toDevice);if(!target)continue;
+      queue.push({deviceId:target.id,action:actionForTargetTerminal(target.type,conn.toTerminal),via:conn.id,depth:cur.depth+1});
+    }
+  }
+  return steps;
+}
+
+export function verifyConnectionActionChains(){
+  const checks=[];
+  const add=(name,ok,detail)=>checks.push({name,ok:!!ok,detail});
+  const entry=buildActionChain('DEV-003','vehicle');
+  add('入口進車鏈',entry.some(s=>s.deviceId==='DEV-001'&&s.action==='open')&&entry.some(s=>s.deviceId==='DEV-007'&&s.action==='green')&&entry.some(s=>s.deviceId==='DEV-008'&&s.action==='start'),entry.map(s=>`${s.deviceId}:${s.action}`).join(' → '));
+  const entryClear=buildActionChain('DEV-003','clear');
+  add('入口離車鏈',entryClear.some(s=>s.deviceId==='DEV-001'&&s.action==='close')&&entryClear.some(s=>s.deviceId==='DEV-007'&&s.action==='red')&&entryClear.some(s=>s.deviceId==='DEV-008'&&s.action==='reset'),entryClear.map(s=>`${s.deviceId}:${s.action}`).join(' → '));
+  const exit=buildActionChain('DEV-009','vehicle');
+  add('出口進車鏈',exit.some(s=>s.deviceId==='DEV-006'&&s.action==='open')&&exit.some(s=>s.deviceId==='DEV-011'&&s.action==='green')&&exit.some(s=>s.deviceId==='DEV-012'&&s.action==='start'),exit.map(s=>`${s.deviceId}:${s.action}`).join(' → '));
+  const exitClear=buildActionChain('DEV-009','clear');
+  add('出口離車鏈',exitClear.some(s=>s.deviceId==='DEV-006'&&s.action==='close')&&exitClear.some(s=>s.deviceId==='DEV-011'&&s.action==='red')&&exitClear.some(s=>s.deviceId==='DEV-012'&&s.action==='reset'),exitClear.map(s=>`${s.deviceId}:${s.action}`).join(' → '));
+  return checks;
 }
 
 export function noteSignal(connection){
@@ -66,6 +110,7 @@ export function noteSignal(connection){
   state.eventLog=state.eventLog||[];
   state.eventLog.push(`${new Date().toLocaleTimeString('zh-TW',{hour12:false})} ${msg}`);
   if(state.eventLog.length>80)state.eventLog.splice(0,state.eventLog.length-80);
+  state.activeSignals=state.activeSignals||{};state.activeSignals[connection.id]=Date.now()+900;
   updateRuntime(connection.toDevice,{lastSignal:msg,lastInput:connection.toTerminal});
   return msg;
 }

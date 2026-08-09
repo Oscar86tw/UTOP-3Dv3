@@ -28,20 +28,7 @@ export const featureGroups = [
 export const scenes = ['社區入口','地下室坡道','停車場','市區道路','高速公路','山坡彎道','賽道','隧道'];
 export const events = ['正常進場','尾隨車輛','ETAG故障','地感異常','柵欄機故障','緊急車輛','施工模式','停電'];
 
-export const devices = [
-  {id:'DEV-001',modelCode:'PARKING-BARRIER-001',name:'入口柵欄機',type:'barrier',floor:'1F',state:'CLOSED'},
-  {id:'DEV-002',modelCode:'LANE-UHF-001',name:'ETAG讀頭01',type:'uhf',floor:'1F',state:'READY'},
-  {id:'DEV-003',modelCode:'LANE-LOOP-001',name:'地感01',type:'loop',floor:'1F',state:'OFF'},
-  {id:'DEV-004',modelCode:'ACCESS-CTRL-001',name:'Controller01',type:'accesscontroller',floor:'1F',state:'ONLINE'},
-  {id:'DEV-005',modelCode:'CCTV-IPCAM-001',name:'Camera01',type:'ipcamera',floor:'1F',state:'ONLINE'},
-  {id:'DEV-006',modelCode:'PARKING-BARRIER-002',name:'柵欄機02（出口）',type:'barrier',floor:'1F',state:'CLOSED'},
-  {id:'DEV-007',modelCode:'PARKING-LIGHT-001',name:'紅綠燈01',type:'traffic',floor:'1F',state:'RED'},
-  {id:'DEV-008',modelCode:'COUNTDOWN-TIMER-001',name:'入口倒數計時器01',type:'timer',floor:'1F',state:'IDLE'},
-  {id:'DEV-009',modelCode:'LANE-LOOP-002',name:'出口地感02',type:'loop',floor:'1F',state:'OFF'},
-  {id:'DEV-010',modelCode:'ACCESS-CTRL-002',name:'出口Controller02',type:'accesscontroller',floor:'1F',state:'ONLINE'},
-  {id:'DEV-011',modelCode:'PARKING-LIGHT-002',name:'出口紅綠燈02',type:'traffic',floor:'1F',state:'RED'},
-  {id:'DEV-012',modelCode:'COUNTDOWN-TIMER-002',name:'出口倒數計時器02',type:'timer',floor:'1F',state:'IDLE'}
-];
+export const devices = [];
 
 export const moduleCatalog = MODULE_CATALOG;
 export const diagramOutputs = ['結構流程圖','分析圖','心智圖','SOP圖'];

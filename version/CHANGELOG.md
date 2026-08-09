@@ -1,7 +1,12 @@
-# V1.4.9
+# V1.5.1
 
-- 新增 State Migration / Integrity Repair，舊 localStorage 專案資料自動補齊新版必要欄位。
-- 新增功能狀態驗證中心：檢查設備六軸、Settings、Runtime、Hotkey、Connection、道路、場景、樓層、WebGL、Simulator API、本機儲存。
-- 3D 控制、Editor Mode、Snap、DI/DO線、感應區、跟車視角改為等待 Simulator Ready 後執行。
-- 快捷鍵設備控制同樣使用 Simulator Ready 保護。
-- 真正 WebGL 啟動後寫入 Runtime Health 狀態。
+## Cloud Project & 3D UX Fix
+- 修正 3D 視角操作後被拉回預設位置：相機 yaw / pitch / radius / target 會保存到 `state.simulator.liveCamera`。
+- 取消 3D 啟動時自動 `focusFloor()`。
+- 名稱牌高度改為依設備本體頂部計算，並加入高度限制。
+- 對面橘色出口車預設隱藏。
+- 預設設備、設備座標、Runtime、Hotkey、Connection 全部清空；設備由模組庫自行加入。
+- 快捷鍵選單不再在 change 後重新 render 整頁。
+- 3D 工作區新增場景 / 視野 select，原地切換，不重新掛載 3D。
+- 新增 Google 雲端專案管理：Drive JSON + Sheets 索引 + Apps Script Web App。
+- 新增舊版 localStorage 專案手動匯入功能。

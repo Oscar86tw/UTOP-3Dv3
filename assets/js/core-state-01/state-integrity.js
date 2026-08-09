@@ -43,6 +43,13 @@ export function migrateProjectState(state,devices,defaultState,defaultDevices){
     const map=state[mapName]||{};for(const id of Object.keys(map))if(!validIds.has(id))delete map[id];
   }
   state.connections=ensureArray(state.connections,defaultState.connections).filter(c=>c&&validIds.has(c.fromDevice)&&validIds.has(c.toDevice));
+  const existingConnectionIds=new Set(state.connections.map(c=>c.id));
+  for(const c of (defaultState.connections||[])){
+    if(c?.id&&!existingConnectionIds.has(c.id)&&validIds.has(c.fromDevice)&&validIds.has(c.toDevice)){
+      state.connections.push(cloneValue(c));existingConnectionIds.add(c.id);
+    }
+  }
+  state.activeSignals=isPlainObject(state.activeSignals)?state.activeSignals:{};
   state.roadMarkings=ensureArray(state.roadMarkings,defaultState.roadMarkings);
   state.floors=ensureArray(state.floors,defaultState.floors);state.groups=ensureArray(state.groups,defaultState.groups);
   state.displays=ensureArray(state.displays,defaultState.displays);state.tests=ensureArray(state.tests,defaultState.tests);
