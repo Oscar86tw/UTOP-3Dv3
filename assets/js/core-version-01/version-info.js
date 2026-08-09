@@ -1,4 +1,4 @@
-export const APP_VERSION='1.7.6';
+export const APP_VERSION='1.7.7';
 export const APP_VERSION_LABEL=`V${APP_VERSION}`;
 export const APP_TITLE='Global Error & Boot Diagnostics';
 export const SCHEMA_VERSION='6.1';

@@ -7,7 +7,7 @@ import {traceNetwork,buildSkillTree,connectionSummary} from './core-signal-01/si
 import {SCENE_PRESETS,activeScenePreset} from './core-scene-01/scene-library.js';
 import {ROAD_MARKING_TYPES,selectedRoadMarking} from './core-road-01/road-markings.js';
 import {debugSummary} from './core-debug-01/debug-center.js';
-import {functionStateSummary} from './core-validation-01/function-state-validator.js?v=1.7.6';
+import {functionStateSummary} from './core-validation-01/function-state-validator.js?v=1.7.7';
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const rows=items=>`<div class="list">${items.map(([a,b,c=''])=>`<div class="list-row"><div class="grow"><b>${a}</b><div class="muted">${b}</div></div>${c}</div>`).join('')}</div>`;

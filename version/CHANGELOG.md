@@ -1,8 +1,7 @@
-# V1.7.6
+# V1.7.7
 
-- 新增全域錯誤覆蓋層：JavaScript 錯誤、Promise rejection、WebGL 啟動錯誤都會直接顯示在畫面。
-- 新增 Boot Watchdog：5 秒後工作區仍空白時，自動顯示診斷資訊。
-- 啟動階段加入 Phase Log，可看到卡在哪一個初始化步驟。
-- 錯誤畫面提供「複製錯誤資訊」、「重新載入」、「清除工作區設定後重載」。
-- app.js 啟動 Promise 改成 try/catch，不再讓初始化失敗變成純白畫面。
-- 版本與快取參數同步為 V1.7.6。
+- 修正 app.js 啟動阻斷錯誤：`Identifier 'autoClose' has already been declared`。
+- 移除柵欄機自動關閉設定的重複事件綁定。
+- 移除 `applyModuleSettings` 內重複的 `const autoClose / const autoSeconds` 宣告。
+- 保留 V1.7.6 全域錯誤診斷與 Boot Watchdog。
+- 版本與快取同步更新為 V1.7.7。

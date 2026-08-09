@@ -58,6 +58,6 @@
 - 接線卡新增 DI/DO 即時 ON/OFF 與 Connection 傳遞高亮。
 
 
-## V1.7.6
+## V1.7.7
 - 新增全域錯誤畫面與 Boot Watchdog。
 - 啟動失敗不再只顯示白畫面。
