@@ -53,3 +53,19 @@ button{border:1px solid var(--border);background:var(--panel);color:var(--text);
 /* V0.8.0 Signal Trace / Skill Tree */
 .trace-flow{display:grid;gap:9px}.trace-link{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto minmax(0,1fr);gap:7px;align-items:center;padding:9px;border:1px solid var(--border);border-radius:12px;background:var(--panel2)}.trace-device{font-weight:700;min-width:0}.trace-terminal{font-size:12px;padding:4px 7px;border-radius:999px;background:var(--accent2);white-space:nowrap}.skill-tree-auto{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.skill.auto{display:flex;flex-direction:column;gap:4px;align-items:flex-start;text-align:left}.skill.auto small{font-size:11px;color:var(--muted)}.skill.trace-on{outline:3px solid rgba(245,158,11,.4);border-color:var(--accent)}
 @media(max-width:650px){.skill-tree-auto{grid-template-columns:repeat(2,minmax(0,1fr))}.trace-link{grid-template-columns:1fr auto;align-items:start}.trace-link .flow-arrow{display:none}.trace-device,.trace-terminal{min-width:0}}
+
+.wiring-status-grid{margin-top:10px}
+.wiring-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.wiring-device-card{background:var(--panel2);border:1px solid var(--line);border-radius:18px;padding:14px;box-shadow:0 10px 24px rgba(0,0,0,.08)}
+.terminal-groups{display:grid;gap:10px;margin-top:8px}
+.terminal-group{background:rgba(255,255,255,.4);border:1px dashed var(--line);border-radius:14px;padding:10px}
+.terminal-group-title{font-size:12px;color:var(--muted);margin-bottom:8px}
+.terminal-chip-wrap{display:flex;flex-wrap:wrap;gap:8px}
+.terminal-chip{border-radius:999px;padding:8px 12px;font-size:12px;border:1px solid transparent}
+.terminal-chip.role-in{background:#dbeafe;border-color:#93c5fd}
+.terminal-chip.role-out{background:#ffedd5;border-color:#fdba74}
+.terminal-chip.role-comm{background:#dcfce7;border-color:#86efac}
+.terminal-chip.role-power{background:#fef3c7;border-color:#fcd34d}
+.terminal-chip.role-other{background:#e5e7eb;border-color:#cbd5e1}
+.terminal-chip.active{outline:3px solid rgba(59,130,246,.28);transform:translateY(-1px)}
+@media(max-width:900px){.wiring-card-grid{grid-template-columns:1fr}}

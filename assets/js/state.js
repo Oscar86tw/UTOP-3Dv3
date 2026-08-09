@@ -80,4 +80,7 @@ export const state = {
     {id:'CON-002',fromDevice:'DEV-004',fromTerminal:'DO1',toDevice:'DEV-001',toTerminal:'OPEN',type:'DO',enabled:true}
   ],
   signalTrace:{enabled:false,focusDevice:'DEV-003',mode:'full'}
+,
+  wiringBuilder:{fromDevice:'',fromTerminal:'',toDevice:'',toTerminal:'',step:'from',message:'請先點選一個模組的來源端子，再點另一個模組的目標端子。'}
+
 };
