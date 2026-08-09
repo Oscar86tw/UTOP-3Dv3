@@ -12,9 +12,9 @@ import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
 import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.7';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.7';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.8';
 import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.7';
-import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.7';
+import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.8';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;

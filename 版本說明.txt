@@ -1,10 +1,8 @@
-UTOP-3Dv3 V1.7.7 Boot Syntax Hotfix
+UTOP-3Dv3 V1.7.8 Version Import Hotfix
 
-本次修正
-1. 修正 app.js 第 516 行附近 autoClose / autoSeconds 重複宣告造成整頁白畫面的問題。
-2. 清除重複的柵欄機自動關閉事件監聽，避免同一操作被執行兩次。
-3. 保留 V1.7.6 的錯誤診斷畫面，未來若還有啟動錯誤會直接顯示檔案與行號。
+本次修正：
+1. views.js 補上 APP_VERSION_LABEL 與 SCHEMA_VERSION 正確 import。
+2. 所有 version-info.js 快取版本同步為 V1.7.8。
+3. 修正總覽工具窗因版本變數未定義而中止的問題。
 
-修改說明事項／後續追蹤
-- 本版是啟動阻斷熱修，不新增功能。
-- 建議使用「1.完整程式碼」整包部署，確保 app.js 與 index.html 快取版本同步。
+本版屬啟動熱修，功能邏輯不做其他變更。
