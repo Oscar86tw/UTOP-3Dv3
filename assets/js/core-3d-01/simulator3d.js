@@ -4,8 +4,8 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.3.0';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.3.0';
+import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.3.1';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.3.1';
 
 let active=null;
 const THREE_SOURCES=[
@@ -127,7 +127,7 @@ function createSimulator(THREE,host,callbacks){
   function markSelectable(root,id){root.userData.deviceId=id;root.traverse(n=>{n.userData.deviceId=id;});selectables.push(root);deviceRoots[id]=root;return root;}
   function basicPole(colorMat){const pole=new THREE.Mesh(new THREE.BoxGeometry(.18,3,.18),mats.dark);pole.position.y=1.5;const head=new THREE.Mesh(new THREE.BoxGeometry(.85,.5,.65),colorMat||mats.blue);head.position.set(0,3,.05);const g=new THREE.Group();g.add(pole,head);return g;}
   function createDeviceRoot(device){
-    const root=createRealisticDeviceModel(THREE,mats,device);
+    const root=createRealisticDeviceModel(THREE,mats,device,getSettings(device.id));
     return markSelectable(root,device.id);
   }
   function ensureDevices(){devices.forEach(d=>{if(!deviceRoots[d.id])createDeviceRoot(d);syncTransform(d.id);applySettings(d.id);});Object.keys(deviceRoots).forEach(id=>{if(!devices.find(d=>d.id===id)){const root=deviceRoots[id];root.parent?.remove(root);delete deviceRoots[id];}});refreshSignals();}
@@ -135,11 +135,15 @@ function createSimulator(THREE,host,callbacks){
   function applySettings(id){
     const root=deviceRoots[id],dev=devices.find(d=>d.id===id);if(!root||!dev)return;
     const s=getSettings(id),def=defaultSettings(dev.type),type=(dev.type||'').toLowerCase();
-    const baseW=def.width||1,baseH=def.height||1,baseD=def.depth||1;
-    const scalable=['barrier','traffic','loop','laneindicator','shutter','heightbar'].includes(type);
-    if(scalable&&(s.width!==undefined||s.height!==undefined||s.depth!==undefined))root.scale.set((s.width??baseW)/baseW,(s.height??baseH)/baseH,(s.depth??baseD)/baseD);else root.scale.set(1,1,1);
-    if(root.userData.barrierArm&&s.boomLength){root.userData.barrierArm.scale.x=s.boomLength/(def.boomLength||2.5);}
-    if(root.userData.zone&&s.range){const base=def.range||s.range;const ratio=Math.max(.25,s.range/base);root.userData.zone.scale.set(ratio,ratio,ratio);}
+    root.scale.set(1,1,1);
+    if(typeof root.userData.applySettings==='function') root.userData.applySettings(s,def,type);
+    else {
+      const baseW=def.width||1,baseH=def.height||1,baseD=def.depth||1;
+      const scalable=['barrier','traffic','loop','laneindicator','shutter','heightbar'].includes(type);
+      if(scalable&&(s.width!==undefined||s.height!==undefined||s.depth!==undefined))root.scale.set((s.width??baseW)/baseW,(s.height??baseH)/baseH,(s.depth??baseD)/baseD);else root.scale.set(1,1,1);
+      if(root.userData.barrierArm&&s.boomLength){root.userData.barrierArm.scale.x=s.boomLength/(def.boomLength||2.5);}
+      if(root.userData.zone&&s.range){const base=def.range||s.range;const ratio=Math.max(.25,s.range/base);root.userData.zone.scale.set(ratio,ratio,ratio);}
+    }
     root.userData.positionLocked=!!s.positionLocked;root.visible=s.hidden!==true;
   }
 
@@ -261,5 +265,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.3.0 Real Device Model & Direct Control 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.3.1 Real 3D Device Wave 1 已啟動');return controllerApi;
 }
