@@ -241,3 +241,21 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
 @media(max-width:760px){.quick-scene-view label{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr)}.quick-scene-view select{width:100%;max-width:none;min-width:0}}
 
 .cloud-example-card{border:1px solid #f4b942;background:#fff8e7}.cloud-example-steps{margin:.7rem 0 1rem 1.25rem;line-height:1.8}
+
+
+/* V1.7.1 - Global Stable Select UI */
+.utop-native-select{position:absolute!important;width:1px!important;height:1px!important;min-width:0!important;min-height:0!important;opacity:0!important;pointer-events:none!important;overflow:hidden!important;clip-path:inset(50%)!important;margin:0!important;padding:0!important;border:0!important}
+.utop-select-trigger{width:100%;min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:14px;background:#fff;color:var(--text);font:inherit;font-size:16px;text-align:left;cursor:pointer;box-shadow:none}
+.utop-select-trigger:hover,.utop-select-trigger[aria-expanded="true"]{border-color:#f59e0b;background:#fffaf0;box-shadow:0 0 0 2px rgba(245,158,11,.10)}
+.utop-select-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.utop-select-arrow{font-size:18px;line-height:1;color:#475569;transition:transform .14s}.utop-select-trigger[aria-expanded="true"] .utop-select-arrow{transform:rotate(180deg)}
+.utop-select-popover{position:fixed;z-index:10050;overflow:auto;padding:6px;background:rgba(255,255,255,.995);border:1px solid #d7d9d4;border-radius:14px;box-shadow:0 18px 55px rgba(15,23,42,.28);overscroll-behavior:contain}
+.utop-select-popover[hidden]{display:none!important}
+.utop-select-option{width:100%;min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border:0;border-radius:10px;background:transparent;color:#20252a;font:inherit;font-size:15px;text-align:left;cursor:pointer}
+.utop-select-option:hover,.utop-select-option[aria-selected="true"]{background:#fff2cf;color:#7c4700}.utop-select-option[aria-selected="true"]{font-weight:800}.utop-select-option:disabled{opacity:.45;cursor:not-allowed}.utop-select-option b{color:#f59e0b;font-size:18px}
+.quick-scene-view .utop-select-trigger{min-width:190px;max-width:270px;min-height:48px;font-weight:800}
+.workspace-presets .utop-select-trigger{min-width:150px;min-height:38px;padding-block:6px}
+.field>.utop-select-trigger{width:100%}
+@media(max-width:760px){.quick-scene-view .utop-select-trigger{width:100%;min-width:0;max-width:none}.utop-select-popover{max-width:calc(100vw - 12px)}}
+
+/* V1.7.2 - Version Sync Hotfix */

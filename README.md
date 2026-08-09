@@ -1,4 +1,4 @@
-# UTOP-3Dv3 V1.6.6 Device Transform Controls
+# UTOP-3Dv3 V1.7.2 Version Sync Hotfix
 
 本版延續 Persistent Workspace / CAD Workspace，強化設備 Transform 操作：可隱藏 3D 編輯操作線、RX/RY/RZ 提供 0/90/180/270 快速角度、XYZ 提供 -100～+300 即時拉桿。Google 雲端專案管理與浮動/停靠工具桌皆保留。
 
@@ -37,3 +37,13 @@
 - 右桿升桿方向修正。
 - 長距離紅外線與強化車道紅綠燈。
 - Google 雲端完整儲存範例。
+
+
+## V1.7.1
+- 全站下拉選單改成 UTOP 自訂穩定選單，解決一點就收回。
+- 修正 index 快取版本。
+
+
+## V1.7.2
+- 全系統版本顯示同步。
+- 新增中央版本資訊模組與 Debug 版本同步檢查。

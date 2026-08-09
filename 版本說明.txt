@@ -1,9 +1,10 @@
-UTOP-3Dv3 V1.7.0 Physical Interaction & Cloud Example
+UTOP-3Dv3 V1.7.2 Version Sync Hotfix
 
 本次重點
-1. 修正右桿柵欄機升桿方向。
-2. 紅外線距離使用實際場景公尺比例。
-3. 車道紅綠燈改成更明顯的實體號誌顯示。
-4. 設備預設具有碰撞，不可互相穿透；可個別勾選允許重疊/穿透。
-5. 設備不可低於自己的樓層地面，樓層高度仍由 Floor elevation 管理。
-6. Google 雲端增加完整儲存範例流程。
+1. 首頁左上角版本同步為 V1.7.2。
+2. 總覽、專案/Debug、3D啟動提示、Google Cloud Client、Apps Script 版本同步。
+3. 新增中央版本資訊模組，後續主要畫面不再各自手動寫版本。
+4. Debug Function State 新增「版本同步」檢查。
+
+修改說明事項／後續追蹤
+- 後續每次版本更新，version.json、首頁、Debug、Cloud、Apps Script、快取參數必須同步。

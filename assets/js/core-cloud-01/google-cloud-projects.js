@@ -1,3 +1,4 @@
+import {APP_VERSION} from '../core-version-01/version-info.js?v=1.7.2';
 function cleanUrl(url=''){return String(url||'').trim();}
 async function callWebApp(url,payload){
   const endpoint=cleanUrl(url);if(!endpoint)throw new Error('尚未設定 Google Apps Script Web App 網址');
@@ -12,7 +13,7 @@ export async function verifyCloudWrite(url){return callWebApp(url,{action:'verif
 export async function repairCloudIndex(url){return callWebApp(url,{action:'repairIndex'});}
 export async function listCloudProjects(url){const r=await callWebApp(url,{action:'list'});return Array.isArray(r.projects)?r.projects:[];}
 export async function saveCloudProject(url,{projectId='',projectName='未命名專案',state,devices,baseUpdatedAt='',force=false}){
-  return callWebApp(url,{action:'save',projectId,projectName,state,devices,baseUpdatedAt,force,clientVersion:'1.6.4'});
+  return callWebApp(url,{action:'save',projectId,projectName,state,devices,baseUpdatedAt,force,clientVersion:APP_VERSION});
 }
 export async function loadCloudProject(url,projectId){return callWebApp(url,{action:'load',projectId});}
 export async function deleteCloudProject(url,projectId){return callWebApp(url,{action:'delete',projectId});}

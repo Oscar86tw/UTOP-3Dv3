@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.0';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.0';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.2';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.2';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,9 +11,10 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.0';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.0';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.0';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.2';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.2';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.2';
+import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.2';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -37,6 +38,92 @@ function reportUiError(where,err){
   else {const meta=byId('projectMeta');if(meta)meta.textContent=`⚠ ${where} 失敗：${err?.message||err}`;}
 }
 function safeHandler(where,fn){return async e=>{try{return await fn(e);}catch(err){reportUiError(where,err);}}}
+
+
+// V1.7.2 - Version Sync Hotfix.
+document.documentElement.dataset.utopVersion=APP_VERSION;
+document.title=`UTOP-3Dv3 ${APP_VERSION_LABEL} ${APP_TITLE}`;
+const versionMeta=document.getElementById('projectMeta');if(versionMeta)versionMeta.textContent=APP_META;
+
+// Keep the native <select> for existing value/change logic, but render the choices
+// in our own DOM popover so floating/dock pointer events cannot collapse it.
+let stableSelectActive=null,stableSelectPopover=null;
+function stableSelectText(select){return select?.selectedOptions?.[0]?.textContent||select?.options?.[select.selectedIndex]?.textContent||'請選擇';}
+function ensureStableSelectPopover(){
+  if(stableSelectPopover?.isConnected)return stableSelectPopover;
+  const pop=document.createElement('div');pop.className='utop-select-popover';pop.hidden=true;document.body.appendChild(pop);stableSelectPopover=pop;return pop;
+}
+function closeStableSelect(){
+  if(stableSelectPopover)stableSelectPopover.hidden=true;
+  stableSelectActive?.trigger?.setAttribute('aria-expanded','false');
+  stableSelectActive=null;
+}
+function positionStableSelectPopover(trigger,pop){
+  const r=trigger.getBoundingClientRect(),gap=6,minH=140,maxH=Math.min(360,Math.max(180,window.innerHeight-30));
+  const below=window.innerHeight-r.bottom-gap,above=r.top-gap;
+  const openUp=below<minH&&above>below;
+  const h=Math.min(maxH,Math.max(120,openUp?above:below));
+  pop.style.width=Math.max(180,Math.round(r.width))+'px';
+  pop.style.maxHeight=Math.floor(h)+'px';
+  pop.style.left=Math.max(6,Math.min(window.innerWidth-Math.max(180,r.width)-6,r.left))+'px';
+  if(openUp){pop.style.top='auto';pop.style.bottom=Math.max(6,window.innerHeight-r.top+gap)+'px';}
+  else{pop.style.bottom='auto';pop.style.top=Math.min(window.innerHeight-80,r.bottom+gap)+'px';}
+}
+function rebuildStableSelect(select){
+  if(!select?.isConnected)return;
+  const trigger=select._utopSelectTrigger;if(trigger)trigger.querySelector('.utop-select-value').textContent=stableSelectText(select);
+  if(stableSelectActive?.select===select)openStableSelect(select,trigger,true);
+}
+function openStableSelect(select,trigger,rebuildOnly=false){
+  if(!select||!trigger)return;
+  const pop=ensureStableSelectPopover();
+  if(!rebuildOnly&&stableSelectActive?.select===select&&!pop.hidden){closeStableSelect();return;}
+  pop.innerHTML='';
+  [...select.options].forEach((option,index)=>{
+    const btn=document.createElement('button');btn.type='button';btn.className='utop-select-option';
+    btn.dataset.value=option.value;btn.disabled=!!option.disabled;btn.setAttribute('role','option');btn.setAttribute('aria-selected',String(option.selected));
+    btn.innerHTML=`<span>${option.textContent||''}</span>${option.selected?'<b>✓</b>':''}`;
+    btn.addEventListener('pointerdown',e=>{e.stopPropagation();});
+    btn.addEventListener('click',e=>{
+      e.preventDefault();e.stopPropagation();
+      if(option.disabled)return;
+      select.selectedIndex=index;
+      select.value=option.value;
+      trigger.querySelector('.utop-select-value').textContent=option.textContent||'';
+      select.dispatchEvent(new Event('input',{bubbles:true}));
+      select.dispatchEvent(new Event('change',{bubbles:true}));
+      closeStableSelect();
+    });
+    pop.appendChild(btn);
+  });
+  positionStableSelectPopover(trigger,pop);pop.hidden=false;stableSelectActive={select,trigger};trigger.setAttribute('aria-expanded','true');
+}
+function enhanceStableSelect(select){
+  if(!(select instanceof HTMLSelectElement)||select.multiple||Number(select.size)>1||select.dataset.nativeSelect==='true')return;
+  if(select.dataset.utopStableSelect==='1'){rebuildStableSelect(select);return;}
+  select.dataset.utopStableSelect='1';select.classList.add('utop-native-select');select.tabIndex=-1;
+  const trigger=document.createElement('button');trigger.type='button';trigger.className='utop-select-trigger';trigger.setAttribute('aria-haspopup','listbox');trigger.setAttribute('aria-expanded','false');
+  trigger.innerHTML='<span class="utop-select-value"></span><span class="utop-select-arrow">⌄</span>';
+  trigger.querySelector('.utop-select-value').textContent=stableSelectText(select);
+  select.insertAdjacentElement('afterend',trigger);select._utopSelectTrigger=trigger;
+  trigger.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();});
+  trigger.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openStableSelect(select,trigger);});
+  select.addEventListener('change',()=>rebuildStableSelect(select));
+}
+function enhanceStableSelects(scope=document){
+  if(scope instanceof HTMLSelectElement)enhanceStableSelect(scope);
+  scope.querySelectorAll?.('select').forEach(enhanceStableSelect);
+}
+const stableSelectObserver=new MutationObserver(mutations=>{
+  for(const m of mutations){
+    if(m.target instanceof HTMLSelectElement)rebuildStableSelect(m.target);
+    for(const n of m.addedNodes){if(n.nodeType===1)enhanceStableSelects(n);}
+  }
+});
+stableSelectObserver.observe(document.documentElement,{childList:true,subtree:true});
+document.addEventListener('pointerdown',e=>{if(stableSelectActive&&!e.target.closest('.utop-select-popover,.utop-select-trigger'))closeStableSelect();},{capture:true});
+window.addEventListener('resize',()=>{if(stableSelectActive&&!stableSelectPopover?.hidden)positionStableSelectPopover(stableSelectActive.trigger,stableSelectPopover);});
+window.addEventListener('scroll',()=>{if(stableSelectActive&&!stableSelectPopover?.hidden)positionStableSelectPopover(stableSelectActive.trigger,stableSelectPopover);},true);
 
 function rememberCloudUrl(){try{localStorage.setItem(CLOUD_URL_KEY,state.cloud?.webAppUrl||'');}catch(_){}}
 function restoreCloudUrl(){try{const u=localStorage.getItem(CLOUD_URL_KEY);if(u){state.cloud??={};state.cloud.webAppUrl=u;}}catch(_){}}
@@ -71,7 +158,7 @@ async function cloudSave(asNew=false,force=false){
   state.cloud.projectId=r.projectId;state.cloud.selectedProjectId=r.projectId;state.cloud.projectName=r.projectName;state.cloud.lastCloudSavedAt=r.updatedAt;state.cloud.status=`✅ 已儲存到 Google：${r.projectName}`;state.savedAt=new Date(r.updatedAt);markCloudBaseline();return r;
 }
 async function refreshCloudProjectList(){
-  state.cloud??={};state.cloud.webAppUrl=String(byId('cloudWebAppUrl')?.value??state.cloud.webAppUrl??'').trim();rememberCloudUrl();const items=await listCloudProjects(state.cloud.webAppUrl);state.cloud.projects=items;const sel=byId('cloudProjectList');if(sel){sel.innerHTML='<option value="">請選擇專案</option>';for(const item of items){const o=document.createElement('option');o.value=item.projectId;o.textContent=`${item.projectName} · ${item.updatedAt?new Date(item.updatedAt).toLocaleString('zh-TW'):''}`;sel.appendChild(o);}const wanted=state.cloud.selectedProjectId||state.cloud.projectId||'';if(wanted&&items.some(x=>x.projectId===wanted))sel.value=wanted;}state.cloud.status=`已讀取 ${items.length} 個 Google 雲端專案`;const st=byId('cloudStatus');if(st)st.textContent=state.cloud.status;return items;
+  state.cloud??={};state.cloud.webAppUrl=String(byId('cloudWebAppUrl')?.value??state.cloud.webAppUrl??'').trim();rememberCloudUrl();const items=await listCloudProjects(state.cloud.webAppUrl);state.cloud.projects=items;const sel=byId('cloudProjectList');if(sel){sel.innerHTML='<option value="">請選擇專案</option>';for(const item of items){const o=document.createElement('option');o.value=item.projectId;o.textContent=`${item.projectName} · ${item.updatedAt?new Date(item.updatedAt).toLocaleString('zh-TW'):''}`;sel.appendChild(o);}const wanted=state.cloud.selectedProjectId||state.cloud.projectId||'';if(wanted&&items.some(x=>x.projectId===wanted))sel.value=wanted;rebuildStableSelect(sel);}state.cloud.status=`已讀取 ${items.length} 個 Google 雲端專案`;const st=byId('cloudStatus');if(st)st.textContent=state.cloud.status;return items;
 }
 
 
@@ -126,7 +213,7 @@ function bindModuleLibraryControls(){
   const close=aside.querySelector('#closeModuleSidebar');if(close)close.onclick=()=>showSidebar('module',false);
   const floatBtn=aside.querySelector('#floatModuleSidebar');if(floatBtn)floatBtn.onclick=()=>toggleSidebarDock('module');
   const search=aside.querySelector('#moduleSearch');if(search)search.oninput=e=>updateModuleSearch(e.target.value);
-  const group=aside.querySelector('#moduleGroup');if(group)group.onchange=e=>{state.moduleLibrary.group=e.target.value;aside.innerHTML=renderModuleLibrary();bindModuleLibraryControls();applySidebarLayout('module');};
+  const group=aside.querySelector('#moduleGroup');if(group)group.onchange=e=>{state.moduleLibrary.group=e.target.value;aside.innerHTML=renderModuleLibrary();bindModuleLibraryControls();enhanceStableSelects(aside);applySidebarLayout('module');};
   aside.querySelectorAll('[data-add-template]').forEach(b=>{b.onclick=safeHandler('新增模組',async()=>{const id=addModule(b.dataset.addTemplate,state.editor.floorFocus||'1F');if(id){state.selectedDevice=id;selectDevice(id);showSidebar('inspector',true);state.workspace.mode='3d';await ensurePersistentWorkspace();sim3d?.applyProjectState?.();sim3d?.selectDevice(id);syncInspector(id,true);}});});
   enableDockableSidebar('module');applySidebarLayout('module');
 }
@@ -140,6 +227,7 @@ async function ensurePersistentWorkspace(){
     state.workspace.mode='3d';state.workspace.leftOpen=true;
     workspaceRoot.innerHTML=render('simulator');
     const prev=root;root=workspaceRoot;bind();root=prev;
+    enhanceStableSelects(workspaceRoot);
     initDockableSidebars();
     workspaceReady=true;
   }
@@ -264,7 +352,7 @@ function refreshToolPanelBody(panel,route){
   if(!panel)return;
   if(route==='diagrams')unmountNeuralView();
   const body=panel.querySelector('.floating-tool-body');if(!body)return;
-  body.innerHTML=render(route);const prev=root;root=body;bind();root=prev;
+  body.innerHTML=render(route);const prev=root;root=body;bind();root=prev;enhanceStableSelects(body);
   if(route==='diagrams')mountNeuralView();
 }
 function refreshAllToolPanels(){
@@ -280,7 +368,7 @@ async function openToolPanel(route){
   const safeRoute=String(route).replace(/[^a-z0-9_-]/gi,'');const bodyId=`floatingToolBody_${safeRoute}`;
   toolPanelLayer.insertAdjacentHTML('beforeend',`<section class="floating-tool-window" data-tool-route="${route}"><header class="floating-tool-header"><div><b>${toolTitle(route)}</b><small>工作區保持運作，不重新載入 3D</small></div><div class="floating-tool-actions"><button data-tool-minimize title="最小化">—</button><button data-tool-dock title="吸附位置">▣</button><button data-tool-close title="關閉">×</button></div></header><div id="${bodyId}" class="floating-tool-body">${render(route)}</div></section>`);
   toolPanelLayer.classList.add('open');panel=toolPanelLayer.querySelector(`.floating-tool-window[data-tool-route="${CSS.escape(route)}"]`);restorePanelLayout(panel,route,count);enableFloatingPanelDrag(panel);updateDockedPanelLayout();const dockBtn=panel.querySelector('[data-tool-dock]');if(dockBtn)dockBtn.title='吸附：'+dockLabel(panel.dataset.dockEdge||'');bringPanelToFront(panel);
-  const body=panel.querySelector(`#${bodyId}`),prev=root;root=body;bind();root=prev;
+  const body=panel.querySelector(`#${bodyId}`),prev=root;root=body;bind();root=prev;enhanceStableSelects(body);
   if(route==='diagrams')mountNeuralView();rememberPanelOpen(route);return panel;
 }
 function nav(){
@@ -312,7 +400,7 @@ function syncInspector(id,open=true){
   if(open)ensureInspectorShell();
   const slot=document.getElementById('deviceInspectorPanelContent');if(slot)slot.innerHTML=renderDeviceInspector(id);
   const quick=document.getElementById('quick3DControlSlot');if(quick)quick.innerHTML=renderQuick3DControls(id);
-  bindDynamicInspector();
+  bindDynamicInspector();enhanceStableSelects(slot||workspaceRoot);
   const badge=workspaceRoot.querySelector('.selected-badge');if(badge)badge.textContent=d.name;
   const sel=document.getElementById('selectedState');if(sel)sel.textContent=d.name;
 }
@@ -491,6 +579,7 @@ window.addEventListener('keydown',e=>{
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)go(b.dataset.route)});
 byId('presentationToggle')?.addEventListener('click',()=>{state.presentation=!state.presentation;document.body.classList.toggle('presentation',state.presentation);const b=byId('presentationToggle');if(b)b.textContent=state.presentation?'退出簡報':'簡報模式'});
 byId('saveBtn')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{if(!state.cloud?.webAppUrl){state.cloud??={};state.cloud.status='請先到「專案 / Debug」設定 Google Apps Script Web App 網址';await go('project');return;}await cloudSave(false);const meta=byId('projectMeta');if(meta)meta.textContent=`Google 已儲存 · ${state.cloud.projectName}`;}));
+enhanceStableSelects(document);
 restoreCloudUrl();
 migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
 markCloudBaseline();
