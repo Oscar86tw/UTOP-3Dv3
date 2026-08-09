@@ -1,7 +1,9 @@
-# V1.5.4
+# V1.6.0
 
-- 規格參數輸入改為 120ms debounce 即時套用到真正 3D，不需每次先按套用才看到結果。
-- 設備控制、DI/DO 後重新整理 Inspector 時保留目前捲動位置與輸入焦點，避免面板跳回頂端。
-- 3D 名稱牌位置高度改為快取，只在設備幾何或標籤偏移真的變更時重新計算 Bounding Box。
-- 正常 3D Render frame 不再重算每台設備的名稱高度，降低抖動與瞬間閃爍。
-- Google Cloud clientVersion 同步為 1.5.4；verifyWrite / save / load / delete 流程保留。
+- 將多頁式導航改為 Persistent Workspace。
+- Three.js 3D Canvas 不再因開啟其他功能而 unmount / remount。
+- 總覽、2D同步、場景/視野、樓層、快捷鍵、多螢幕、任務、接線、網路、圖表、現場、專案/Debug 改成浮動工具面板。
+- 浮動面板支援拖曳、調整大小、最小化、靠右、關閉。
+- 模組庫與設備設定抽屜改成 DOM 常駐顯示/隱藏。
+- 新增模組後直接刷新既有 Simulator，不重新建立 3D 工作區。
+- Google Cloud client / Apps Script 版本同步至 1.6.0。

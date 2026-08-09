@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.5.4';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.5.4';
+import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.6.0';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.0';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,12 +11,13 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.5.4';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.5.4';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.5.4';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.0';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.0';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.0';
 
-const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
-let capturing=false,sim3d=null,navEpoch=0,simulatorMountPromise=null,missionTimer=null,lastCloudFingerprint='';
+const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
+let root=workspaceRoot;
+let capturing=false,sim3d=null,navEpoch=0,simulatorMountPromise=null,missionTimer=null,lastCloudFingerprint='',workspaceReady=false,activeToolRoute='';
 const CLOUD_URL_KEY='utop3dv3.cloud.webAppUrl';
 const LEGACY_STORAGE_KEY='utop3dv3.project.v1';
 const DEFAULTS=cloneDefaults(state,devices);
@@ -69,45 +70,82 @@ async function refreshCloudProjectList(){
   state.cloud??={};state.cloud.webAppUrl=String(byId('cloudWebAppUrl')?.value??state.cloud.webAppUrl??'').trim();rememberCloudUrl();const items=await listCloudProjects(state.cloud.webAppUrl);state.cloud.projects=items;const sel=byId('cloudProjectList');if(sel){sel.innerHTML='<option value="">請選擇專案</option>';for(const item of items){const o=document.createElement('option');o.value=item.projectId;o.textContent=`${item.projectName} · ${item.updatedAt?new Date(item.updatedAt).toLocaleString('zh-TW'):''}`;sel.appendChild(o);}const wanted=state.cloud.selectedProjectId||state.cloud.projectId||'';if(wanted&&items.some(x=>x.projectId===wanted))sel.value=wanted;}state.cloud.status=`已讀取 ${items.length} 個 Google 雲端專案`;const st=byId('cloudStatus');if(st)st.textContent=state.cloud.status;return items;
 }
 
-async function withSimulator(where,fn){
-  try{
-    if(state.route!=='simulator'){state.workspace.mode='3d';await go('simulator');}
-    if(simulatorMountPromise)await simulatorMountPromise;
-    if(!sim3d)throw new Error('3D 尚未完成初始化');
-    return await fn(sim3d);
-  }catch(err){reportUiError(where,err);return null;}
-}
-
-
-function nav(){
-  tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');
-  bottom.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));
-  document.body.dataset.route=state.route;
-}
-async function go(route){
-  const epoch=++navEpoch;
-  if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;simulatorMountPromise=null;}
-  if(state.route==='diagrams'&&route!=='diagrams')unmountNeuralView();
-  state.route=route;syncDirtyFlag();nav();root.innerHTML=render(route);bind();
-  if(route==='simulator'&&state.workspace.mode!=='2d'){
+async function ensurePersistentWorkspace(){
+  if(workspaceReady&&sim3d)return sim3d;
+  if(!workspaceReady){
+    state.workspace.mode='3d';state.workspace.leftOpen=true;
+    workspaceRoot.innerHTML=render('simulator');
+    const prev=root;root=workspaceRoot;bind();root=prev;
+    workspaceReady=true;
+  }
+  if(!sim3d&&!simulatorMountPromise){
+    const epoch=++navEpoch;
     simulatorMountPromise=mountSimulator3D({onSelection:id=>syncInspector(id,true),onTransform:id=>syncInspector(id,false)});
     const mounted=await simulatorMountPromise;
-    if(epoch!==navEpoch||state.route!=='simulator'){mounted?.destroy?.();return;}
-    sim3d=mounted;simulatorMountPromise=null;
+    simulatorMountPromise=null;
+    if(epoch!==navEpoch&&activeToolRoute==='__workspace_rebuild__'){mounted?.destroy?.();return null;}
+    sim3d=mounted;
     state.runtimeHealth??={};
     state.runtimeHealth.simulatorReady=!!sim3d;
-    state.runtimeHealth.webglReady=!!sim3d && sim3d.localFallback!==true;
+    state.runtimeHealth.webglReady=!!sim3d&&sim3d.localFallback!==true;
     state.runtimeHealth.lastError=sim3d?'':'3D 初始化沒有回傳 Simulator API';
+  }else if(simulatorMountPromise)await simulatorMountPromise;
+  return sim3d;
+}
+async function withSimulator(where,fn){
+  try{
+    const simulator=await ensurePersistentWorkspace();
+    if(!simulator)throw new Error('3D 尚未完成初始化');
+    return await fn(simulator);
+  }catch(err){reportUiError(where,err);return null;}
+}
+function toolTitle(route){return categories.find(c=>c.id===route)?.label||'工具';}
+function closeToolPanel(){
+  if(activeToolRoute==='diagrams')unmountNeuralView();
+  activeToolRoute='';toolPanelLayer.innerHTML='';toolPanelLayer.classList.remove('open');state.route='simulator';nav();
+}
+function enableFloatingPanelDrag(panel){
+  const handle=panel.querySelector('.floating-tool-header');let drag=null;
+  handle?.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;const r=panel.getBoundingClientRect();drag={dx:e.clientX-r.left,dy:e.clientY-r.top};panel.style.right='auto';handle.setPointerCapture?.(e.pointerId);});
+  handle?.addEventListener('pointermove',e=>{if(!drag)return;const maxX=Math.max(0,window.innerWidth-panel.offsetWidth),maxY=Math.max(0,window.innerHeight-panel.offsetHeight);panel.style.left=Math.max(0,Math.min(maxX,e.clientX-drag.dx))+'px';panel.style.top=Math.max(72,Math.min(maxY,e.clientY-drag.dy))+'px';});
+  const stop=()=>drag=null;handle?.addEventListener('pointerup',stop);handle?.addEventListener('pointercancel',stop);
+  panel.querySelector('[data-tool-close]')?.addEventListener('click',closeToolPanel);
+  panel.querySelector('[data-tool-minimize]')?.addEventListener('click',()=>panel.classList.toggle('minimized'));
+  panel.querySelector('[data-tool-dock]')?.addEventListener('click',()=>panel.classList.toggle('docked'));
+}
+async function openToolPanel(route){
+  if(route==='simulator'){closeToolPanel();return;}
+  if(activeToolRoute==='diagrams'&&route!=='diagrams')unmountNeuralView();
+  activeToolRoute=route;state.route=route;syncDirtyFlag();nav();
+  toolPanelLayer.innerHTML=`<section class="floating-tool-window" data-tool-route="${route}"><header class="floating-tool-header"><div><b>${toolTitle(route)}</b><small>工作區保持運作，不重新載入 3D</small></div><div class="floating-tool-actions"><button data-tool-minimize title="最小化">—</button><button data-tool-dock title="靠右/浮動">▣</button><button data-tool-close title="關閉">×</button></div></header><div id="floatingToolBody" class="floating-tool-body">${render(route)}</div></section>`;
+  toolPanelLayer.classList.add('open');
+  const panel=toolPanelLayer.querySelector('.floating-tool-window');enableFloatingPanelDrag(panel);
+  const body=toolPanelLayer.querySelector('#floatingToolBody');const prev=root;root=body;bind();root=prev;
+  if(route==='diagrams')mountNeuralView();
+}
+function nav(){
+  tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');
+  bottom.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route||(b.dataset.route==='simulator'&&!activeToolRoute)));
+  document.body.dataset.route=activeToolRoute||'simulator';
+}
+async function go(route){
+  await ensurePersistentWorkspace();
+  if(route==='sync2d'){
+    // 2D/3D 同步工具改為浮動面板，真正 3D Canvas 保留在底層。
+    return openToolPanel(route);
   }
-  if(route==='diagrams'&&epoch===navEpoch)mountNeuralView();
+  if(route==='simulator'){
+    closeToolPanel();sim3d?.applyProjectState?.();return sim3d;
+  }
+  return openToolPanel(route);
 }
 function ensureInspectorShell(){
-  const workspace=root.querySelector('.legacy-workspace');if(!workspace)return null;
+  const workspace=workspaceRoot.querySelector('.legacy-workspace');if(!workspace)return null;
   let aside=document.getElementById('deviceInspectorSidebar');
   if(!aside){
-    aside=document.createElement('aside');aside.id='deviceInspectorSidebar';aside.className='legacy-sidebar right-sidebar';aside.innerHTML='<div id="deviceInspectorPanelContent"></div>';workspace.appendChild(aside);workspace.classList.add('has-right');
+    aside=document.createElement('aside');aside.id='deviceInspectorSidebar';aside.className='legacy-sidebar right-sidebar';aside.innerHTML='<div id="deviceInspectorPanelContent"></div>';workspace.appendChild(aside);
   }
-  state.workspace.rightOpen=true;return aside;
+  aside.hidden=false;workspace.classList.add('has-right');state.workspace.rightOpen=true;return aside;
 }
 function syncInspector(id,open=true){
   const d=devices.find(x=>x.id===id);if(!d)return;state.selectedDevice=id;selectDevice(id);
@@ -115,12 +153,12 @@ function syncInspector(id,open=true){
   const slot=document.getElementById('deviceInspectorPanelContent');if(slot)slot.innerHTML=renderDeviceInspector(id);
   const quick=document.getElementById('quick3DControlSlot');if(quick)quick.innerHTML=renderQuick3DControls(id);
   bindDynamicInspector();
-  const badge=root.querySelector('.selected-badge');if(badge)badge.textContent=d.name;
+  const badge=workspaceRoot.querySelector('.selected-badge');if(badge)badge.textContent=d.name;
   const sel=document.getElementById('selectedState');if(sel)sel.textContent=d.name;
 }
-function selectDeviceEverywhere(id){state.selectedDevice=id;selectDevice(id);sim3d?.selectDevice(id);if(state.route==='sync2d')go('sync2d');else if(state.route==='simulator')syncInspector(id,true);}
-function applyPlanPatch(patch){const id=state.selectedDevice;if(!id)return;updateDeviceTransform(id,patch);sim3d?.applyDeviceTransform(id);if(state.route==='sync2d')go('sync2d');else syncInspector(id,false);}
-function updateModuleSearch(q){state.moduleLibrary.search=q;const term=q.trim().toLowerCase();root.querySelectorAll('.legacy-module-card').forEach(card=>{card.hidden=!!term&&!card.textContent.toLowerCase().includes(term);});}
+function selectDeviceEverywhere(id){state.selectedDevice=id;selectDevice(id);sim3d?.selectDevice(id);syncInspector(id,true);}
+function applyPlanPatch(patch){const id=state.selectedDevice;if(!id)return;updateDeviceTransform(id,patch);sim3d?.applyDeviceTransform(id);syncInspector(id,false);}
+function updateModuleSearch(q){state.moduleLibrary.search=q;const term=q.trim().toLowerCase();workspaceRoot.querySelectorAll('.legacy-module-card').forEach(card=>{card.hidden=!!term&&!card.textContent.toLowerCase().includes(term);});}
 function currentHotkeyConflict(combo,exceptDevice='',exceptAction=''){
   for(const [deviceId,map] of Object.entries(state.deviceHotkeys||{}))for(const [action,key] of Object.entries(map||{}))if(key===combo&&!(deviceId===exceptDevice&&action===exceptAction))return {deviceId,action,key};
   return null;
@@ -149,14 +187,15 @@ function scheduleLiveDeviceSettings(id){
 }
 
 function bindDynamicInspector(){
-  root.querySelectorAll('[data-inspector-tab]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab=b.dataset.inspectorTab;const slot=document.getElementById('deviceInspectorPanelContent');if(slot){slot.innerHTML=renderDeviceInspector(state.selectedDevice);bindDynamicInspector();}}));
-  document.getElementById('closeInspectorSidebar')?.addEventListener('click',()=>{state.workspace.rightOpen=false;const aside=document.getElementById('deviceInspectorSidebar');aside?.remove();root.querySelector('.legacy-workspace')?.classList.remove('has-right');});
+  workspaceRoot.querySelectorAll('[data-inspector-tab]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab=b.dataset.inspectorTab;const slot=document.getElementById('deviceInspectorPanelContent');if(slot){slot.innerHTML=renderDeviceInspector(state.selectedDevice);bindDynamicInspector();}}));
+  document.getElementById('closeInspectorSidebar')?.addEventListener('click',()=>{state.workspace.rightOpen=false;const aside=document.getElementById('deviceInspectorSidebar');if(aside)aside.hidden=true;workspaceRoot.querySelector('.legacy-workspace')?.classList.remove('has-right');});
   byId('deleteSelectedModule')?.addEventListener('click',safeHandler('刪除模組',async()=>{
     const id=state.selectedDevice;if(!id)return;
     if(!confirm('確定刪除目前模組及相關接線？'))return;
     if(!removeModule(id))return;
     state.selectedDevice=devices[0]?.id||null;
-    if(state.route==='simulator')await go('simulator');
+    sim3d?.applyProjectState?.();
+    const slot=document.getElementById('deviceInspectorPanelContent');if(slot)slot.innerHTML=renderDeviceInspector(state.selectedDevice);
   }));
   document.getElementById('applyInspectorProperties')?.addEventListener('click',()=>{
     const id=state.selectedDevice,d=devices.find(x=>x.id===id);if(!d)return;
@@ -165,18 +204,18 @@ function bindDynamicInspector(){
     updateSettings(id,{showLabel:checked('showLabelSetting'),labelOffsetX:num('labelOffsetX'),labelOffsetY:num('labelOffsetY'),labelOffsetZ:num('labelOffsetZ'),positionLocked:checked('lockPositionSetting')});
     withSimulator('設備屬性套用',s=>{s.applyDeviceTransform(id);s.applyDeviceSettings(id);});syncInspector(id,false);
   });
-  root.querySelectorAll('[data-setting-param]').forEach(el=>el.addEventListener('input',()=>{
+  workspaceRoot.querySelectorAll('[data-setting-param]').forEach(el=>el.addEventListener('input',()=>{
     const id=state.selectedDevice;if(!id)return;const n=Number(el.value);if(!Number.isFinite(n))return;
     updateSettings(id,{[el.dataset.settingParam]:n});scheduleLiveDeviceSettings(id);
   }));
   document.getElementById('applyModuleSettings')?.addEventListener('click',safeHandler('設備參數套用',async()=>{
-    const id=state.selectedDevice,patch={};root.querySelectorAll('[data-setting-param]').forEach(el=>{const n=Number(el.value);if(Number.isFinite(n))patch[el.dataset.settingParam]=n;});
+    const id=state.selectedDevice,patch={};workspaceRoot.querySelectorAll('[data-setting-param]').forEach(el=>{const n=Number(el.value);if(Number.isFinite(n))patch[el.dataset.settingParam]=n;});
     updateSettings(id,patch);await withSimulator('設備參數套用',s=>s.applyDeviceSettings(id));
     refreshInspectorPreserveScroll(id);
   }));
-  root.querySelectorAll('[data-open-selected-inspector]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab='controls';syncInspector(b.dataset.openSelectedInspector,true);}));
-  root.querySelectorAll('[data-device-action]').forEach(b=>b.addEventListener('click',safeHandler('設備控制',async()=>{const [id,action]=b.dataset.deviceAction.split('|');await withSimulator('設備控制',s=>s.executeDeviceAction(id,action));setTimeout(()=>refreshInspectorPreserveScroll(id),80);})));
-  root.querySelectorAll('[data-io-trigger]').forEach(b=>b.addEventListener('click',safeHandler('DI/DO 模擬',async()=>{const [id,dir,signal]=b.dataset.ioTrigger.split('|');await withSimulator('DI/DO 模擬',s=>s.simulateIo(id,dir,signal));refreshInspectorPreserveScroll(id);})));
+  workspaceRoot.querySelectorAll('[data-open-selected-inspector]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab='controls';syncInspector(b.dataset.openSelectedInspector,true);}));
+  workspaceRoot.querySelectorAll('[data-device-action]').forEach(b=>b.addEventListener('click',safeHandler('設備控制',async()=>{const [id,action]=b.dataset.deviceAction.split('|');await withSimulator('設備控制',s=>s.executeDeviceAction(id,action));setTimeout(()=>refreshInspectorPreserveScroll(id),80);})));
+  workspaceRoot.querySelectorAll('[data-io-trigger]').forEach(b=>b.addEventListener('click',safeHandler('DI/DO 模擬',async()=>{const [id,dir,signal]=b.dataset.ioTrigger.split('|');await withSimulator('DI/DO 模擬',s=>s.simulateIo(id,dir,signal));refreshInspectorPreserveScroll(id);})));
 }
 function bind(){
   root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{state.simulator.cameraPreset=Number(b.dataset.view);go('simulator').then(()=>sim3d?.gotoView(Number(b.dataset.view)))}));
@@ -194,16 +233,16 @@ function bind(){
   root.querySelectorAll('[data-group-opacity]').forEach(r=>r.addEventListener('input',()=>setGroupOpacity(r.dataset.group,Number(r.value)/100)));
   root.querySelectorAll('[data-select2d]').forEach(b=>b.addEventListener('click',()=>selectDeviceEverywhere(b.dataset.select2d)));
 
-  document.getElementById('toggleModuleSidebar')?.addEventListener('click',()=>{state.workspace.leftOpen=!state.workspace.leftOpen;go('simulator')});
-  document.getElementById('toggleInspectorSidebar')?.addEventListener('click',()=>{state.workspace.rightOpen=!state.workspace.rightOpen;go('simulator')});
-  document.getElementById('closeModuleSidebar')?.addEventListener('click',()=>{state.workspace.leftOpen=false;go('simulator')});
-  root.querySelectorAll('[data-workspace-mode]').forEach(b=>b.addEventListener('click',()=>{state.workspace.mode=b.dataset.workspaceMode;go('simulator')}));
+  document.getElementById('toggleModuleSidebar')?.addEventListener('click',()=>{const aside=document.getElementById('moduleLibrarySidebar');if(!aside)return;state.workspace.leftOpen=aside.hidden;aside.hidden=!state.workspace.leftOpen;document.getElementById('toggleModuleSidebar')?.classList.toggle('active',state.workspace.leftOpen);});
+  document.getElementById('toggleInspectorSidebar')?.addEventListener('click',()=>{let aside=document.getElementById('deviceInspectorSidebar');if(!aside&&state.selectedDevice)aside=ensureInspectorShell();if(!aside)return;state.workspace.rightOpen=aside.hidden;aside.hidden=!state.workspace.rightOpen;document.getElementById('toggleInspectorSidebar')?.classList.toggle('active',state.workspace.rightOpen);});
+  document.getElementById('closeModuleSidebar')?.addEventListener('click',()=>{state.workspace.leftOpen=false;const aside=document.getElementById('moduleLibrarySidebar');if(aside)aside.hidden=true;document.getElementById('toggleModuleSidebar')?.classList.remove('active');});
+  root.querySelectorAll('[data-workspace-mode]').forEach(b=>b.addEventListener('click',()=>{const mode=b.dataset.workspaceMode;if(mode==='3d'){state.workspace.mode='3d';closeToolPanel();}else{state.workspace.mode=mode;openToolPanel('sync2d');}}));
   byId('quickScenePreset')?.addEventListener('change',safeHandler('切換場景',async e=>{const p=applyScenePreset(e.target.value);if(!p)return;await withSimulator('切換場景',sim=>sim.applyProjectState());}));
   byId('quickViewSelect')?.addEventListener('change',safeHandler('切換視野',async e=>{const i=Number(e.target.value);state.simulator.cameraPreset=i;await withSimulator('切換視野',sim=>sim.gotoView(i));}));
   document.getElementById('toggle3DFullscreen')?.addEventListener('click',()=>{state.workspace.fullscreen3d=!state.workspace.fullscreen3d;go('simulator')});
   root.querySelectorAll('[data-editor-mode]').forEach(b=>b.addEventListener('click',safeHandler('切換3D編輯模式',async()=>{setEditorMode(b.dataset.editorMode);root.querySelectorAll('[data-editor-mode]').forEach(x=>x.classList.toggle('active',x.dataset.editorMode===state.editor.mode));await withSimulator('切換3D編輯模式',s=>s.setEditorMode(state.editor.mode));})));
   document.getElementById('toggleSnap')?.addEventListener('click',safeHandler('Snap切換',async e=>{state.editor.snap=!state.editor.snap;e.currentTarget.classList.toggle('active',state.editor.snap);e.currentTarget.textContent=`Snap ${state.editor.snap?'ON':'OFF'}`;await withSimulator('Snap切換',s=>s.setSnap(state.editor.snap));}));
-  root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',safeHandler('新增模組',async()=>{const id=addModule(b.dataset.addTemplate,state.editor.floorFocus||'1F');if(id){state.selectedDevice=id;selectDevice(id);state.workspace.rightOpen=true;state.workspace.mode='3d';await go('simulator');sim3d?.selectDevice(id);syncInspector(id,true);}})));
+  root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',safeHandler('新增模組',async()=>{const id=addModule(b.dataset.addTemplate,state.editor.floorFocus||'1F');if(id){state.selectedDevice=id;selectDevice(id);state.workspace.rightOpen=true;state.workspace.mode='3d';await ensurePersistentWorkspace();sim3d?.applyProjectState?.();sim3d?.selectDevice(id);syncInspector(id,true);}})));
   document.getElementById('moduleSearch')?.addEventListener('input',e=>updateModuleSearch(e.target.value));
   document.getElementById('moduleGroup')?.addEventListener('change',e=>{state.moduleLibrary.group=e.target.value;go('simulator')});
   bindDynamicInspector();
@@ -279,4 +318,5 @@ byId('saveBtn')?.addEventListener('click',safeHandler('Google 雲端儲存',asyn
 restoreCloudUrl();
 migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
 markCloudBaseline();
-go(state.route||'overview');
+const bootRoute=state.route||'overview';state.route='simulator';
+ensurePersistentWorkspace().then(()=>go(bootRoute==='simulator'?'simulator':bootRoute));
