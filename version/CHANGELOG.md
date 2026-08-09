@@ -1,23 +1,17 @@
-# UTOP-3Dv3 V0.7.0 Module Designer & Wiring
+# UTOP-3Dv3 V0.8.0 Signal Trace & Skill Tree
 
-## 3D 模組庫
-- 新增搜尋欄與分類篩選。
-- 新增模組圖形縮圖，手機上更容易辨識。
-- 模組加入後仍可立即選取、拖移、旋轉、刪除。
+## 新增
+- 新增 `core-signal-01/signal-trace.js`
+- 新增 Signal Trace：完整鏈 / 上游 / 下游
+- 新增 3D Focus Network：相關設備保持高亮，無關設備淡化
+- 3D Connection 線加入 Connection ID，可精準對應追蹤結果
+- 新增 Dependency Skill Tree，自動依 Connection 生成節點深度與依賴
+- 圖表/流程頁可直接指定設備與追蹤方向，再切到 3D 顯示
+- Mission 頁的依賴節點改為由目前專案設備與 Connection 自動建立
 
-## 模組參數
-- 新增通用尺寸：寬、高、深。
-- 柵欄機：桿長、速度。
-- ETAG/UHF：讀取距離、水平角。
-- Camera：有效距離、FOV。
-- 顯示每個模組支援的端子清單。
+## 改善
+- 地感事件亮線與 Focus Network 顯示分離，追蹤模式優先顯示追蹤結果
+- 修正 V0.7.0 app.js 中殘留的重複模組按鈕監聽，避免呼叫不存在的舊函式
 
-## Wiring
-- 新增 `state.connections` 正式連線資料。
-- 工程頁可選擇來源設備/端子與目標設備/端子建立連線。
-- 可刪除連線。
-- 3D DI/DO / Signal 線改為依 Connection 自動繪製。
-- 後續 Signal Trace、Mission、Skill Tree 可直接沿用同一份連線資料。
-
-## 修正
-- 保留 3D 車輛前進/後退正確方向。
+## 延續
+- 保留 3D 模組庫、模組參數、端子系統、Wiring、2D/3D同步與車輛方向修正

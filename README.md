@@ -1,12 +1,17 @@
-# UTOP-3Dv3 V0.7.0 Module Designer & Wiring
+# UTOP-3Dv3 V0.8.0 Signal Trace & Skill Tree
 
-本版把 3D 模組庫從「可以加入設備」提升成「可以找設備、改參數、看端子、建立真正接線」。
+本版把 V0.7.0 已建立的 `state.connections` 正式往上延伸成分析核心。
 
-## 主要功能
-- 3D 模組庫搜尋 / 分類 / 圖形縮圖
-- 模組尺寸與專屬參數
-- 端子清單
-- 端子對端子接線
-- Connection 清單
-- 3D 連線自動生成
-- 延續 2D/3D同步、場景、視野、任務、多螢幕、現場工具
+## 新增
+- 3D Focus Network：只高亮與選取設備相關的模組與連線
+- Signal Trace：完整鏈 / 上游 / 下游
+- 端子連線明細
+- Dependency Skill Tree：由 Connection 自動產生
+- Mission 節點改為依目前 Connection / Device 資料建立
+- 圖表 / 流程頁加入互動式追蹤控制
+
+## 使用方式
+1. 在工程頁建立設備端子連線。
+2. 到圖表/流程頁選設備與追蹤方向。
+3. 點「在3D顯示」即可進入 Focus Network。
+4. 未相關設備會淡化，相關設備與連線會保留高亮。

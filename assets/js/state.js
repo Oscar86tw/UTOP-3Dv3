@@ -78,5 +78,6 @@ export const state = {
   connections:[
     {id:'CON-001',fromDevice:'DEV-003',fromTerminal:'OUT',toDevice:'DEV-004',toTerminal:'DI1',type:'DI',enabled:true},
     {id:'CON-002',fromDevice:'DEV-004',fromTerminal:'DO1',toDevice:'DEV-001',toTerminal:'OPEN',type:'DO',enabled:true}
-  ]
+  ],
+  signalTrace:{enabled:false,focusDevice:'DEV-003',mode:'full'}
 };

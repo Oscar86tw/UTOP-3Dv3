@@ -6,6 +6,7 @@ import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings} from './core-module-01/module-manager.js';
 import {addConnection,deleteConnection,inferSignalType} from './core-wiring-01/wiring-manager.js';
+import {setTraceFocus,clearTraceFocus} from './core-signal-01/signal-trace.js';
 const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let capturing=false,sim3d=null;
 function nav(){tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');bottom.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));}
@@ -34,8 +35,6 @@ function bind(){
   document.getElementById('moduleSearch')?.addEventListener('input',e=>{state.moduleLibrary.search=e.target.value;clearTimeout(bind.moduleSearchTimer);bind.moduleSearchTimer=setTimeout(()=>go('simulator'),180);});
   document.getElementById('moduleGroup')?.addEventListener('change',e=>{state.moduleLibrary.group=e.target.value;go('simulator');});
   document.getElementById('applyModuleSettings')?.addEventListener('click',()=>{const id=state.selectedDevice;if(!id)return;const val=(name,fallback)=>Number(document.getElementById(name)?.value)||fallback;const patch={width:val('setWidth',1),height:val('setHeight',1),depth:val('setDepth',1)};if(document.getElementById('setBoomLength'))patch.boomLength=val('setBoomLength',5.8);if(document.getElementById('setSpeed'))patch.speed=val('setSpeed',1);if(document.getElementById('setRange'))patch.range=val('setRange',1);if(document.getElementById('setAngle'))patch.angle=val('setAngle',55);if(document.getElementById('setFov'))patch.fov=val('setFov',70);updateSettings(id,patch);sim3d?.applyDeviceSettings(id);syncPropertyPanel(id);});
-  root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',()=>addModuleFromTemplate(b.dataset.addTemplate)));
-  root.querySelectorAll('[data-remove-device]').forEach(b=>b.addEventListener('click',()=>removeDevice(b.dataset.removeDevice)));
   root.querySelectorAll('[data-plan-nudge]').forEach(b=>b.addEventListener('click',()=>{const t=getDeviceTransform(state.selectedDevice),step=state.editor.gridSize||.25;const p={};if(b.dataset.planNudge==='x-')p.x=t.x-step;if(b.dataset.planNudge==='x+')p.x=t.x+step;if(b.dataset.planNudge==='z-')p.z=t.z-step;if(b.dataset.planNudge==='z+')p.z=t.z+step;applyPlanPatch(p)}));
   root.querySelectorAll('[data-plan-rotate]').forEach(b=>b.addEventListener('click',()=>{const t=getDeviceTransform(state.selectedDevice);applyPlanPatch({rotationY:(t.rotationY||0)+Number(b.dataset.planRotate)*Math.PI/180})}));
   document.getElementById('applyPlanTransform')?.addEventListener('click',()=>applyPlanPatch({x:Number(planX.value)||0,z:Number(planZ.value)||0,rotationY:(Number(planRot.value)||0)*Math.PI/180,floor:planFloor.value}));
@@ -68,6 +67,12 @@ function bind(){
   document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());
   document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
   document.getElementById('refresh3DState')?.addEventListener('click',()=>sim3d?.applyProjectState());
+  document.getElementById('traceSelected')?.addEventListener('click',()=>{setTraceFocus(state.selectedDevice,'full');sim3d?.applyTraceFocus();});
+  document.getElementById('clearTrace')?.addEventListener('click',()=>{clearTraceFocus();sim3d?.applyTraceFocus();});
+  root.querySelectorAll('[data-trace-device]').forEach(b=>b.addEventListener('click',()=>{setTraceFocus(b.dataset.traceDevice,'full');state.selectedDevice=b.dataset.traceDevice;go('diagrams');}));
+  document.getElementById('applyTrace')?.addEventListener('click',()=>{setTraceFocus(traceDevice.value,traceMode.value);go('diagrams');});
+  document.getElementById('showTrace3D')?.addEventListener('click',()=>{setTraceFocus(traceDevice.value,traceMode.value);state.selectedDevice=traceDevice.value;go('simulator').then(()=>sim3d?.applyTraceFocus());});
+  document.getElementById('clearTraceFromDiagram')?.addEventListener('click',()=>{clearTraceFocus();go('diagrams');});
   root.querySelectorAll('[data-diagram]').forEach(b=>b.addEventListener('click',()=>{diagramStatus.textContent=`已依目前專案產生：${b.dataset.diagram} 預覽。`;}));
   document.getElementById('compareRange')?.addEventListener('input',e=>{state.field.comparePercent=Number(e.target.value);compareText.textContent=`目前 ${state.field.comparePercent}% 疊圖比較：原車道 vs 改善後車道。`;});
   document.getElementById('addPhoto')?.addEventListener('click',()=>{state.photos.push({id:'P-'+String(state.photos.length+1).padStart(3,'0'),title:'新現場照片',device:state.selectedDevice});go('field')});
