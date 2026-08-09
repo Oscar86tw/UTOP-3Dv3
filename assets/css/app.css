@@ -259,3 +259,13 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
 @media(max-width:760px){.quick-scene-view .utop-select-trigger{width:100%;min-width:0;max-width:none}.utop-select-popover{max-width:calc(100vw - 12px)}}
 
 /* V1.7.2 - Version Sync Hotfix */
+
+/* V1.7.4 - Wiring card DI/DO separation */
+.wiring-device-card .wiring-di{background:rgba(219,234,254,.45);border-color:#93c5fd}
+.wiring-device-card .wiring-do{background:rgba(255,237,213,.52);border-color:#fdba74}
+.wiring-device-card .wiring-physical{background:rgba(250,250,249,.72);border-color:#d6d3d1}
+.wiring-device-card .terminal-group-title{display:flex;align-items:center;justify-content:space-between;font-weight:700}
+.wiring-device-card .terminal-group-title span{font-size:.78em;opacity:.6}
+.wiring-device-card .terminal-subtitle{font-size:.78rem;letter-spacing:.04em;color:#78716c;margin:.55rem 0 .3rem}
+.wiring-device-card .wiring-di .terminal-chip{border-color:#60a5fa;background:#dbeafe}
+.wiring-device-card .wiring-do .terminal-chip{border-color:#fb923c;background:#ffedd5}

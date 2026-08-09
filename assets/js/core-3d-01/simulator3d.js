@@ -1,12 +1,12 @@
 import {state} from '../state.js';
-import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.3';
+import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.4';
 import {devices} from '../data.js';
 import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} from '../core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.3';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.3';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.4';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.4';
 
 let active=null;
 const THREE_SOURCES=[

@@ -1,7 +1,7 @@
-# V1.7.3
+# V1.7.4
 
-- 依 Garrison / SOYAL 官方資料修正號誌類模組行為。
-- DI / DO 維持脈衝，但設備 Runtime 獨立維持或恢復待機狀態。
-- 車道紅綠燈預設待機綠燈，脈衝紅燈後可自動恢復綠燈。
-- LK-1045 倒數上限修正 99 秒，加入紅燈恆亮/閃爍與最後5秒閃動。
-- LK-103 修正 6~100 秒；LK-103A 修正 1~120 秒。
+- 接線卡片改為固定顯示「DI / 輸入」「DO / 輸出」「實體端子」三層。
+- 29 類模組全部依模組定義顯示自己的 Inputs / Outputs，不再只依 physical terminals 猜測。
+- 柵欄機現在完整顯示 OPEN/CLOSE/STOP/SAFETY/RESET 與 FULLY_OPEN/FULLY_CLOSED/RUNNING/FAULT。
+- `connectableTerminals()` 擴充支援功能 I/O 訊號，可直接用功能訊號建立 Connection。
+- Debug Function State 增加「全模組 DI/DO 定義」檢查。

@@ -1,4 +1,5 @@
 import {state} from '../state.js';
+import {MODULE_DEFINITIONS} from '../core-module-01/module-definitions.js';
 import {devices} from '../data.js';
 import {terminalsFor,controlsFor} from '../core-module-01/module-manager.js';
 import {verifyConnectionActionChains} from '../core-logic-01/connection-runtime.js?v=1.7.3';

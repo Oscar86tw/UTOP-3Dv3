@@ -1,9 +1,12 @@
 import {state} from '../state.js';
 import {devices} from '../data.js';
-import {terminalsFor} from '../core-module-01/module-manager.js';
+import {terminalsFor,ioFor} from '../core-module-01/module-manager.js';
 
 function nextConnectionId(){const max=Math.max(0,...state.connections.map(c=>Number((c.id||'').split('-')[1])||0));return `CON-${String(max+1).padStart(3,'0')}`;}
 export function deviceTerminals(id){const d=devices.find(x=>x.id===id);return d?terminalsFor(d.type):[];}
+export function deviceSignalInputs(id){const d=devices.find(x=>x.id===id);return d?[...(ioFor(d.type).inputs||[])]:[];}
+export function deviceSignalOutputs(id){const d=devices.find(x=>x.id===id);return d?[...(ioFor(d.type).outputs||[])]:[];}
+export function deviceAllConnectables(id){return [...new Set([...deviceSignalInputs(id),...deviceSignalOutputs(id),...deviceTerminals(id)])];}
 export function terminalRole(terminal=''){
   const t=String(terminal).toUpperCase();
   if(/^(DI\d+|OPEN|CLOSE|STOP|SAFETY|ALARM IN|D0|D1|RED|GREEN)$/.test(t))return 'IN';
@@ -13,7 +16,10 @@ export function terminalRole(terminal=''){
   return 'OTHER';
 }
 export function connectableTerminals(id,role='ALL'){
-  const terms=deviceTerminals(id);
+  const terms=deviceAllConnectables(id);
+  if(role==='DI'||role==='IN')return deviceSignalInputs(id);
+  if(role==='DO'||role==='OUT')return deviceSignalOutputs(id);
+  if(role==='TERMINAL')return deviceTerminals(id);
   return role==='ALL'?terms:terms.filter(t=>terminalRole(t)===role);
 }
 export function resetWiringBuilder(msg='請先點選一個模組的來源端子，再點另一個模組的目標端子。'){
