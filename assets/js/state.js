@@ -44,5 +44,27 @@ export const state = {
     {name:'投影機',mode:'Display Mode',view:'入口車道全景',resolution:'1080p',quality:'平衡',state:'STANDBY',signals:false,hud:true}
   ],
   snapshots:['施工前','第一次配置'],
-  issues:[{id:'#001',title:'B1 紅外線位置需確認',state:'待處理'}]
+  issues:[{id:'#001',title:'B1 紅外線位置需確認',state:'待處理'}],
+  photos:[
+    {id:'P-001',title:'1F 入口控制箱',device:'DEV-004'},
+    {id:'P-002',title:'B1 地感施工點',device:'DEV-003'}
+  ],
+  tests:[
+    {name:'ETAG 讀取',result:'未測試'},
+    {name:'地感觸發',result:'未測試'},
+    {name:'Controller DI1',result:'未測試'},
+    {name:'Relay NO',result:'未測試'},
+    {name:'DO1 輸出',result:'未測試'},
+    {name:'柵欄 OPEN / CLOSE',result:'未測試'}
+  ],
+  eventLog:['10:02:14 ETAG01 DETECTED','10:02:15 DI1 ON','10:02:15 Relay01 NO CLOSED','10:02:16 DO1 ON','10:02:16 Barrier01 OPEN'],
+  field:{comparePercent:50,replaySpeed:'1x',currentView:'入口車道全景',barrierState:'CLOSED',scriptIndex:0,remoteState:'遙控器待命。'},
+  scripts:[
+    {id:'01',view:'入口全景',note:'說明原本車道與本次改善內容'},
+    {id:'02',view:'ETAG近景',note:'顯示ETAG讀取範圍與授權流程'},
+    {id:'03',view:'地感俯視',note:'說明地感觸發與車輛位置'},
+    {id:'04',view:'DI/DO視圖',note:'顯示訊號追蹤與設備連動'},
+    {id:'05',view:'完成畫面',note:'說明施工後整體效果'}
+  ],
+  docsDevice:'DEV-001'
 };

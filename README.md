@@ -1,19 +1,19 @@
-# UTOP-3Dv3 V0.4.0 — 3D Editor
+# UTOP-3Dv3 V0.5.0 Integrated Full Preview
 
-Web prototype for 昱拓弱電 UTOP-3Dv3.
+這一版是將前面討論的多數頁面與概念整合到同一個可直接開啟的前端原型中。
 
-## Run
-Deploy this folder to GitHub Pages / Netlify, or serve it with a local HTTP server.
-The Three.js core is currently loaded from jsDelivr, so the 3D editor requires network access to load Three.js.
+## 主要整合內容
+- 3D 編輯 / 模擬
+- 2D / 3D 同步座標
+- 場景與 Saved Viewpoints
+- 樓層 / 群組管理
+- 快捷鍵管理
+- 多螢幕同步
+- 任務流程
+- 工程 / 網路 / 電源
+- 圖表 / 流程輸出
+- 現場工具中心
+- 專案 / Snapshot / Debug
 
-## V0.4.0 highlights
-- Select 3D devices by tapping/clicking.
-- Move devices directly in 3D.
-- Rotate devices by drag in Rotate mode.
-- Edit X/Y/Z, rotation and floor in the property panel.
-- 1F / B1 / B2 elevations and two ramp meshes.
-- Snap movement and floor focus.
-- Shared device transform state for future 2D / 3D / wiring synchronization.
-
-## Project structure rule
-No single folder may contain more than 90 files. Split large categories into numbered or clearly named subfolders before reaching that limit.
+## 本次特別修正
+- 已修正 3D 車輛前進與後退方向顛倒問題。

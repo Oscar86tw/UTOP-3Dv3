@@ -1,19 +1,11 @@
 {
-  "app": "UTOP-3Dv3",
-  "version": "0.4.0",
-  "channel": "3d-editor",
-  "date": "2026-08-09",
-  "schemaVersion": "3.2",
-  "engines": {
-    "3dCore": "0.4.0",
-    "3dEditor": "0.1.0",
-    "projectControls": "0.3.0",
-    "scenePreset": "0.2.0",
-    "floorGroup": "0.2.0",
-    "savedViewpoint": "0.2.0",
-    "vehicleInput": "0.2.0",
-    "hotkey": "0.2.0",
-    "multiDisplay": "0.2.0"
-  },
-  "notes": "Adds editable 3D device transforms, direct selection/drag/rotation, floor elevation focus, B1/B2 slabs and continuous ramps, and a responsive property panel backed by shared project state."
+  "name": "UTOP-3Dv3",
+  "version": "0.5.0",
+  "schema": "3.3",
+  "title": "Integrated Full Preview",
+  "updated_at": "2026-08-09",
+  "notes": [
+    "整合 3D編輯、2D/3D同步、圖表/流程、現場工具與專案頁面",
+    "修正 3D 車輛前進/後退方向顛倒問題"
+  ]
 }

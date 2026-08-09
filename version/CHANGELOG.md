@@ -1,25 +1,14 @@
-# UTOP-3Dv3 Changelog
+# UTOP-3Dv3 V0.5.0 Integrated Full Preview
 
-## V0.4.0 — 2026-08-09
-### Added
-- 3D Editor modes: Select / Move / Rotate.
-- Direct device selection by tapping/clicking a 3D device.
-- Direct drag movement on desktop and mobile pointer input.
-- Drag-to-rotate mode.
-- Responsive device property panel with X/Y/Z, rotation and floor assignment.
-- Shared `state.deviceTransforms` data model for 3D transforms.
-- New `core-editor-01/editor-commands.js` editor state module.
-- Real 1F / B1 / B2 floor elevations at 0m / -4m / -8m.
-- 1F→B1 and B1→B2 3D ramp meshes.
-- Floor focus controls and B1 ramp saved viewpoint.
-- Snap movement toggle with 0.25m default grid.
+## 新增
+- 新增 `2D/3D同步` 分頁，使用與 3D 相同的 `state.deviceTransforms`
+- 新增 `圖表/流程` 分頁，展示結構流程圖、分析圖、心智圖與 SOP 預覽
+- 擴充 `現場` 分頁：施工前後比較、Photo Pin、Commissioning、Replay、設備文件、簡報腳本、手機遙控器、QR 標籤
+- 擴充 `整體總覽`，集中顯示本版整合重點
 
-### Changed
-- 3D simulator upgraded to 3D Editor / Simulator.
-- Device positions are no longer hard-coded only inside the Three.js scene.
-- Engineering equipment list displays current floor and coordinates.
-- Project Schema upgraded from v3.1 to v3.2.
-- Overview and Debug information updated for V0.4.0.
+## 修正
+- 修正 3D 車輛前進與後退顛倒問題：前進不再變成後退
+- 3D 車輛重設角度同步修正
 
-### Deleted
-- None.
+## 延續
+- 保留 V0.4.0 的 3D 選取 / 拖移 / 旋轉 / 屬性面板 / 多樓層 / 坡道功能
