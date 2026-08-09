@@ -196,3 +196,16 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
   .floating-tool-window{max-width:calc(100vw - 12px);}
   .floating-tool-window:not(:last-child){transform:none;}
 }
+
+/* V1.6.2 Dockable module library / inspector workspace */
+.sidebar-title-actions{display:flex;align-items:center;gap:5px}.sidebar-title-actions button{min-width:34px;height:34px;padding:4px 8px;border-radius:9px}
+.dockable-sidebar.sidebar-docked{resize:none;overflow:hidden}
+.dockable-sidebar.sidebar-floating{position:fixed!important;z-index:106!important;right:auto!important;bottom:auto!important;min-width:280px;min-height:260px;max-width:calc(100vw - 8px);max-height:calc(100vh - 76px);resize:both;overflow:auto;border-radius:16px;box-shadow:0 24px 70px rgba(15,23,42,.28);background:rgba(255,255,255,.985);backdrop-filter:blur(10px)}
+.dockable-sidebar.sidebar-floating .sidebar-pane-title{position:sticky;top:0;z-index:4;cursor:move;background:linear-gradient(135deg,#fff9e9,#fff);border-bottom:1px solid var(--border);margin:-1px -1px 8px;padding:10px 10px 9px 12px;border-radius:16px 16px 0 0;user-select:none;touch-action:none}
+.dockable-sidebar.sidebar-floating .legacy-module-scroll{max-height:none;height:auto;overflow:visible}
+.dockable-sidebar.sidebar-floating #deviceInspectorPanelContent{min-height:100%}
+.dockable-sidebar.sidebar-floating .sidebar-pane-title button{cursor:pointer}
+@media(max-width:900px){
+  .dockable-sidebar.sidebar-floating{left:5px!important;right:5px!important;top:auto!important;bottom:66px!important;width:auto!important;height:min(72vh,700px)!important;max-width:none;resize:none;border-radius:16px}
+  .dockable-sidebar.sidebar-floating .sidebar-pane-title{cursor:default}
+}

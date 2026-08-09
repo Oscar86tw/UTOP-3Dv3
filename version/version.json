@@ -1,7 +1,7 @@
 {
   "product": "UTOP-3Dv3",
-  "version": "1.6.1",
-  "schema": "6.0",
-  "title": "Floating Panel Workspace Stability",
+  "version": "1.6.2",
+  "schema": "6.1",
+  "title": "Dockable Workspace",
   "updated": "2026-08-10"
 }

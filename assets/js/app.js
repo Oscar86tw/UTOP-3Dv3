@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.6.1';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.1';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.6.2';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.2';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,9 +11,9 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.1';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.1';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.1';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.2';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.2';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.2';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -22,6 +22,7 @@ const CLOUD_URL_KEY='utop3dv3.cloud.webAppUrl';
 const LEGACY_STORAGE_KEY='utop3dv3.project.v1';
 const WORKSPACE_LAYOUT_KEY='utop3dv3.workspace.layout.v1';
 const WORKSPACE_OPEN_KEY='utop3dv3.workspace.openPanels.v1';
+const SIDEBAR_LAYOUT_KEY='utop3dv3.workspace.sidebars.v1';
 const DEFAULTS=cloneDefaults(state,devices);
 
 const byId=id=>document.getElementById(id);
@@ -72,12 +73,73 @@ async function refreshCloudProjectList(){
   state.cloud??={};state.cloud.webAppUrl=String(byId('cloudWebAppUrl')?.value??state.cloud.webAppUrl??'').trim();rememberCloudUrl();const items=await listCloudProjects(state.cloud.webAppUrl);state.cloud.projects=items;const sel=byId('cloudProjectList');if(sel){sel.innerHTML='<option value="">請選擇專案</option>';for(const item of items){const o=document.createElement('option');o.value=item.projectId;o.textContent=`${item.projectName} · ${item.updatedAt?new Date(item.updatedAt).toLocaleString('zh-TW'):''}`;sel.appendChild(o);}const wanted=state.cloud.selectedProjectId||state.cloud.projectId||'';if(wanted&&items.some(x=>x.projectId===wanted))sel.value=wanted;}state.cloud.status=`已讀取 ${items.length} 個 Google 雲端專案`;const st=byId('cloudStatus');if(st)st.textContent=state.cloud.status;return items;
 }
 
+
+function readSidebarLayouts(){
+  try{return JSON.parse(localStorage.getItem(SIDEBAR_LAYOUT_KEY)||'{}')||{};}catch(_){return {};}
+}
+function writeSidebarLayouts(layouts){try{localStorage.setItem(SIDEBAR_LAYOUT_KEY,JSON.stringify(layouts||{}));}catch(_){} }
+function sidebarDefaults(name){
+  if(name==='module')return {floating:false,left:10,top:150,width:310,height:Math.max(360,window.innerHeight-240)};
+  return {floating:false,left:Math.max(12,window.innerWidth-360),top:150,width:340,height:Math.max(360,window.innerHeight-240)};
+}
+function sidebarElement(name){return name==='module'?document.getElementById('moduleLibrarySidebar'):document.getElementById('deviceInspectorSidebar');}
+function saveSidebarLayout(name,aside=sidebarElement(name)){
+  if(!aside)return;const layouts=readSidebarLayouts(),cur=layouts[name]||sidebarDefaults(name),floating=aside.classList.contains('sidebar-floating');
+  if(floating){const r=aside.getBoundingClientRect();layouts[name]={...cur,floating:true,left:Math.round(r.left),top:Math.round(r.top),width:Math.round(r.width),height:Math.round(r.height)};}
+  else layouts[name]={...cur,floating:false};
+  writeSidebarLayouts(layouts);
+}
+function applySidebarLayout(name){
+  const aside=sidebarElement(name);if(!aside)return;const cfg={...sidebarDefaults(name),...(readSidebarLayouts()[name]||{})};
+  aside.classList.toggle('sidebar-floating',!!cfg.floating);aside.classList.toggle('sidebar-docked',!cfg.floating);
+  if(cfg.floating){
+    const maxW=Math.max(300,window.innerWidth-20),maxH=Math.max(260,window.innerHeight-90);
+    const width=Math.min(Math.max(280,cfg.width||320),maxW),height=Math.min(Math.max(260,cfg.height||520),maxH);
+    const left=Math.min(Math.max(4,cfg.left||10),Math.max(4,window.innerWidth-width-4));
+    const top=Math.min(Math.max(72,cfg.top||120),Math.max(72,window.innerHeight-height-4));
+    Object.assign(aside.style,{left:`${left}px`,top:`${top}px`,width:`${width}px`,height:`${height}px`,right:'auto',bottom:'auto'});
+  }else aside.removeAttribute('style');
+}
+function enableDockableSidebar(name){
+  const aside=sidebarElement(name);if(!aside||aside.dataset.dockReady==='1')return;aside.dataset.dockReady='1';
+  let drag=null;
+  aside.addEventListener('pointerdown',e=>{
+    if(!aside.classList.contains('sidebar-floating'))return;
+    const head=e.target.closest('.sidebar-pane-title');if(!head||e.target.closest('button,input,select,a'))return;
+    const r=aside.getBoundingClientRect();drag={dx:e.clientX-r.left,dy:e.clientY-r.top,id:e.pointerId};head.setPointerCapture?.(e.pointerId);e.preventDefault();
+  });
+  aside.addEventListener('pointermove',e=>{if(!drag||e.pointerId!==drag.id)return;const r=aside.getBoundingClientRect(),left=Math.min(Math.max(4,e.clientX-drag.dx),window.innerWidth-r.width-4),top=Math.min(Math.max(72,e.clientY-drag.dy),window.innerHeight-r.height-4);aside.style.left=`${left}px`;aside.style.top=`${top}px`;});
+  const end=e=>{if(!drag)return;drag=null;saveSidebarLayout(name,aside);};aside.addEventListener('pointerup',end);aside.addEventListener('pointercancel',end);
+  if(typeof ResizeObserver!=='undefined'){let t;const ro=new ResizeObserver(()=>{if(!aside.classList.contains('sidebar-floating'))return;clearTimeout(t);t=setTimeout(()=>saveSidebarLayout(name,aside),120);});ro.observe(aside);}
+}
+function toggleSidebarDock(name){
+  const aside=sidebarElement(name);if(!aside)return;const layouts=readSidebarLayouts(),cfg={...sidebarDefaults(name),...(layouts[name]||{})};cfg.floating=!cfg.floating;layouts[name]=cfg;writeSidebarLayouts(layouts);applySidebarLayout(name);enableDockableSidebar(name);
+}
+function showSidebar(name,show=true){
+  const aside=sidebarElement(name);if(!aside)return;aside.hidden=!show;if(name==='module')state.workspace.leftOpen=show;else state.workspace.rightOpen=show;
+  document.getElementById(name==='module'?'toggleModuleSidebar':'toggleInspectorSidebar')?.classList.toggle('active',show);
+  if(show){applySidebarLayout(name);enableDockableSidebar(name);}
+}
+function bindModuleLibraryControls(){
+  const aside=document.getElementById('moduleLibrarySidebar');if(!aside)return;
+  const close=aside.querySelector('#closeModuleSidebar');if(close)close.onclick=()=>showSidebar('module',false);
+  const floatBtn=aside.querySelector('#floatModuleSidebar');if(floatBtn)floatBtn.onclick=()=>toggleSidebarDock('module');
+  const search=aside.querySelector('#moduleSearch');if(search)search.oninput=e=>updateModuleSearch(e.target.value);
+  const group=aside.querySelector('#moduleGroup');if(group)group.onchange=e=>{state.moduleLibrary.group=e.target.value;aside.innerHTML=renderModuleLibrary();bindModuleLibraryControls();applySidebarLayout('module');};
+  aside.querySelectorAll('[data-add-template]').forEach(b=>{b.onclick=safeHandler('新增模組',async()=>{const id=addModule(b.dataset.addTemplate,state.editor.floorFocus||'1F');if(id){state.selectedDevice=id;selectDevice(id);showSidebar('inspector',true);state.workspace.mode='3d';await ensurePersistentWorkspace();sim3d?.applyProjectState?.();sim3d?.selectDevice(id);syncInspector(id,true);}});});
+  enableDockableSidebar('module');applySidebarLayout('module');
+}
+function initDockableSidebars(){
+  applySidebarLayout('module');applySidebarLayout('inspector');enableDockableSidebar('module');enableDockableSidebar('inspector');bindModuleLibraryControls();
+}
+
 async function ensurePersistentWorkspace(){
   if(workspaceReady&&sim3d)return sim3d;
   if(!workspaceReady){
     state.workspace.mode='3d';state.workspace.leftOpen=true;
     workspaceRoot.innerHTML=render('simulator');
     const prev=root;root=workspaceRoot;bind();root=prev;
+    initDockableSidebars();
     workspaceReady=true;
   }
   if(!sim3d&&!simulatorMountPromise){
@@ -195,9 +257,9 @@ function ensureInspectorShell(){
   const workspace=workspaceRoot.querySelector('.legacy-workspace');if(!workspace)return null;
   let aside=document.getElementById('deviceInspectorSidebar');
   if(!aside){
-    aside=document.createElement('aside');aside.id='deviceInspectorSidebar';aside.className='legacy-sidebar right-sidebar';aside.innerHTML='<div id="deviceInspectorPanelContent"></div>';workspace.appendChild(aside);
+    aside=document.createElement('aside');aside.id='deviceInspectorSidebar';aside.className='legacy-sidebar right-sidebar dockable-sidebar sidebar-docked';aside.dataset.sidebar='inspector';aside.innerHTML='<div id="deviceInspectorPanelContent"></div>';workspace.appendChild(aside);
   }
-  aside.hidden=false;workspace.classList.add('has-right');state.workspace.rightOpen=true;return aside;
+  aside.hidden=false;workspace.classList.add('has-right');state.workspace.rightOpen=true;applySidebarLayout('inspector');enableDockableSidebar('inspector');return aside;
 }
 function syncInspector(id,open=true){
   const d=devices.find(x=>x.id===id);if(!d)return;state.selectedDevice=id;selectDevice(id);
@@ -240,7 +302,9 @@ function scheduleLiveDeviceSettings(id){
 
 function bindDynamicInspector(){
   workspaceRoot.querySelectorAll('[data-inspector-tab]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab=b.dataset.inspectorTab;const slot=document.getElementById('deviceInspectorPanelContent');if(slot){slot.innerHTML=renderDeviceInspector(state.selectedDevice);bindDynamicInspector();}}));
-  document.getElementById('closeInspectorSidebar')?.addEventListener('click',()=>{state.workspace.rightOpen=false;const aside=document.getElementById('deviceInspectorSidebar');if(aside)aside.hidden=true;workspaceRoot.querySelector('.legacy-workspace')?.classList.remove('has-right');});
+  document.getElementById('closeInspectorSidebar')?.addEventListener('click',()=>showSidebar('inspector',false));
+  document.getElementById('floatInspectorSidebar')?.addEventListener('click',()=>toggleSidebarDock('inspector'));
+  applySidebarLayout('inspector');enableDockableSidebar('inspector');
   byId('deleteSelectedModule')?.addEventListener('click',safeHandler('刪除模組',async()=>{
     const id=state.selectedDevice;if(!id)return;
     if(!confirm('確定刪除目前模組及相關接線？'))return;
@@ -285,19 +349,16 @@ function bind(){
   root.querySelectorAll('[data-group-opacity]').forEach(r=>r.addEventListener('input',()=>setGroupOpacity(r.dataset.group,Number(r.value)/100)));
   root.querySelectorAll('[data-select2d]').forEach(b=>b.addEventListener('click',()=>selectDeviceEverywhere(b.dataset.select2d)));
 
-  document.getElementById('toggleModuleSidebar')?.addEventListener('click',()=>{const aside=document.getElementById('moduleLibrarySidebar');if(!aside)return;state.workspace.leftOpen=aside.hidden;aside.hidden=!state.workspace.leftOpen;document.getElementById('toggleModuleSidebar')?.classList.toggle('active',state.workspace.leftOpen);});
-  document.getElementById('resetToolWindows')?.addEventListener('click',resetFloatingPanelLayouts);
-  document.getElementById('toggleInspectorSidebar')?.addEventListener('click',()=>{let aside=document.getElementById('deviceInspectorSidebar');if(!aside&&state.selectedDevice)aside=ensureInspectorShell();if(!aside)return;state.workspace.rightOpen=aside.hidden;aside.hidden=!state.workspace.rightOpen;document.getElementById('toggleInspectorSidebar')?.classList.toggle('active',state.workspace.rightOpen);});
-  document.getElementById('closeModuleSidebar')?.addEventListener('click',()=>{state.workspace.leftOpen=false;const aside=document.getElementById('moduleLibrarySidebar');if(aside)aside.hidden=true;document.getElementById('toggleModuleSidebar')?.classList.remove('active');});
+  document.getElementById('toggleModuleSidebar')?.addEventListener('click',()=>{const aside=document.getElementById('moduleLibrarySidebar');showSidebar('module',!!aside?.hidden);});
+  document.getElementById('resetToolWindows')?.addEventListener('click',()=>{resetFloatingPanelLayouts();try{localStorage.removeItem(SIDEBAR_LAYOUT_KEY);}catch(_){}applySidebarLayout('module');applySidebarLayout('inspector');});
+  document.getElementById('toggleInspectorSidebar')?.addEventListener('click',()=>{let aside=document.getElementById('deviceInspectorSidebar');if(!aside&&state.selectedDevice)aside=ensureInspectorShell();if(aside)showSidebar('inspector',!!aside.hidden);});
   root.querySelectorAll('[data-workspace-mode]').forEach(b=>b.addEventListener('click',()=>{const mode=b.dataset.workspaceMode;if(mode==='3d'){state.workspace.mode='3d';closeToolPanel();}else{state.workspace.mode=mode;openToolPanel('sync2d');}}));
   byId('quickScenePreset')?.addEventListener('change',safeHandler('切換場景',async e=>{const p=applyScenePreset(e.target.value);if(!p)return;await withSimulator('切換場景',sim=>sim.applyProjectState());}));
   byId('quickViewSelect')?.addEventListener('change',safeHandler('切換視野',async e=>{const i=Number(e.target.value);state.simulator.cameraPreset=i;await withSimulator('切換視野',sim=>sim.gotoView(i));}));
   document.getElementById('toggle3DFullscreen')?.addEventListener('click',()=>{state.workspace.fullscreen3d=!state.workspace.fullscreen3d;go('simulator')});
   root.querySelectorAll('[data-editor-mode]').forEach(b=>b.addEventListener('click',safeHandler('切換3D編輯模式',async()=>{setEditorMode(b.dataset.editorMode);root.querySelectorAll('[data-editor-mode]').forEach(x=>x.classList.toggle('active',x.dataset.editorMode===state.editor.mode));await withSimulator('切換3D編輯模式',s=>s.setEditorMode(state.editor.mode));})));
   document.getElementById('toggleSnap')?.addEventListener('click',safeHandler('Snap切換',async e=>{state.editor.snap=!state.editor.snap;e.currentTarget.classList.toggle('active',state.editor.snap);e.currentTarget.textContent=`Snap ${state.editor.snap?'ON':'OFF'}`;await withSimulator('Snap切換',s=>s.setSnap(state.editor.snap));}));
-  root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',safeHandler('新增模組',async()=>{const id=addModule(b.dataset.addTemplate,state.editor.floorFocus||'1F');if(id){state.selectedDevice=id;selectDevice(id);state.workspace.rightOpen=true;state.workspace.mode='3d';await ensurePersistentWorkspace();sim3d?.applyProjectState?.();sim3d?.selectDevice(id);syncInspector(id,true);}})));
-  document.getElementById('moduleSearch')?.addEventListener('input',e=>updateModuleSearch(e.target.value));
-  document.getElementById('moduleGroup')?.addEventListener('change',e=>{state.moduleLibrary.group=e.target.value;go('simulator')});
+  if(root===workspaceRoot)bindModuleLibraryControls();
   bindDynamicInspector();
 
   root.querySelectorAll('[data-drive]').forEach(b=>{const dir=b.dataset.drive;if(dir==='stop'){b.addEventListener('click',()=>sim3d?.stop());return;}const down=e=>{e.preventDefault();sim3d?.setDrive(dir,true)},up=e=>{e.preventDefault();sim3d?.setDrive(dir,false)};b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,up));});
