@@ -1,12 +1,10 @@
-UTOP-3Dv3 V1.7.10 Deployment Consistency Hotfix
+UTOP-3Dv3 V1.7.11 IO Semantic Labels
 
-這版不是功能擴充，專門處理 GitHub Pages 混合版本載入。
-
-1. index.html 的標題、Boot VERSION、app.js / app.css query 全部同步 V1.7.10。
-2. 所有 ES Module query 統一 V1.7.10。
-3. 新增 build-info.json，啟動時用 no-store 讀取。
-4. Index / Runtime / Manifest 任一版本不同，就直接顯示部署版本不一致。
+本次重點
+1. 接線圖每一個 DI / DO 都增加用途名稱，不再只有 DI1、DI2、DO1、DO2 等代號。
+2. 保留原始代號，格式例如：DI1｜開始倒數、DO1｜倒數完成輸出。
+3. SOYAL / Garrison 等有指定實際型號的模組，優先依原廠功能說明標註。
+4. 通用模組則依 UTOP 目前真正執行的 Runtime 行為標註，不硬套不存在的原廠端子名稱。
 
 修改說明事項／後續追蹤
-- 部署後診斷網址應全部看到 v=1.7.10。
-- 若仍看到 v=1.7.7，代表 GitHub Pages 或瀏覽器仍提供舊部署，不是 Runtime 功能錯誤。
+- 下一步可把每個端子再加「來源規格」圖示，點一下顯示官方型錄/手冊來源與電氣型態（乾接點、Relay、Open Collector、Wiegand、RS485 等）。

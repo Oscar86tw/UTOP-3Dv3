@@ -1,4 +1,4 @@
-# V1.7.10 Deployment Consistency Audit
+# V1.7.11 Deployment Consistency Audit
 
 ## 問題來源
 線上 GitHub main 與 GitHub Pages / 瀏覽器曾同時出現不同版本：index、app.js、views.js 不一致。
@@ -13,7 +13,7 @@
 
 ## 部署後正確診斷
 - index: 1.7.10
-- app.js: ?v=1.7.10
-- views.js: ?v=1.7.10
+- app.js: ?v=1.7.11
+- views.js: ?v=1.7.11
 - Runtime: 1.7.10
 - Manifest: 1.7.10

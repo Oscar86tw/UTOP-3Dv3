@@ -1,6 +1,7 @@
 import {state} from '../state.js';
 import {devices,moduleCatalog} from '../data.js';
 import {definitionForType,definitionForKey} from './module-definitions.js';
+import {ioSemanticLabel,terminalSemanticLabel,ioSourceNote} from './io-semantic-labels.js?v=1.7.11';
 
 export function templateByKey(key){
   const def=definitionForKey(key);if(!def)return null;
@@ -48,3 +49,7 @@ export function filterCatalog(search='',group='全部'){
   const q=String(search).trim().toLowerCase();
   return moduleCatalog.map(g=>({...g,items:g.items.filter(i=>(group==='全部'||group===g.group)&&(!q||`${i.name} ${i.type} ${i.modelCode||''} ${i.summary||''}`.toLowerCase().includes(q)))})).filter(g=>g.items.length);
 }
+
+export function ioLabelFor(type,direction,signal){return ioSemanticLabel(type,direction,signal);}
+export function terminalLabelFor(type,terminal){return terminalSemanticLabel(type,terminal);}
+export function ioReferenceFor(type){return ioSourceNote(type);}

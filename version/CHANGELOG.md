@@ -1,7 +1,8 @@
-# V1.7.10
+# V1.7.11
 
-- 修正 index.html 內殘留的 V1.7.7 / V1.7.8 版本文字與 Boot VERSION。
-- 全專案 ES Module query 統一為 V1.7.10。
-- 新增 assets/build-info.json 部署建置資訊。
-- 新增 Index / Runtime / Build Manifest 三方版本一致性檢查。
-- 若 GitHub Pages 仍提供混合版本，錯誤畫面會直接顯示 Deployment Version Mismatch。
+- 接線卡 DI / DO 保留原始訊號代號，並新增中文用途名稱。
+- SOYAL 門禁控制器補上 Egress、Door Status、Door Lock、Alarm 等工程語意標註。
+- Garrison LK-103 / LK-103A 補上 A/B/C 車道偵測與各車道紅綠燈輸出名稱。
+- 倒數計時器 DI1/DI2/DI3 標註為開始、暫停/繼續、重設；DO1 標註倒數完成，DO2~DO4 標註可程式輸出（目前未指派）。
+- 接線卡、設備 DI/DO 頁、實體端子三處同步顯示語意名稱。
+- 新增 IO 語意標註核心 `io-semantic-labels.js`。
