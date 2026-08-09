@@ -2,6 +2,7 @@ import {state} from '../state.js';
 import {devices} from '../data.js';
 import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} from '../core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
+import {getSettings,defaultSettings} from '../core-module-01/module-manager.js';
 
 let active=null;
 const THREE_URL='https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js';
@@ -58,7 +59,7 @@ function createSimulator(THREE,host,callbacks){
     let root=new THREE.Group();
     if(type.includes('barrier')){
       const cabinet=new THREE.Mesh(new THREE.BoxGeometry(1.05,2.05,1.05),mats.orange);cabinet.position.y=1.04;cabinet.castShadow=true;root.add(cabinet);
-      const pivot=new THREE.Group();pivot.position.set(-.48,1.82,0);const arm=new THREE.Mesh(new THREE.BoxGeometry(5.8,.18,.18),mats.white);arm.position.x=-2.88;arm.castShadow=true;pivot.add(arm);root.add(pivot);root.userData.barrierPivot=pivot;
+      const pivot=new THREE.Group();pivot.position.set(-.48,1.82,0);const arm=new THREE.Mesh(new THREE.BoxGeometry(5.8,.18,.18),mats.white);arm.position.x=-2.88;arm.castShadow=true;pivot.add(arm);root.add(pivot);root.userData.barrierPivot=pivot;root.userData.barrierArm=arm;
     }else if(type.includes('uhf')||type.includes('etag')){
       const pole=new THREE.Mesh(new THREE.BoxGeometry(.24,3,.24),mats.dark);pole.position.y=1.5;const reader=new THREE.Mesh(new THREE.BoxGeometry(1.05,.72,.25),mats.orange);reader.position.set(0,2.65,.05);const zone=new THREE.Mesh(new THREE.ConeGeometry(3.8,7,32,1,true),new THREE.MeshBasicMaterial({color:0xffa51d,transparent:true,opacity:.13,side:THREE.DoubleSide,depthWrite:false}));zone.rotation.x=Math.PI/2;zone.position.set(0,2.25,-3.5);root.add(pole,reader,zone);root.userData.reader=reader;root.userData.zone=zone;
     }else if(type.includes('loop')){
@@ -83,10 +84,11 @@ function createSimulator(THREE,host,callbacks){
     root.userData.layer='devices';
     return markSelectable(root,device.id);
   }
-  function ensureDevices(){devices.forEach(d=>{if(!deviceRoots[d.id])createDeviceRoot(d);syncTransform(d.id);});Object.keys(deviceRoots).forEach(id=>{if(!devices.find(d=>d.id===id)){const root=deviceRoots[id];root.parent?.remove(root);delete deviceRoots[id];}});refreshSignals();}
+  function ensureDevices(){devices.forEach(d=>{if(!deviceRoots[d.id])createDeviceRoot(d);syncTransform(d.id);applySettings(d.id);});Object.keys(deviceRoots).forEach(id=>{if(!devices.find(d=>d.id===id)){const root=deviceRoots[id];root.parent?.remove(root);delete deviceRoots[id];}});refreshSignals();}
   function syncTransform(id){const root=deviceRoots[id];if(!root)return;const t=getDeviceTransform(id);const fg=floorGroup(t.floor);if(root.parent!==fg)fg.add(root);root.position.set(t.x,t.y,t.z);root.rotation.y=t.rotationY||0;}
+  function applySettings(id){const root=deviceRoots[id],dev=devices.find(d=>d.id===id);if(!root||!dev)return;const s=getSettings(id),def=defaultSettings(dev.type);root.scale.set((s.width||def.width||1)/(def.width||1),(s.height||def.height||1)/(def.height||1),(s.depth||def.depth||1)/(def.depth||1));if(root.userData.barrierArm&&s.boomLength){root.userData.barrierArm.scale.x=s.boomLength/(def.boomLength||5.8);}if(root.userData.zone&&s.range){const base=def.range||s.range;const ratio=Math.max(.25,s.range/base);root.userData.zone.scale.set(ratio,ratio,ratio);}}
 
-  function refreshSignals(){signalGroup.clear();const loop=devices.find(d=>(d.type||'').toLowerCase().includes('loop'));const ctrl=devices.find(d=>(d.type||'').toLowerCase().includes('controller'));const barrier=devices.find(d=>(d.type||'').toLowerCase().includes('barrier'));if(!loop||!ctrl||!barrier)return;const loopRoot=deviceRoots[loop.id],ctrlRoot=deviceRoots[ctrl.id],barrierRoot=deviceRoots[barrier.id];if(!loopRoot||!ctrlRoot||!barrierRoot)return;const loopPos=new THREE.Vector3(),ctrlPos=new THREE.Vector3(),barPos=new THREE.Vector3();loopRoot.getWorldPosition(loopPos);ctrlRoot.getWorldPosition(ctrlPos);barrierRoot.getWorldPosition(barPos);function curvedLine(a,b,color){const mid=new THREE.Vector3((a.x+b.x)/2,3.2,(a.z+b.z)/2);const c=new THREE.QuadraticBezierCurve3(a,mid,b);return new THREE.Line(new THREE.BufferGeometry().setFromPoints(c.getPoints(36)),new THREE.LineBasicMaterial({color,transparent:true,opacity:.9}));}signalGroup.add(curvedLine(loopPos,ctrlPos,0x52b7ff));signalGroup.add(curvedLine(ctrlPos,barPos,0xff8c25));}
+  function refreshSignals(){signalGroup.clear();function curvedLine(a,b,color){const mid=new THREE.Vector3((a.x+b.x)/2,Math.max(a.y,b.y)+2.4,(a.z+b.z)/2);const c=new THREE.QuadraticBezierCurve3(a,mid,b);return new THREE.Line(new THREE.BufferGeometry().setFromPoints(c.getPoints(36)),new THREE.LineBasicMaterial({color,transparent:true,opacity:.9}));}const colors={DI:0x52b7ff,DO:0xff8c25,POWER:0xf5c542,NETWORK:0x4ade80,RS485:0xc084fc,SIGNAL:0xe5e7eb};state.connections.filter(c=>c.enabled!==false).forEach(c=>{const a=deviceRoots[c.fromDevice],b=deviceRoots[c.toDevice];if(!a||!b)return;const ap=new THREE.Vector3(),bp=new THREE.Vector3();a.getWorldPosition(ap);b.getWorldPosition(bp);signalGroup.add(curvedLine(ap,bp,colors[c.type]||colors.SIGNAL));});}
   ensureDevices();
 
   const selectionBox=new THREE.Box3(),selectionHelper=new THREE.Box3Helper(selectionBox,0xffa500);selectionHelper.visible=false;scene.add(selectionHelper);
@@ -133,6 +135,7 @@ function createSimulator(THREE,host,callbacks){
     setEditorMode(mode){editorMode=mode;saveEditorMode(mode);showToast('3D工具：'+mode);},
     setSnap(v){snap=!!v;state.editor.snap=snap;},
     applyDeviceTransform(id){ensureDevices();syncTransform(id);updateSelection();refreshSignals();},
+    applyDeviceSettings(id){applySettings(id);updateSelection();refreshSignals();},
     selectDevice(id){selectById(id);},
     destroy(){cancelAnimationFrame(raf);resizeObserver.disconnect();window.removeEventListener('keydown',onKeyDown);window.removeEventListener('keyup',onKeyUp);renderer.domElement.removeEventListener('pointerdown',pd);renderer.domElement.removeEventListener('pointermove',pm);renderer.domElement.removeEventListener('pointerup',pu);renderer.dispose();host.innerHTML='';}
   };
@@ -147,5 +150,5 @@ function createSimulator(THREE,host,callbacks){
     signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V0.6 Module Library 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V0.7 Module Designer & Wiring 已啟動');return controllerApi;
 }

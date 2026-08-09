@@ -1,16 +1,13 @@
-import {categories,devices,moduleCatalog} from './data.js';
+import {categories,devices} from './data.js';
 import {state} from './state.js';
 import {render} from './views.js';
 import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,hotkeyConflict,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
+import {addModule,removeModule,updateSettings,getSettings} from './core-module-01/module-manager.js';
+import {addConnection,deleteConnection,inferSignalType} from './core-wiring-01/wiring-manager.js';
 const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let capturing=false,sim3d=null;
-function nextDeviceId(){const nums=devices.map(d=>Number((d.id||'').split('-')[1])||0);return `DEV-${String(Math.max(0,...nums)+1).padStart(3,'0')}`;}
-function templateByKey(key){for(const g of moduleCatalog){const found=g.items.find(x=>x.key===key);if(found)return found;}return null;}
-function addModuleFromTemplate(key){const tpl=templateByKey(key);if(!tpl)return;const id=nextDeviceId();const count=devices.length;const floor=state.editor.floorFocus||'1F';const nameBase=tpl.name;const same=devices.filter(d=>d.name.startsWith(nameBase)).length+1;devices.push({id,name:`${nameBase}${String(same).padStart(2,'0')}`,type:tpl.type,floor,state:tpl.state||'READY'});state.deviceTransforms[id]={x:-3+(count%5)*1.8,y:0,z:-8+Math.floor(count/5)*2.2,rotationY:0,floor};state.selectedDevice=id;go('simulator');}
-function removeDevice(id){const idx=devices.findIndex(d=>d.id===id);if(idx<0)return;devices.splice(idx,1);delete state.deviceTransforms[id];if(state.selectedDevice===id)state.selectedDevice=devices[0]?.id||null;go(state.route==='simulator'?'simulator':state.route);}
-
 function nav(){tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');bottom.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));}
 async function go(route){if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;}state.route=route;nav();root.innerHTML=render(route);bind();if(route==='simulator'){sim3d=await mountSimulator3D({onSelection:syncPropertyPanel,onTransform:syncPropertyPanel});}}
 function syncPropertyPanel(id){
@@ -32,6 +29,11 @@ function bind(){
   root.querySelectorAll('[data-group]').forEach(b=>b.addEventListener('click',()=>{toggleGroup(b.dataset.group);go('layers')}));
   root.querySelectorAll('[data-group-opacity]').forEach(r=>r.addEventListener('input',()=>{setGroupOpacity(r.dataset.group,Number(r.value)/100);const m=r.closest('.layer-row')?.querySelector('.muted');if(m){const g=state.groups.find(x=>x.id===r.dataset.group);m.textContent=`${g.visible?'顯示':'隱藏'} · ${Math.round(g.opacity*100)}%`;}}));
   root.querySelectorAll('[data-select2d]').forEach(b=>b.addEventListener('click',()=>selectDeviceEverywhere(b.dataset.select2d)));
+  root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',()=>{const id=addModule(b.dataset.addTemplate,state.editor.floorFocus||'1F');if(id)go('simulator');}));
+  root.querySelectorAll('[data-remove-device]').forEach(b=>b.addEventListener('click',()=>{removeModule(b.dataset.removeDevice);go('simulator');}));
+  document.getElementById('moduleSearch')?.addEventListener('input',e=>{state.moduleLibrary.search=e.target.value;clearTimeout(bind.moduleSearchTimer);bind.moduleSearchTimer=setTimeout(()=>go('simulator'),180);});
+  document.getElementById('moduleGroup')?.addEventListener('change',e=>{state.moduleLibrary.group=e.target.value;go('simulator');});
+  document.getElementById('applyModuleSettings')?.addEventListener('click',()=>{const id=state.selectedDevice;if(!id)return;const val=(name,fallback)=>Number(document.getElementById(name)?.value)||fallback;const patch={width:val('setWidth',1),height:val('setHeight',1),depth:val('setDepth',1)};if(document.getElementById('setBoomLength'))patch.boomLength=val('setBoomLength',5.8);if(document.getElementById('setSpeed'))patch.speed=val('setSpeed',1);if(document.getElementById('setRange'))patch.range=val('setRange',1);if(document.getElementById('setAngle'))patch.angle=val('setAngle',55);if(document.getElementById('setFov'))patch.fov=val('setFov',70);updateSettings(id,patch);sim3d?.applyDeviceSettings(id);syncPropertyPanel(id);});
   root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',()=>addModuleFromTemplate(b.dataset.addTemplate)));
   root.querySelectorAll('[data-remove-device]').forEach(b=>b.addEventListener('click',()=>removeDevice(b.dataset.removeDevice)));
   root.querySelectorAll('[data-plan-nudge]').forEach(b=>b.addEventListener('click',()=>{const t=getDeviceTransform(state.selectedDevice),step=state.editor.gridSize||.25;const p={};if(b.dataset.planNudge==='x-')p.x=t.x-step;if(b.dataset.planNudge==='x+')p.x=t.x+step;if(b.dataset.planNudge==='z-')p.z=t.z-step;if(b.dataset.planNudge==='z+')p.z=t.z+step;applyPlanPatch(p)}));
@@ -46,6 +48,8 @@ function bind(){
   root.querySelectorAll('[data-display-quality]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayQuality),{quality:x.value})));
   root.querySelectorAll('[data-display-signals]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displaySignals),{signals:x.checked})));
   root.querySelectorAll('[data-display-hud]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayHud),{hud:x.checked})));
+  document.getElementById('addConnection')?.addEventListener('click',()=>{const [fromDevice,fromTerminal]=connectionFrom.value.split('|');const [toDevice,toTerminal]=connectionTo.value.split('|');const type=inferSignalType(fromTerminal,toTerminal);const result=addConnection(fromDevice,fromTerminal,toDevice,toTerminal,type);connectionStatus.textContent=result.ok?`✅ 已建立 ${result.connection.id} · ${type}`:`⚠️ ${result.message}`;if(result.ok)setTimeout(()=>go('engineering'),350);});
+  root.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',()=>{deleteConnection(b.dataset.deleteConnection);go('engineering');}));
   document.getElementById('validateWire')?.addEventListener('click',()=>{const a=wireFrom.value,b=wireTo.value;wireResult.textContent=a.includes('+12V')&&b.includes('+24V')?'❌ 電壓不相容：12V 不可直接接到 24V 端子。':a.includes('GND')&&!b.includes('GND')?'⚠️ GND 接到非接地端子，請確認。':'✅ 接線類型相容，可建立連線。'});
   document.getElementById('addSnapshot')?.addEventListener('click',()=>{state.snapshots.push('快照 '+(state.snapshots.length+1));go('project')});
   document.getElementById('playMission')?.addEventListener('click',()=>{const steps=[...document.querySelectorAll('.step')];let i=0;missionState.textContent='任務執行中';const t=setInterval(()=>{steps.forEach((s,n)=>s.classList.toggle('active',n===i));missionState.textContent=steps[i]?.querySelector('b')?.textContent||'完成';i++;if(i>=steps.length){clearInterval(t);setTimeout(()=>{missionState.textContent='✅ 任務完成';steps.forEach(s=>s.classList.remove('active'))},500)}},650)});

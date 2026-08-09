@@ -66,5 +66,17 @@ export const state = {
     {id:'04',view:'DI/DO視圖',note:'顯示訊號追蹤與設備連動'},
     {id:'05',view:'完成畫面',note:'說明施工後整體效果'}
   ],
-  docsDevice:'DEV-001'
+  docsDevice:'DEV-001',
+  moduleLibrary:{search:'',group:'全部'},
+  deviceSettings:{
+    'DEV-001':{width:1.05,height:2.05,depth:1.05,boomLength:5.8,speed:1.0,color:'orange'},
+    'DEV-002':{width:1.05,height:.72,depth:.25,range:6.0,angle:55,color:'orange'},
+    'DEV-003':{width:5.6,height:.05,depth:3.4,range:1.0,color:'yellow'},
+    'DEV-004':{width:1.3,height:1.5,depth:.8,color:'dark'},
+    'DEV-005':{width:.85,height:.5,depth:.65,range:12,fov:70,color:'blue'}
+  },
+  connections:[
+    {id:'CON-001',fromDevice:'DEV-003',fromTerminal:'OUT',toDevice:'DEV-004',toTerminal:'DI1',type:'DI',enabled:true},
+    {id:'CON-002',fromDevice:'DEV-004',fromTerminal:'DO1',toDevice:'DEV-001',toTerminal:'OPEN',type:'DO',enabled:true}
+  ]
 };
