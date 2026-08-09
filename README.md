@@ -1,3 +1,3 @@
-# UTOP-3Dv3 V1.4.6 3D Scene Alignment & Vehicle Direction Hotfix
+# UTOP-3Dv3 V1.4.7 Full Function Audit & Click Fix
 
-本版專門修正真正 WebGL 3D 啟動後可見的場景問題：車輛方向、設備對位、選取框、樓層疊影、Gizmo 尺寸與設備安裝高度。
+本版針對全站可點擊功能做完整稽核，修正 DOM 欄位讀取、動態面板事件、模組新增/刪除、多螢幕新增、情境/標線/Trace/2D 套用等點擊流程。

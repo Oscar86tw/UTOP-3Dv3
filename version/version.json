@@ -1,22 +1,21 @@
 {
   "name": "UTOP-3Dv3",
-  "version": "1.4.6",
-  "schema": "4.8",
-  "title": "3D Scene Alignment & Vehicle Direction Hotfix",
+  "version": "1.4.7",
+  "schema": "4.9",
+  "title": "Full Function Audit & Click Fix",
   "notes": [
-    "修正車輛 W/S/A/D 方向與車頭視覺。",
-    "修正設備選取框誤把 UHF 感應區與浮標算入 Bounding Box。",
-    "預設只顯示 1F，B1/B2 需切換後顯示。",
-    "入口/出口設備重新對準雙車道。",
-    "攝影機與控制器補安裝支架/高度。"
+    "全站按鈕與互動控制事件稽核。",
+    "DOM 欄位讀取改為明確 getElementById，避免 ES Module / 動態重繪後失效。",
+    "修正加入顯示裝置未綁事件。",
+    "修正 Scene / Road / 2D Transform / Signal Trace 跨頁與 3D 掛載時序。",
+    "新增模組後自動選取並顯示，並新增刪除目前模組功能。",
+    "UI 操作錯誤會回報，不再完全無反應。"
   ],
   "updated": "2026-08-09",
   "changes": [
-    "雙車道獨立 Connection",
-    "入口/出口/雙車道展示",
-    "第二台車輛動畫",
-    "多柵欄機獨立動畫",
-    "設備名稱牌全域開關",
-    "名稱牌 XYZ 偏移"
+    "257 個預設渲染按鈕事件覆蓋檢查：0 未綁定",
+    "59 項核心功能測試：59 PASS",
+    "29 類 3D 模型建立測試通過",
+    "全部 JavaScript 語法檢查通過"
   ]
 }

@@ -138,3 +138,5 @@ body[data-route="simulator"] .three-stage{height:calc(100vh - 270px);min-height:
 /* V1.4.4 True WebGL 3D Only */
 .g3-transform{grid-template-columns:repeat(3,minmax(0,1fr))}.transform-title{font-weight:800;margin:12px 0 6px;color:#334155}.callout.mini{font-size:12px;line-height:1.55}.workspace-hud #transformHud{font-variant-numeric:tabular-nums;font-weight:700}.three-stage{touch-action:none;user-select:none}.three-stage canvas{touch-action:none}.workspace-view.view-3d .view-title span{font-size:12px}.three-stage[data-tool="move"]{cursor:move}.three-stage[data-tool="rotate"]{cursor:crosshair}
 @media(max-width:560px){.g3-transform{grid-template-columns:repeat(3,minmax(0,1fr))}.g3-transform input{padding-left:7px;padding-right:7px}.workspace-hud #transformHud{flex-basis:100%}}
+
+.danger-btn{background:#fff1f1;border-color:#e6b2b2;color:var(--danger);font-weight:700}.danger-btn:hover{background:#ffe4e4}
