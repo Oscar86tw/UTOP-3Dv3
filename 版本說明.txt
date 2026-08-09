@@ -1,10 +1,13 @@
-UTOP-3Dv3 V1.7.11 IO Semantic Labels
+UTOP-3Dv3 V1.7.12 3D Module Reactions & Vehicle Types
 
-本次重點
-1. 接線圖每一個 DI / DO 都增加用途名稱，不再只有 DI1、DI2、DO1、DO2 等代號。
-2. 保留原始代號，格式例如：DI1｜開始倒數、DO1｜倒數完成輸出。
-3. SOYAL / Garrison 等有指定實際型號的模組，優先依原廠功能說明標註。
-4. 通用模組則依 UTOP 目前真正執行的 Runtime 行為標註，不硬套不存在的原廠端子名稱。
+本版重點：
+1. 29 類 3D 模組都具備自己的可視反應；沒有專屬機構的模組使用狀態燈作為保底。
+2. 地感線圈車輛進入時：線圈亮綠、偵測燈亮、光暈顯示；車輛離開後回待機。
+3. 地感檢知器面板顯示 POWER / DETECT / PULSE / FAULT。
+4. 車輛新增「汽車 / 機車」選擇，機車為獨立 3D 模型。
+5. 汽車與機車使用不同實際 Bounding Box；地感偵測依車體與線圈區域相交判斷。
+6. W/S/A/D 操作方向保持：W前進、S後退、A左、D右。
+7. LK-1045 倒數最大值修正為 99 秒。
+8. 首頁、Runtime、Build Manifest、Apps Script、ES Module 快取同步 V1.7.12。
 
-修改說明事項／後續追蹤
-- 下一步可把每個端子再加「來源規格」圖示，點一下顯示官方型錄/手冊來源與電氣型態（乾接點、Relay、Open Collector、Wiegand、RS485 等）。
+本版未刪除檔案。

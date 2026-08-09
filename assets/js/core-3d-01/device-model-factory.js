@@ -17,6 +17,15 @@ function roundedPlate(THREE,root,w,h,d,material,x=0,y=h/2,z=0){
   const g=new THREE.BoxGeometry(w,h,d,2,2,2);const m=new THREE.Mesh(g,material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;root.add(m);return m;
 }
 
+function addActivityIndicator(THREE,root,mats,type='device'){
+  // A small status beacon is attached to every module so even modules without
+  // a moving mechanism have an obvious 3D response when their runtime changes.
+  const mat=cloneMat(mats.green,{color:new THREE.Color(0x173d21),emissive:new THREE.Color(0x000000),emissiveIntensity:.04,roughness:.2});
+  const lamp=sph(THREE,root,.028,mat,0,.12,.10);
+  const glow=new THREE.PointLight(0x39ff78,0,1.8,2);glow.position.set(0,.14,.18);root.add(glow);
+  root.userData.activityLamp=lamp;root.userData.activityGlow=glow;root.userData.activityType=type;
+}
+
 function makeBarrier(THREE,mats,settings){
   const root=new THREE.Group();
   const bodyMat=cloneMat(mats.orange,{roughness:.28,metalness:.24});
@@ -92,13 +101,29 @@ function makeUhf(THREE,mats,settings){
 function makeLoop(THREE,mats,settings){
   const root=new THREE.Group();
   const w=num(settings,'width',2),d=num(settings,'depth',1);
-  const g=new THREE.BoxGeometry(w,.03,d); const zoneMat=new THREE.MeshBasicMaterial({color:0xf3c53f,transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false});
-  const zone=new THREE.Mesh(g,zoneMat); zone.position.y=.03; root.add(zone);
-  const edgeMat=new THREE.LineBasicMaterial({color:0xffcf39}); const edges=new THREE.LineSegments(new THREE.EdgesGeometry(g),edgeMat); edges.position.y=.03; root.add(edges);
-  root.userData.zone=zone; root.userData.zoneEdges=edges; root.userData.zoneMat=zoneMat;
-  return clearApply(root,(s,def)=>{const ww=num(s,'width',def.width||2),dd=num(s,'depth',def.depth||1); zone.scale.set(ww/(def.width||2),1,dd/(def.depth||1)); edges.scale.copy(zone.scale);});
+  const g=new THREE.BoxGeometry(w,.035,d);
+  const zoneMat=new THREE.MeshBasicMaterial({color:0xf3c53f,transparent:true,opacity:.14,side:THREE.DoubleSide,depthWrite:false});
+  const zone=new THREE.Mesh(g,zoneMat); zone.position.y=.035; root.add(zone);
+  const edgeMat=new THREE.LineBasicMaterial({color:0xffcf39,transparent:true,opacity:.82});
+  const edges=new THREE.LineSegments(new THREE.EdgesGeometry(g),edgeMat); edges.position.y=.042; root.add(edges);
+  // Visible detector lamp embedded at the corner of the loop. It changes to a
+  // bright green glow when a vehicle is over the loop so detection is obvious.
+  const lampMat=cloneMat(mats.green,{color:new THREE.Color(0x164b25),emissive:new THREE.Color(0x000000),emissiveIntensity:.04});
+  const detectLamp=sph(THREE,root,.075,lampMat,-w*.43,.105,-d*.38);
+  const detectGlow=new THREE.PointLight(0x35ff70,0,3.2,2);detectGlow.position.set(-w*.43,.16,-d*.38);root.add(detectGlow);
+  root.userData.zone=zone; root.userData.zoneEdges=edges; root.userData.zoneMat=zoneMat;root.userData.zoneEdgeMat=edgeMat;root.userData.loopDetectLamp=detectLamp;root.userData.loopDetectGlow=detectGlow;
+  return clearApply(root,(s,def)=>{const ww=num(s,'width',def.width||2),dd=num(s,'depth',def.depth||1); zone.scale.set(ww/(def.width||2),1,dd/(def.depth||1)); edges.scale.copy(zone.scale);detectLamp.position.set(-ww*.43,.105,-dd*.38);detectGlow.position.set(-ww*.43,.16,-dd*.38);});
 }
-function makeLoopDetector(THREE,mats){const root=new THREE.Group(); box(THREE,root,.19,.09,.22,mats.gray); box(THREE,root,.15,.055,.012,mats.dark,0,.065,.116); for(let i=0;i<4;i++)ledBulb(THREE,root,i===0?mats.green:mats.red,-.045+i*.03,.075,.126,.008); for(let i=0;i<8;i++)box(THREE,root,.012,.035,.025,mats.dark,-.07+i*.02,.018,-.12); return clearApply(root,()=>{});}
+function makeLoopDetector(THREE,mats){
+  const root=new THREE.Group();box(THREE,root,.19,.09,.22,mats.gray);box(THREE,root,.15,.055,.012,mats.dark,0,.065,.116);
+  const power=ledBulb(THREE,root,cloneMat(mats.green,{emissive:0x0b451c,emissiveIntensity:.8}),-.045,.075,.126,.008);
+  const detect=ledBulb(THREE,root,cloneMat(mats.orange,{color:new THREE.Color(0x4a2a05),emissive:0x000000,emissiveIntensity:.04}),-.015,.075,.126,.008);
+  const pulse=ledBulb(THREE,root,cloneMat(mats.green,{color:new THREE.Color(0x143b20),emissive:0x000000,emissiveIntensity:.04}),.015,.075,.126,.008);
+  const fault=ledBulb(THREE,root,cloneMat(mats.red,{color:new THREE.Color(0x410808),emissive:0x000000,emissiveIntensity:.04}),.045,.075,.126,.008);
+  for(let i=0;i<8;i++)box(THREE,root,.012,.035,.025,mats.dark,-.07+i*.02,.018,-.12);
+  root.userData.loopPowerLed=power;root.userData.loopDetectLed=detect;root.userData.loopPulseLed=pulse;root.userData.loopFaultLed=fault;
+  return clearApply(root,()=>{});
+}
 function makeInfrared(THREE,mats,settings){
   const root=new THREE.Group();
   const range=Math.max(.5,num(settings,'range',40)),half=range/2,h=Math.max(.4,num(settings,'height',.8));
@@ -111,9 +136,9 @@ function makeInfrared(THREE,mats,settings){
   return clearApply(root,(s,def)=>{const rr=Math.max(.5,num(s,'range',def.range||40)),hh=Math.max(.4,num(s,'height',def.height||.8)),halfNow=rr/2;tx.g.position.x=-halfNow;rx.g.position.x=halfNow;tx.body.scale.y=hh/(def.height||.8);rx.body.scale.y=hh/(def.height||.8);beam.scale.y=rr/(def.range||40);beam.position.y=hh*.59;});
 }
 function makeRadar(THREE,mats){const root=new THREE.Group(); pole(THREE,root,mats,1.65,0,0,.045); box(THREE,root,.18,.12,.06,mats.dark,0,1.58,.02); box(THREE,root,.16,.10,.008,mats.blue,0,1.58,.055); const cone=new THREE.Mesh(new THREE.ConeGeometry(.55,1.2,18,1,true),new THREE.MeshBasicMaterial({color:0x7dd3fc,transparent:true,opacity:.12,side:THREE.DoubleSide,depthWrite:false})); cone.position.set(0,1.58,-.55); cone.rotation.x=Math.PI/2; root.add(cone); root.userData.zone=cone; return clearApply(root,()=>{});}
-function makeLpr(THREE,mats){const root=new THREE.Group(); pole(THREE,root,mats,2.1); const boxy=box(THREE,root,.34,.16,.24,mats.white,0,2.03,0); box(THREE,root,.31,.13,.02,mats.dark,0,2.03,.132); lens(THREE,root,mats,-.08,2.03,.148,.04); for(let i=0;i<4;i++)ledBulb(THREE,root,mats.red,.03+i*.045,2.03,.148,.01); root.userData.cameraBody=boxy; return clearApply(root,()=>{});}
-function makeCardReader(THREE,mats){const root=new THREE.Group();const postMat=cloneMat(mats.dark,{roughness:.42,metalness:.48});const post=box(THREE,root,.12,1.08,.12,postMat,0,.54,0);const reader=box(THREE,root,.118,.248,.045,cloneMat(mats.gray,{roughness:.32,metalness:.24}),0,.82,.09);const face=box(THREE,root,.078,.118,.007,cloneMat(mats.dark,{roughness:.3,metalness:.08}),0,.84,.115);ledBulb(THREE,root,cloneMat(mats.green,{emissive:0x0a3d18,emissiveIntensity:.9}),0,.94,.124,.011);box(THREE,root,.057,.012,.004,cloneMat(mats.blue,{emissive:0x0e2840,emissiveIntensity:.4}),0,.76,.122);for(let i=0;i<3;i++)box(THREE,root,.045,.006,.004,mats.dark,0,.71-i*.015,.122);const badge=box(THREE,root,.052,.018,.004,mats.white,0,.875,.123);root.userData.post=post;root.userData.reader=reader;root.userData.face=face;root.userData.badge=badge;return clearApply(root,()=>{});}
-function makeIntercom(THREE,mats){const root=new THREE.Group(); box(THREE,root,.16,1.15,.16,mats.dark,0,.575,0); box(THREE,root,.14,.36,.036,mats.gray,0,.84,.098); for(let i=0;i<5;i++)box(THREE,root,.07,.008,.004,mats.dark,0,.92-i*.02,.12); ledBulb(THREE,root,mats.red,0,.72,.123,.014); return clearApply(root,()=>{});}
+function makeLpr(THREE,mats){const root=new THREE.Group(); pole(THREE,root,mats,2.1); const boxy=box(THREE,root,.34,.16,.24,mats.white,0,2.03,0); box(THREE,root,.31,.13,.02,mats.dark,0,2.03,.132); const optics=lens(THREE,root,mats,-.08,2.03,.148,.04); const leds=[];for(let i=0;i<4;i++)leds.push(ledBulb(THREE,root,cloneMat(mats.red,{emissive:0x3d0000,emissiveIntensity:.3}),.03+i*.045,2.03,.148,.01)); root.userData.cameraBody=boxy;root.userData.lprLeds=leds;root.userData.lprLens=optics.glass; return clearApply(root,()=>{});}
+function makeCardReader(THREE,mats){const root=new THREE.Group();const postMat=cloneMat(mats.dark,{roughness:.42,metalness:.48});const post=box(THREE,root,.12,1.08,.12,postMat,0,.54,0);const reader=box(THREE,root,.118,.248,.045,cloneMat(mats.gray,{roughness:.32,metalness:.24}),0,.82,.09);const face=box(THREE,root,.078,.118,.007,cloneMat(mats.dark,{roughness:.3,metalness:.08}),0,.84,.115);const statusLed=ledBulb(THREE,root,cloneMat(mats.green,{emissive:0x0a3d18,emissiveIntensity:.9}),0,.94,.124,.011);box(THREE,root,.057,.012,.004,cloneMat(mats.blue,{emissive:0x0e2840,emissiveIntensity:.4}),0,.76,.122);for(let i=0;i<3;i++)box(THREE,root,.045,.006,.004,mats.dark,0,.71-i*.015,.122);const badge=box(THREE,root,.052,.018,.004,mats.white,0,.875,.123);root.userData.post=post;root.userData.reader=reader;root.userData.face=face;root.userData.badge=badge;root.userData.statusLed=statusLed;return clearApply(root,()=>{});}
+function makeIntercom(THREE,mats){const root=new THREE.Group(); box(THREE,root,.16,1.15,.16,mats.dark,0,.575,0); box(THREE,root,.14,.36,.036,mats.gray,0,.84,.098); for(let i=0;i<5;i++)box(THREE,root,.07,.008,.004,mats.dark,0,.92-i*.02,.12); const callLed=ledBulb(THREE,root,cloneMat(mats.red,{emissive:0x260000,emissiveIntensity:.2}),0,.72,.123,.014);root.userData.callLed=callLed; return clearApply(root,()=>{});}
 function makeBeacon(THREE,mats){const root=new THREE.Group(); pole(THREE,root,mats,1.05,0,0,.04); cyl(THREE,root,.12,.12,.02,mats.dark,0,1.09,0); const lamp=cyl(THREE,root,.10,.10,.20,mats.orange,0,1.20,0,20); cyl(THREE,root,.11,.11,.018,mats.dark,0,1.31,0); root.userData.beaconLamp=lamp; return clearApply(root,()=>{});}
 function makeEstop(THREE,mats){const root=new THREE.Group(); box(THREE,root,.15,.10,.10,mats.gray,0,.05,0); cyl(THREE,root,.03,.03,.06,mats.dark,0,.13,0); const estop=cyl(THREE,root,.085,.12,.08,mats.red,0,.20,0,24); root.userData.estop=estop; return clearApply(root,()=>{});}
 function makeLaneIndicator(THREE,mats,settings){const root=new THREE.Group(); const w=num(settings,'width',1.2),h=num(settings,'height',.5); pole(THREE,root,mats,1.95); const panel=box(THREE,root,w,h,.08,mats.dark,0,1.90,0); const stripe=box(THREE,root,w*.64,h*.20,.012,mats.green,0,1.90,.05); box(THREE,root,w*.18,h*.22,.014,mats.green,w*.18,1.90,.052,0,0,.78); root.userData.indicatorLight=stripe; root.userData.panel=panel; return clearApply(root,(s,def)=>{panel.scale.set(num(s,'width',def.width||1.2)/(def.width||1.2),num(s,'height',def.height||.5)/(def.height||.5),1);stripe.scale.set(panel.scale.x,panel.scale.y,1);});}
@@ -174,5 +199,6 @@ export function createRealisticDeviceModel(THREE,mats,device,settings={}){
   else if(type==='traffic')root=makeTraffic(THREE,mats,settings);
   else if(type==='shutter')root=makeShutter(THREE,mats,settings);
   else root=makeFallback(THREE,mats,settings);
+  if(type!=='loop')addActivityIndicator(THREE,root,mats,type);
   root.userData.modelType=type; root.userData.isReal3DModel=true; return root;
 }

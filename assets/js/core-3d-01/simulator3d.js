@@ -1,12 +1,12 @@
 import {state} from '../state.js';
-import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.11';
+import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.12';
 import {devices} from '../data.js';
 import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} from '../core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.11';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.11';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.12';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.12';
 
 let active=null;
 const THREE_SOURCES=[
@@ -187,12 +187,37 @@ function createVehicle(colorMat,x,z,rot=0){
     const rim=new THREE.Mesh(new THREE.CylinderGeometry(.15,.15,.25,18),rimMat);rim.rotation.z=Math.PI/2;rim.position.set(sx,.31,sz);car.add(rim);
   }
   car.add(body,roof,hood,trunk,cabinCore,windshield,rearGlass,leftGlass,rightGlass,frontBumper,rearBumper,grill);
-  car.position.set(x,0,z);car.rotation.y=rot;car.userData.layer='vehicle';car.userData.forwardAxis='-Z';floorGroup('1F').add(car);return car;
+  car.position.set(x,0,z);car.rotation.y=rot;car.userData.layer='vehicle';car.userData.forwardAxis='-Z';car.userData.vehicleType='car';car.userData.vehicleWidth=1.82;car.userData.vehicleLength=3.85;floorGroup('1F').add(car);return car;
 }
 
-  const car=createVehicle(mats.blue,-2.05,15,0);
+function createMotorcycle(colorMat,x,z,rot=0){
+  const bike=new THREE.Group();
+  const tireMat=new THREE.MeshStandardMaterial({color:0x101316,roughness:.88,metalness:.03});
+  const metalMat=new THREE.MeshStandardMaterial({color:0x8f979d,roughness:.34,metalness:.72});
+  const darkMat=new THREE.MeshStandardMaterial({color:0x24292e,roughness:.72,metalness:.10});
+  const seatMat=new THREE.MeshStandardMaterial({color:0x17191c,roughness:.92,metalness:.02});
+  const headMat=new THREE.MeshStandardMaterial({color:0xfff4bf,emissive:0xffef9a,emissiveIntensity:1.45,roughness:.18});
+  const tailMat=new THREE.MeshStandardMaterial({color:0xdc2626,emissive:0x7a0909,emissiveIntensity:1.1,roughness:.18});
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(.22,.30,1.18),colorMat);frame.position.set(0,.48,.02);frame.castShadow=true;bike.add(frame);
+  const tank=new THREE.Mesh(new THREE.BoxGeometry(.40,.32,.54),colorMat);tank.position.set(0,.68,-.18);tank.castShadow=true;bike.add(tank);
+  const seat=new THREE.Mesh(new THREE.BoxGeometry(.38,.14,.62),seatMat);seat.position.set(0,.73,.43);seat.castShadow=true;bike.add(seat);
+  const forkL=new THREE.Mesh(new THREE.CylinderGeometry(.027,.027,.63,12),metalMat);forkL.position.set(-.14,.51,-.79);forkL.rotation.x=.18;bike.add(forkL);
+  const forkR=forkL.clone();forkR.position.x=.14;bike.add(forkR);
+  for(const zPos of [-.92,.86]){
+    const wheel=new THREE.Mesh(new THREE.TorusGeometry(.31,.075,10,24),tireMat);wheel.rotation.y=Math.PI/2;wheel.position.set(0,.31,zPos);wheel.castShadow=true;bike.add(wheel);
+    const hub=new THREE.Mesh(new THREE.CylinderGeometry(.055,.055,.20,16),metalMat);hub.rotation.z=Math.PI/2;hub.position.set(0,.31,zPos);bike.add(hub);
+  }
+  const handle=new THREE.Mesh(new THREE.BoxGeometry(.70,.045,.045),metalMat);handle.position.set(0,.91,-.62);bike.add(handle);
+  const stem=new THREE.Mesh(new THREE.CylinderGeometry(.028,.028,.33,12),metalMat);stem.position.set(0,.77,-.65);stem.rotation.x=.22;bike.add(stem);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.10,18,12),headMat);head.position.set(0,.76,-.82);bike.add(head);
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(.22,.11,.05),tailMat);tail.position.set(0,.66,.96);bike.add(tail);
+  const exhaust=new THREE.Mesh(new THREE.CylinderGeometry(.055,.065,.72,14),darkMat);exhaust.rotation.x=Math.PI/2;exhaust.position.set(.23,.34,.43);bike.add(exhaust);
+  bike.position.set(x,0,z);bike.rotation.y=rot;bike.userData.layer='vehicle';bike.userData.forwardAxis='-Z';bike.userData.vehicleType='motorcycle';bike.userData.vehicleWidth=.70;bike.userData.vehicleLength=2.05;floorGroup('1F').add(bike);return bike;
+}
+
+  let car=(state.simulator.vehicleType==='motorcycle'?createMotorcycle(mats.blue,-2.05,15,0):createVehicle(mats.blue,-2.05,15,0));
   const exitCarMat=new THREE.MeshStandardMaterial({color:0xb45309,roughness:.55,metalness:.08});
-  const exitCar=createVehicle(exitCarMat,2.05,-15,Math.PI);exitCar.visible=false;exitCar.userData.demoOnly=true;
+  let exitCar=(state.simulator.vehicleType==='motorcycle'?createMotorcycle(exitCarMat,2.05,-15,Math.PI):createVehicle(exitCarMat,2.05,-15,Math.PI));exitCar.visible=false;exitCar.userData.demoOnly=true;
 
   const signalGroup=new THREE.Group();signalGroup.userData.layer='signals';floorGroup('1F').add(signalGroup);
 
@@ -434,6 +459,62 @@ function createVehicle(colorMat,x,z,rot=0){
     if(root.userData.trafficRedGlow)root.userData.trafficRedGlow.intensity=redOn?5.5:0;
     if(root.userData.trafficGreenGlow)root.userData.trafficGreenGlow.intensity=greenOn?5.5:0;
   }
+  function setLampState(node,on,colorOn=0x39ff78,colorOff=0x153520,intensity=3.0){
+    if(!node?.material)return;
+    node.material.color?.setHex(on?colorOn:colorOff);
+    node.material.emissive?.setHex(on?colorOn:0x000000);
+    node.material.emissiveIntensity=on?intensity:.04;
+  }
+  function setDeviceReaction(id,root,type,action,status){
+    const a=String(action||'').toLowerCase();
+    // Every device has a visible status reaction; device-specific parts are used
+    // where available, with the activity lamp as a universal fallback.
+    const active=!['off','clear','reset','close','lock','normal','ready','end'].includes(a);
+    if(root.userData.activityLamp){
+      let c=0x39ff78;
+      if(['fault','alarm','invalid','overheight','press','allstop'].includes(a))c=0xff3434;
+      else if(['start','flash','call','vehicle','presence','read','record'].includes(a))c=0xffb52e;
+      setLampState(root.userData.activityLamp,active,c,0x173d21,2.6);
+      if(root.userData.activityGlow){root.userData.activityGlow.color.setHex(c);root.userData.activityGlow.intensity=active?2.2:0;}
+    }
+    root.userData.reactionPulseUntil=performance.now()+(active?650:180);
+    if(type==='loop'){
+      const on=a==='vehicle'||a==='presence';
+      if(root.userData.zoneMat){root.userData.zoneMat.color.setHex(on?0x24ff66:0xf3c53f);root.userData.zoneMat.opacity=on?.48:.14;}
+      if(root.userData.zoneEdgeMat){root.userData.zoneEdgeMat.color.setHex(on?0x55ff88:0xffcf39);root.userData.zoneEdgeMat.opacity=on?1:.82;}
+      setLampState(root.userData.loopDetectLamp,on,0x35ff70,0x164b25,4.8);
+      if(root.userData.loopDetectGlow)root.userData.loopDetectGlow.intensity=on?5.5:0;
+    }else if(type==='loopdetector'){
+      setLampState(root.userData.loopPowerLed,true,0x35ff70,0x164b25,1.5);
+      setLampState(root.userData.loopDetectLed,a==='presence',0xffb52e,0x4a2a05,3.8);
+      setLampState(root.userData.loopPulseLed,a==='pulse',0x35ff70,0x143b20,4.2);
+      setLampState(root.userData.loopFaultLed,a==='fault',0xff3030,0x410808,4.5);
+    }else if(type==='cardreader'){
+      const ok=a==='valid',bad=a==='invalid';setLampState(root.userData.statusLed,ok||bad,bad?0xff3030:0x35ff70,0x153520,4.0);
+    }else if(type==='lpr'){
+      const ok=a==='valid',bad=a==='invalid';(root.userData.lprLeds||[]).forEach(x=>setLampState(x,ok||bad,bad?0xff3030:0x35ff70,0x320909,3.5));
+      if(root.userData.lprLens?.material){root.userData.lprLens.material.emissive?.setHex(ok?0x0a662a:bad?0x660909:0);root.userData.lprLens.material.emissiveIntensity=ok||bad?2.2:.05;}
+    }else if(type==='intercom'){
+      const on=['call','answer'].includes(a);setLampState(root.userData.callLed,on,a==='answer'?0x35ff70:0xff3030,0x300707,3.5);
+    }else if(type==='infrared'){
+      if(root.userData.beamMat){root.userData.beamMat.color.setHex(a==='blocked'?0xff3030:0xff2d2d);root.userData.beamMat.opacity=a==='blocked'?.12:.52;}
+    }else if(type==='radar'&&root.userData.zone){
+      root.userData.zone.material.opacity=a==='clear'?.12:.30;
+    }else if(type==='ipcamera'&&root.userData.cameraBody?.material){
+      root.userData.cameraBody.material.emissive?.setHex(a==='alarm'?0x660000:a==='record'?0x073b16:0);root.userData.cameraBody.material.emissiveIntensity=a==='alarm'?1.8:a==='record'?.8:0;
+    }else if(type==='parkingdisplay'&&root.userData.displayPanel?.material){
+      const full=a==='full';root.userData.displayPanel.material.color.setHex(full?0xff3030:0x38ff72);root.userData.displayPanel.material.emissive?.setHex(full?0x661010:0x0a4a20);root.userData.displayPanel.material.emissiveIntensity=2.4;
+    }else if(type==='heightbar'&&root.userData.heightBar?.material){
+      root.userData.heightBar.material.emissive?.setHex(a==='overheight'?0x662000:0);root.userData.heightBar.material.emissiveIntensity=a==='overheight'?2.2:0;
+    }else if(type==='accesscontroller'&&root.userData.door?.material){
+      root.userData.door.material.emissive?.setHex(a==='alarm'?0x660000:a==='unlock'?0x084d20:0);root.userData.door.material.emissiveIntensity=a==='alarm'?1.7:a==='unlock'?.7:0;
+    }else if(type==='poeswitch'||type==='powersupply'){
+      const bad=a==='fault';if(root.userData.activityLamp)setLampState(root.userData.activityLamp,a!=='off',bad?0xff3030:0x35ff70,0x173d21,bad?4.5:2.8);
+    }else if(type==='signal2way'||type==='signal3way'){
+      if(root.userData.activityLamp)setLampState(root.userData.activityLamp,a!=='reset',a==='allstop'?0xff3030:0x35ff70,0x173d21,3.0);
+    }
+  }
+
   function schedulePulseRestore(id,root,type,context){
     if(!context?.pulse)return;const s=getSettings(id);clearTimeout(root.userData.behaviorRestoreTimer);
     const delay=Math.max(100,Number(context.pulseMs)||Math.round((Number(s.restoreDelay)||.45)*1000));
@@ -470,6 +551,7 @@ function createVehicle(colorMat,x,z,rot=0){
     else if(type==='poeswitch'||type==='powersupply'){status=action==='on'?'ONLINE':action==='off'?'OFF':action==='fault'?'FAULT':'READY';}
     else if(type==='heightbar'){status=action==='overheight'?'OVERHEIGHT ALARM':action==='normal'?'NORMAL':'READY';}
     else status=action.toUpperCase();
+    setDeviceReaction(id,root,type,action,status);
     updateRuntime(id,{status,lastAction:action,active:!['off','clear','reset','close'].includes(action)});dev.state=status;
     const triggered=connectionsTriggeredBy(id,action);
     for(const conn of triggered){
@@ -504,13 +586,28 @@ function simulateIo(id,direction,signal){
   return true;
 }
 
+
+function disposeVehicleModel(obj){
+  if(!obj)return;
+  obj.parent?.remove(obj);
+  obj.traverse?.(o=>{o.geometry?.dispose?.();if(Array.isArray(o.material))o.material.forEach(m=>m.dispose?.());else o.material?.dispose?.();});
+}
+function setVehicleType(type='car'){
+  const nextType=type==='motorcycle'?'motorcycle':'car';state.simulator.vehicleType=nextType;
+  const p=car.position.clone(),r=car.rotation.y,visible=car.visible!==false;disposeVehicleModel(car);
+  car=nextType==='motorcycle'?createMotorcycle(mats.blue,p.x,p.z,r):createVehicle(mats.blue,p.x,p.z,r);car.visible=visible;
+  const ep=exitCar.position.clone(),er=exitCar.rotation.y,ev=exitCar.visible;disposeVehicleModel(exitCar);
+  exitCar=nextType==='motorcycle'?createMotorcycle(exitCarMat,ep.x,ep.z,er):createVehicle(exitCarMat,ep.x,ep.z,er);exitCar.visible=ev;exitCar.userData.demoOnly=true;
+  speed=0;keys.clear();showToast(nextType==='motorcycle'?'車種：機車':'車種：汽車');return nextType;
+}
+
 const controllerApi={
     setBarrier(open){barrierOpen=!!open;state.simulator.barrier=barrierOpen;showToast(open?'Barrier OPEN':'Barrier CLOSE');},
     toggleLoop(){loopOn=!loopOn;state.simulator.loop=loopOn;showToast('Loop '+(loopOn?'ON':'OFF'));},
     triggerEtag(){etagFlash=1;showToast('ETAG DETECTED');setText('etagState','DETECTED');setTimeout(()=>setText('etagState','READY'),1200);},
     toggleSignals(){state.simulator.signals=!state.simulator.signals;signalGroup.visible=state.simulator.signals;return state.simulator.signals;},
     toggleZones(){state.simulator.zones=!state.simulator.zones;Object.values(deviceRoots).forEach(root=>{if(root.userData.zone)root.userData.zone.visible=state.simulator.zones;if(root.userData.zoneEdges)root.userData.zoneEdges.visible=state.simulator.zones;});return state.simulator.zones;},
-    resetCar(){car.position.set(-2.05,0,15);car.rotation.y=0;exitCar.position.set(2.05,0,-15);exitCar.rotation.y=Math.PI;exitCar.visible=false;speed=0;keys.clear();showToast('車輛已重設');},
+    resetCar(){car.position.set(-2.05,0,15);car.rotation.y=0;exitCar.position.set(2.05,0,-15);exitCar.rotation.y=Math.PI;exitCar.visible=false;speed=0;keys.clear();showToast((state.simulator.vehicleType==='motorcycle'?'機車':'汽車')+'已重設');},setVehicleType(type){return setVehicleType(type);},
     setDrive(dir,on=true){const code={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'}[dir];if(!code)return;if(on)keys.add(code);else keys.delete(code);},
     stop(){keys.clear();speed=0;},
     setFollow(v){follow=!!v;state.simulator.follow=follow;},
@@ -559,9 +656,9 @@ const controllerApi={
       const entryDone=!runEntry||laneDemo.entry.step>=4,exitDone=!runExit||laneDemo.exit.step>=4;
       if(entryDone&&exitDone){laneDemo.entry.elapsed+=dt;laneDemo.exit.elapsed+=dt;if(Math.max(laneDemo.entry.elapsed,laneDemo.exit.elapsed)>3.4){laneDemo.running=false;showToast('✅ 雙車道展示完成');}}
     }
-    const loopDevice=devices.find(d=>(d.type||'').toLowerCase().includes('loop'));const barrierDevice=devices.find(d=>(d.type||'').toLowerCase().includes('barrier'));const etagDevice=devices.find(d=>(d.type||'').toLowerCase().includes('etag')||(d.type||'').toLowerCase().includes('uhf'));const loopRoot=loopDevice?deviceRoots[loopDevice.id]:null;const barrierRoot=barrierDevice?deviceRoots[barrierDevice.id]:null;const etagRoot=etagDevice?deviceRoots[etagDevice.id]:null;
-    if(loopRoot){const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);const loopWorld=new THREE.Vector3();loopRoot.getWorldPosition(loopWorld);const detected=Math.abs(carWorld.x-loopWorld.x)<3.15&&Math.abs(carWorld.z-loopWorld.z)<2.1;if(detected!==loopOn){loopOn=detected;state.simulator.loop=loopOn;if(loopOn)executeDeviceAction(loopDevice.id,'vehicle');else executeDeviceAction(loopDevice.id,'clear');}if(loopRoot.userData.zoneMat)loopRoot.userData.zoneMat.opacity=loopOn?.55:.2;}
-    Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.barrierPivot&&root.userData.barrierTarget!==null&&root.userData.barrierTarget!==undefined){const cur=root.userData.barrierPivot.rotation.z,targetAngle=root.userData.barrierTarget,secs=Math.max(.2,root.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){root.userData.barrierPivot.rotation.z=targetAngle;root.userData.barrierTarget=null;const bd=getRuntime(id),settings=getSettings(id);const opened=Math.abs(targetAngle)>0.01;updateRuntime(id,{...(bd||{}),status:opened?'OPEN':'CLOSED',active:opened});if(opened&&root.userData.barrierAutoCloseArmed&&settings.autoCloseEnabled){root.userData.barrierAutoCloseRemaining=Math.max(1,Number(settings.autoCloseSeconds)||5);root.userData.barrierAutoCloseArmed=false;}else if(targetAngle>=0){root.userData.barrierAutoCloseRemaining=null;}}else root.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}if(root.userData.barrierAutoCloseRemaining!==null&&root.userData.barrierAutoCloseRemaining!==undefined){root.userData.barrierAutoCloseRemaining=Math.max(0,root.userData.barrierAutoCloseRemaining-dt);const remain=root.userData.barrierAutoCloseRemaining,rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:`OPEN · AUTO CLOSE ${Math.ceil(remain)}s`,active:true});if(remain<=0){root.userData.barrierAutoCloseRemaining=null;executeDeviceAction(id,'close',new Set());}}if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.trafficRed&&root.userData.trafficFlashRed){root.userData.trafficRed.visible=Math.floor(now/350)%2===0;if(root.userData.trafficRedGlow)root.userData.trafficRedGlow.intensity=root.userData.trafficRed.visible?5.5:0;}else if(root.userData.trafficRed)root.userData.trafficRed.visible=true;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id),devType=String(devices.find(d=>d.id===id)?.type||'').toLowerCase();updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(devType==='ledpanel'&&getSettings(id).lastFiveFlash!==false&&remain<=5&&remain>0&&root.userData.displayPanel)root.userData.displayPanel.visible=Math.floor(now/300)%2===0;else if(root.userData.displayPanel)root.userData.displayPanel.visible=true;if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));root.userData.displayPanel.material.emissive?.setHex(0x550000);root.userData.displayPanel.material.emissiveIntensity=pulse;}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
+    const loopDevice=devices.find(d=>(d.type||'').toLowerCase()==='loop');const barrierDevice=devices.find(d=>(d.type||'').toLowerCase().includes('barrier'));const etagDevice=devices.find(d=>(d.type||'').toLowerCase().includes('etag')||(d.type||'').toLowerCase().includes('uhf'));const loopRoot=loopDevice?deviceRoots[loopDevice.id]:null;const barrierRoot=barrierDevice?deviceRoots[barrierDevice.id]:null;const etagRoot=etagDevice?deviceRoots[etagDevice.id]:null;
+    if(loopRoot){const loopWorld=new THREE.Vector3();loopRoot.getWorldPosition(loopWorld);const ls=getSettings(loopDevice.id),lw=Math.max(.5,Number(ls.width)||2),ld=Math.max(.5,Number(ls.depth)||1);const vehicleBox=new THREE.Box3().setFromObject(car);const loopBox=new THREE.Box3(new THREE.Vector3(loopWorld.x-lw/2,-.05,loopWorld.z-ld/2),new THREE.Vector3(loopWorld.x+lw/2,1.6,loopWorld.z+ld/2));const detected=vehicleBox.intersectsBox(loopBox);if(detected!==loopOn){loopOn=detected;state.simulator.loop=loopOn;if(loopOn)executeDeviceAction(loopDevice.id,'vehicle');else executeDeviceAction(loopDevice.id,'clear');}}
+    Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.reactionPulseUntil>now&&root.userData.activityLamp){const q=.96+.10*(.5+.5*Math.sin(now*.035));root.userData.activityLamp.scale.setScalar(q);}else if(root.userData.activityLamp)root.userData.activityLamp.scale.setScalar(1);if(root.userData.barrierPivot&&root.userData.barrierTarget!==null&&root.userData.barrierTarget!==undefined){const cur=root.userData.barrierPivot.rotation.z,targetAngle=root.userData.barrierTarget,secs=Math.max(.2,root.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){root.userData.barrierPivot.rotation.z=targetAngle;root.userData.barrierTarget=null;const bd=getRuntime(id),settings=getSettings(id);const opened=Math.abs(targetAngle)>0.01;updateRuntime(id,{...(bd||{}),status:opened?'OPEN':'CLOSED',active:opened});if(opened&&root.userData.barrierAutoCloseArmed&&settings.autoCloseEnabled){root.userData.barrierAutoCloseRemaining=Math.max(1,Number(settings.autoCloseSeconds)||5);root.userData.barrierAutoCloseArmed=false;}else if(targetAngle>=0){root.userData.barrierAutoCloseRemaining=null;}}else root.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}if(root.userData.barrierAutoCloseRemaining!==null&&root.userData.barrierAutoCloseRemaining!==undefined){root.userData.barrierAutoCloseRemaining=Math.max(0,root.userData.barrierAutoCloseRemaining-dt);const remain=root.userData.barrierAutoCloseRemaining,rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:`OPEN · AUTO CLOSE ${Math.ceil(remain)}s`,active:true});if(remain<=0){root.userData.barrierAutoCloseRemaining=null;executeDeviceAction(id,'close',new Set());}}if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.trafficRed&&root.userData.trafficFlashRed){root.userData.trafficRed.visible=Math.floor(now/350)%2===0;if(root.userData.trafficRedGlow)root.userData.trafficRedGlow.intensity=root.userData.trafficRed.visible?5.5:0;}else if(root.userData.trafficRed)root.userData.trafficRed.visible=true;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id),devType=String(devices.find(d=>d.id===id)?.type||'').toLowerCase();updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(devType==='ledpanel'&&getSettings(id).lastFiveFlash!==false&&remain<=5&&remain>0&&root.userData.displayPanel)root.userData.displayPanel.visible=Math.floor(now/300)%2===0;else if(root.userData.displayPanel)root.userData.displayPanel.visible=true;if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));root.userData.displayPanel.material.emissive?.setHex(0x550000);root.userData.displayPanel.material.emissiveIntensity=pulse;}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>{const pulsing=(l.userData.signalPulseUntil||0)>now;l.material.opacity=pulsing?1:.22;if(pulsing&&l.material.color){const base=l.userData.baseColor;if(base===undefined)l.userData.baseColor=l.material.color.getHex();l.material.color.setHex(0xfff176);}else if(l.userData.baseColor!==undefined&&l.material.color)l.material.color.setHex(l.userData.baseColor);});
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');

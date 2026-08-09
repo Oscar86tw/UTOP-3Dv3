@@ -73,3 +73,12 @@
 
 ## V1.7.11
 - 新增部署版本一致性檢查，避免 GitHub Pages 混合載入舊版 index / app / views。
+
+
+## V1.7.12
+### 3D Module Reactions & Vehicle Types
+- 所有 3D 模組都有可視 Runtime 反應；有專用燈號/機構者優先使用專用反應，其他使用狀態指示燈。
+- 地感線圈感應車輛時，線圈與偵測燈會明顯亮起。
+- 地感檢知器支援 POWER / DETECT / PULSE / FAULT LED。
+- 車種可切換「汽車 / 機車」，兩者使用不同 3D 模型與碰撞尺寸。
+- 地感判斷使用車體 Bounding Box。

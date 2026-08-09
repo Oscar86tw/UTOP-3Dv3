@@ -3,7 +3,7 @@ export const state = {
   workspace:{mode:'3d',leftOpen:true,rightOpen:false,fullscreen3d:false,inspectorTab:'controls'},
   editor:{mode:'unified',floorFocus:'1F',snap:true,gridSize:.25,showTransformGizmo:true},
   simulator:{
-    barrier:false,loop:false,signals:true,zones:true,labels:true,follow:false,cameraPreset:0,
+    barrier:false,loop:false,signals:true,zones:true,labels:true,follow:false,cameraPreset:0,vehicleType:'car',
     liveCamera:{yaw:.62,pitch:.42,radius:27,target:[0,1,0]},
     viewpoints:[
       {name:'入口車道全景',yaw:0.62,pitch:0.42,radius:27,target:[0,1,0],floor:'1F'},
