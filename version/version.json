@@ -1,20 +1,21 @@
 {
   "name": "UTOP-3Dv3",
-  "version": "1.4.8",
-  "schema": "5.0",
-  "title": "Stability & State Sync",
+  "version": "1.4.9",
+  "schema": "5.1",
+  "title": "Function State Validation",
   "notes": [
-    "快速切頁加入 navEpoch 保護，舊的 3D 掛載不會覆蓋新頁面。",
-    "儲存按鈕改為真正寫入 localStorage，重新整理後自動還原設備與專案狀態。",
-    "3D 重要操作會等待 WebGL 初始化完成，不再因 sim3d 尚未 ready 而無反應。",
-    "任務播放限制單一計時器，避免連按造成多組流程重疊。"
+    "加入 State Migration / Integrity Repair，舊 localStorage 狀態會自動補齊新版必要欄位。",
+    "功能狀態驗證中心會檢查設備六軸、Settings、Runtime、Hotkey、Connection、道路、場景、樓層、WebGL、Simulator API 與本機儲存。",
+    "修正 timer 被錯誤比對成 delaytimer 的型別解析問題。",
+    "3D 控制按鈕改為等待 Simulator Ready 後再執行，降低載入期間點擊無反應。",
+    "新增『修復目前資料』按鈕，可重新套用完整性修復並保存。"
   ],
   "updated": "2026-08-09",
   "changes": [
-    "Navigation race guard",
-    "Persistent local project state",
-    "Simulator readiness gate",
-    "Mission timer deduplication",
-    "JavaScript and ZIP validation"
+    "State migration and integrity repair",
+    "Function state audit",
+    "Exact module type resolution",
+    "Simulator readiness guards",
+    "Project repair action"
   ]
 }

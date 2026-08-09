@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.4.8';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.4.8';
+import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.4.9';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.4.9';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,10 +11,13 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.4.9';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.4.9';
 
 const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let capturing=false,sim3d=null,navEpoch=0,simulatorMountPromise=null,missionTimer=null;
 const STORAGE_KEY='utop3dv3.project.v1';
+const DEFAULTS=cloneDefaults(state,devices);
 
 const byId=id=>document.getElementById(id);
 const val=(id,fallback='')=>byId(id)?.value??fallback;
@@ -39,15 +42,22 @@ function saveProjectState(showStatus=true){
 }
 function restoreProjectState(){
   try{
-    const raw=localStorage.getItem(STORAGE_KEY);if(!raw)return false;
-    const payload=JSON.parse(raw);if(!payload||typeof payload!=='object')return false;
-    if(payload.state&&typeof payload.state==='object'){
-      for(const [k,v] of Object.entries(payload.state)) state[k]=v;
-      if(payload.savedAt)state.savedAt=new Date(payload.savedAt);
+    const raw=localStorage.getItem(STORAGE_KEY);
+    if(raw){
+      const payload=JSON.parse(raw);
+      if(payload?.state&&typeof payload.state==='object'){
+        for(const [k,v] of Object.entries(payload.state)) state[k]=v;
+        if(payload.savedAt)state.savedAt=new Date(payload.savedAt);
+      }
+      if(Array.isArray(payload?.devices)&&payload.devices.length)devices.splice(0,devices.length,...payload.devices);
     }
-    if(Array.isArray(payload.devices)&&payload.devices.length){devices.splice(0,devices.length,...payload.devices);}
-    return true;
-  }catch(err){console.warn('[UTOP] 本機專案狀態還原失敗，改用預設資料',err);return false;}
+    migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
+    return !!raw;
+  }catch(err){
+    console.warn('[UTOP] 本機專案狀態還原失敗，執行完整性修復',err);
+    migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
+    return false;
+  }
 }
 async function withSimulator(where,fn){
   try{
@@ -74,6 +84,10 @@ async function go(route){
     const mounted=await simulatorMountPromise;
     if(epoch!==navEpoch||state.route!=='simulator'){mounted?.destroy?.();return;}
     sim3d=mounted;simulatorMountPromise=null;
+    state.runtimeHealth??={};
+    state.runtimeHealth.simulatorReady=!!sim3d;
+    state.runtimeHealth.webglReady=!!sim3d && sim3d.localFallback!==true;
+    state.runtimeHealth.lastError=sim3d?'':'3D 初始化沒有回傳 Simulator API';
   }
   if(route==='diagrams'&&epoch===navEpoch)mountNeuralView();
 }
@@ -119,13 +133,13 @@ function bindDynamicInspector(){
     d.name=String(val('inspectorName',d.name)).trim()||d.name;
     updateDeviceTransform(id,{x:num('propX'),y:num('propY'),z:num('propZ'),rotationX:num('propRX')*Math.PI/180,rotationY:num('propRY')*Math.PI/180,rotationZ:num('propRZ')*Math.PI/180,floor:val('propFloor',getDeviceTransform(id).floor)});
     updateSettings(id,{showLabel:checked('showLabelSetting'),labelOffsetX:num('labelOffsetX'),labelOffsetY:num('labelOffsetY'),labelOffsetZ:num('labelOffsetZ'),positionLocked:checked('lockPositionSetting')});
-    sim3d?.applyDeviceTransform(id);sim3d?.applyDeviceSettings(id);syncInspector(id,false);
+    withSimulator('設備屬性套用',s=>{s.applyDeviceTransform(id);s.applyDeviceSettings(id);});syncInspector(id,false);
   });
   document.getElementById('applyModuleSettings')?.addEventListener('click',()=>{
-    const id=state.selectedDevice,patch={};root.querySelectorAll('[data-setting-param]').forEach(el=>patch[el.dataset.settingParam]=Number(el.value));updateSettings(id,patch);sim3d?.applyDeviceSettings(id);syncInspector(id,false);
+    const id=state.selectedDevice,patch={};root.querySelectorAll('[data-setting-param]').forEach(el=>patch[el.dataset.settingParam]=Number(el.value));updateSettings(id,patch);withSimulator('設備參數套用',s=>s.applyDeviceSettings(id));syncInspector(id,false);
   });
   root.querySelectorAll('[data-open-selected-inspector]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab='controls';syncInspector(b.dataset.openSelectedInspector,true);}));
-  root.querySelectorAll('[data-device-action]').forEach(b=>b.addEventListener('click',()=>{const [id,action]=b.dataset.deviceAction.split('|');sim3d?.executeDeviceAction(id,action);setTimeout(()=>syncInspector(id,false),80);}));
+  root.querySelectorAll('[data-device-action]').forEach(b=>b.addEventListener('click',safeHandler('設備控制',async()=>{const [id,action]=b.dataset.deviceAction.split('|');await withSimulator('設備控制',s=>s.executeDeviceAction(id,action));setTimeout(()=>syncInspector(id,false),80);})));
 }
 function bind(){
   root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{state.simulator.cameraPreset=Number(b.dataset.view);go('simulator').then(()=>sim3d?.gotoView(Number(b.dataset.view)))}));
@@ -148,17 +162,17 @@ function bind(){
   document.getElementById('closeModuleSidebar')?.addEventListener('click',()=>{state.workspace.leftOpen=false;go('simulator')});
   root.querySelectorAll('[data-workspace-mode]').forEach(b=>b.addEventListener('click',()=>{state.workspace.mode=b.dataset.workspaceMode;go('simulator')}));
   document.getElementById('toggle3DFullscreen')?.addEventListener('click',()=>{state.workspace.fullscreen3d=!state.workspace.fullscreen3d;go('simulator')});
-  root.querySelectorAll('[data-editor-mode]').forEach(b=>b.addEventListener('click',()=>{setEditorMode(b.dataset.editorMode);root.querySelectorAll('[data-editor-mode]').forEach(x=>x.classList.toggle('active',x.dataset.editorMode===state.editor.mode));sim3d?.setEditorMode(state.editor.mode)}));
-  document.getElementById('toggleSnap')?.addEventListener('click',e=>{state.editor.snap=!state.editor.snap;e.currentTarget.classList.toggle('active',state.editor.snap);e.currentTarget.textContent=`Snap ${state.editor.snap?'ON':'OFF'}`;sim3d?.setSnap(state.editor.snap)});
+  root.querySelectorAll('[data-editor-mode]').forEach(b=>b.addEventListener('click',safeHandler('切換3D編輯模式',async()=>{setEditorMode(b.dataset.editorMode);root.querySelectorAll('[data-editor-mode]').forEach(x=>x.classList.toggle('active',x.dataset.editorMode===state.editor.mode));await withSimulator('切換3D編輯模式',s=>s.setEditorMode(state.editor.mode));})));
+  document.getElementById('toggleSnap')?.addEventListener('click',safeHandler('Snap切換',async e=>{state.editor.snap=!state.editor.snap;e.currentTarget.classList.toggle('active',state.editor.snap);e.currentTarget.textContent=`Snap ${state.editor.snap?'ON':'OFF'}`;await withSimulator('Snap切換',s=>s.setSnap(state.editor.snap));}));
   root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',safeHandler('新增模組',async()=>{const id=addModule(b.dataset.addTemplate,state.editor.floorFocus||'1F');if(id){state.selectedDevice=id;selectDevice(id);state.workspace.rightOpen=true;state.workspace.mode='3d';await go('simulator');sim3d?.selectDevice(id);syncInspector(id,true);}})));
   document.getElementById('moduleSearch')?.addEventListener('input',e=>updateModuleSearch(e.target.value));
   document.getElementById('moduleGroup')?.addEventListener('change',e=>{state.moduleLibrary.group=e.target.value;go('simulator')});
   bindDynamicInspector();
 
   root.querySelectorAll('[data-drive]').forEach(b=>{const dir=b.dataset.drive;if(dir==='stop'){b.addEventListener('click',()=>sim3d?.stop());return;}const down=e=>{e.preventDefault();sim3d?.setDrive(dir,true)},up=e=>{e.preventDefault();sim3d?.setDrive(dir,false)};b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,up));});
-  document.getElementById('toggleSignals')?.addEventListener('click',e=>{const on=sim3d?.toggleSignals();e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線'});
-  document.getElementById('toggleZones')?.addEventListener('click',e=>{const on=sim3d?.toggleZones();e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍'});
-  document.getElementById('followCar')?.addEventListener('click',e=>{state.simulator.follow=!state.simulator.follow;sim3d?.setFollow(state.simulator.follow);e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角'});
+  document.getElementById('toggleSignals')?.addEventListener('click',safeHandler('DI/DO線切換',async e=>{const on=await withSimulator('DI/DO線切換',s=>s.toggleSignals());if(on!==null)e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線';}));
+  document.getElementById('toggleZones')?.addEventListener('click',safeHandler('感應範圍切換',async e=>{const on=await withSimulator('感應範圍切換',s=>s.toggleZones());if(on!==null)e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍';}));
+  document.getElementById('followCar')?.addEventListener('click',safeHandler('跟車視角切換',async e=>{state.simulator.follow=!state.simulator.follow;await withSimulator('跟車視角切換',s=>s.setFollow(state.simulator.follow));e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角';}));
   document.getElementById('next3DView')?.addEventListener('click',()=>withSimulator('切換3D視野',s=>s.nextView()));document.getElementById('resetCar')?.addEventListener('click',()=>withSimulator('重設車輛',s=>s.resetCar()));document.getElementById('toggleDeviceLabels')?.addEventListener('click',e=>{const on=sim3d?.toggleLabels?.();e.currentTarget.textContent=on?'隱藏名稱牌':'顯示名稱牌'});document.getElementById('runEntryLaneDemo')?.addEventListener('click',()=>withSimulator('入口展示',s=>s.runLaneDemo?.('entry')));document.getElementById('runExitLaneDemo')?.addEventListener('click',()=>withSimulator('出口展示',s=>s.runLaneDemo?.('exit')));document.getElementById('runBothLaneDemo')?.addEventListener('click',()=>withSimulator('雙車道展示',s=>s.runLaneDemo?.('both')));document.getElementById('saveView')?.addEventListener('click',()=>withSimulator('儲存視野',s=>s.saveView()));
 
   byId('applyPlanTransform')?.addEventListener('click',safeHandler('套用平面位置',()=>applyPlanPatch({x:num('planX'),z:num('planZ'),rotationY:num('planRot')*Math.PI/180,floor:val('planFloor','1F')})));
@@ -187,6 +201,8 @@ function bind(){
   document.getElementById('addPhoto')?.addEventListener('click',()=>{state.photos.push({id:'P-'+String(state.photos.length+1).padStart(3,'0'),title:'新現場照片',device:state.selectedDevice});go('field')});
   document.getElementById('runAllTests')?.addEventListener('click',()=>{state.tests.forEach(t=>t.result='PASS');go('field')});
   document.getElementById('runDebugAudit')?.addEventListener('click',()=>{runDebugAudit();go('project');});
+  document.getElementById('repairProjectState')?.addEventListener('click',()=>{migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);saveProjectState(false);runFunctionStateAudit();go('project');});
+  document.getElementById('runFunctionStateAudit')?.addEventListener('click',()=>{runFunctionStateAudit();go('project');});
   document.getElementById('neuralReset')?.addEventListener('click',()=>{unmountNeuralView();mountNeuralView();});
   document.getElementById('docDevice')?.addEventListener('change',e=>{state.docsDevice=e.target.value;go('field')});root.querySelectorAll('[data-script-jump]').forEach(b=>b.addEventListener('click',()=>{state.field.scriptIndex=Number(b.dataset.scriptJump);go('field')}));
 }
@@ -201,7 +217,7 @@ window.addEventListener('keydown',e=>{
     const conflict=currentHotkeyConflict(combo,deviceId,actionId);if(conflict){const d=devices.find(x=>x.id===conflict.deviceId);capturing=false;state.hotkeyEditor.message=`⚠️ ${combo} 已設定給 ${d?.name||conflict.deviceId} 的 ${conflict.action}`;go('hotkeys');return;}
     state.deviceHotkeys[deviceId]??={};state.deviceHotkeys[deviceId][actionId]=combo;capturing=false;state.hotkeyEditor.capture=false;state.hotkeyEditor.message=`✅ 已設定 ${combo}`;go('hotkeys');return;
   }
-  if(!safeKey())return;const combo=keyCombo(e),assign=assignmentForKey(combo);if(!assign)return;e.preventDefault();sim3d?.executeDeviceAction(assign.deviceId,assign.action);
+  if(!safeKey())return;const combo=keyCombo(e),assign=assignmentForKey(combo);if(!assign)return;e.preventDefault();withSimulator('快捷鍵設備控制',s=>s.executeDeviceAction(assign.deviceId,assign.action));
 });
 
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)go(b.dataset.route)});

@@ -1,7 +1,7 @@
-# V1.4.8
+# V1.4.9
 
-- 修正快速切頁時 3D 非同步初始化回寫錯頁。
-- 「儲存」改為真正保存 state + devices 至 localStorage。
-- 開啟網頁會自動還原最後儲存的專案。
-- 入口/出口/雙車道展示、重設車輛、切換視野、儲存視野加入 3D Ready 等待。
-- Mission 播放加入單一 timer 保護。
+- 新增 State Migration / Integrity Repair，舊 localStorage 專案資料自動補齊新版必要欄位。
+- 新增功能狀態驗證中心：檢查設備六軸、Settings、Runtime、Hotkey、Connection、道路、場景、樓層、WebGL、Simulator API、本機儲存。
+- 3D 控制、Editor Mode、Snap、DI/DO線、感應區、跟車視角改為等待 Simulator Ready 後執行。
+- 快捷鍵設備控制同樣使用 Simulator Ready 保護。
+- 真正 WebGL 啟動後寫入 Runtime Health 狀態。

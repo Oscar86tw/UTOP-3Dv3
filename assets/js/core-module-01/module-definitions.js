@@ -35,8 +35,13 @@ export const MODULE_DEFINITIONS=[
 ];
 
 export function definitionForType(type=''){
-  const t=String(type).toLowerCase();
-  return MODULE_DEFINITIONS.find(d=>t===d.type||t.includes(d.type)||d.type.includes(t))||MODULE_DEFINITIONS.find(d=>d.key==='relay');
+  const t=String(type).toLowerCase().trim();
+  const exact=MODULE_DEFINITIONS.find(d=>String(d.type).toLowerCase()===t||String(d.key).toLowerCase()===t);
+  if(exact)return exact;
+  const compatible=MODULE_DEFINITIONS
+    .filter(d=>t.includes(String(d.type).toLowerCase())||String(d.type).toLowerCase().includes(t))
+    .sort((a,b)=>String(b.type).length-String(a.type).length)[0];
+  return compatible||MODULE_DEFINITIONS.find(d=>d.key==='relay');
 }
 export function definitionForKey(key){return MODULE_DEFINITIONS.find(d=>d.key===key)||null;}
 export const MODULE_CATEGORIES=[...new Set(MODULE_DEFINITIONS.map(d=>d.category))];
