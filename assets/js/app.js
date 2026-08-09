@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.4.2';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.4.2';
+import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.4.4';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.4.4';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -63,7 +63,7 @@ function bindDynamicInspector(){
     const id=state.selectedDevice,d=devices.find(x=>x.id===id);if(!d)return;
     d.name=document.getElementById('inspectorName')?.value.trim()||d.name;
     updateDeviceTransform(id,{x:Number(propX.value)||0,y:Number(propY.value)||0,z:Number(propZ.value)||0,rotationX:(Number(propRX.value)||0)*Math.PI/180,rotationY:(Number(propRY.value)||0)*Math.PI/180,rotationZ:(Number(propRZ.value)||0)*Math.PI/180,floor:propFloor.value});
-    updateSettings(id,{showLabel:!!document.getElementById('showLabelSetting')?.checked,positionLocked:!!document.getElementById('lockPositionSetting')?.checked});
+    updateSettings(id,{showLabel:!!document.getElementById('showLabelSetting')?.checked,labelOffsetX:Number(document.getElementById('labelOffsetX')?.value)||0,labelOffsetY:Number(document.getElementById('labelOffsetY')?.value)||0,labelOffsetZ:Number(document.getElementById('labelOffsetZ')?.value)||0,positionLocked:!!document.getElementById('lockPositionSetting')?.checked});
     sim3d?.applyDeviceTransform(id);sim3d?.applyDeviceSettings(id);syncInspector(id,false);
   });
   document.getElementById('applyModuleSettings')?.addEventListener('click',()=>{
@@ -105,7 +105,7 @@ function bind(){
   document.getElementById('toggleSignals')?.addEventListener('click',e=>{const on=sim3d?.toggleSignals();e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線'});
   document.getElementById('toggleZones')?.addEventListener('click',e=>{const on=sim3d?.toggleZones();e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍'});
   document.getElementById('followCar')?.addEventListener('click',e=>{state.simulator.follow=!state.simulator.follow;sim3d?.setFollow(state.simulator.follow);e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角'});
-  document.getElementById('next3DView')?.addEventListener('click',()=>sim3d?.nextView());document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());document.getElementById('runLaneDemo')?.addEventListener('click',()=>sim3d?.runLaneDemo?.());document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
+  document.getElementById('next3DView')?.addEventListener('click',()=>sim3d?.nextView());document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());document.getElementById('toggleDeviceLabels')?.addEventListener('click',e=>{const on=sim3d?.toggleLabels?.();e.currentTarget.textContent=on?'隱藏名稱牌':'顯示名稱牌'});document.getElementById('runEntryLaneDemo')?.addEventListener('click',()=>sim3d?.runLaneDemo?.('entry'));document.getElementById('runExitLaneDemo')?.addEventListener('click',()=>sim3d?.runLaneDemo?.('exit'));document.getElementById('runBothLaneDemo')?.addEventListener('click',()=>sim3d?.runLaneDemo?.('both'));document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
 
   document.getElementById('applyPlanTransform')?.addEventListener('click',()=>applyPlanPatch({x:Number(planX.value)||0,z:Number(planZ.value)||0,rotationY:(Number(planRot.value)||0)*Math.PI/180,floor:planFloor.value}));
 

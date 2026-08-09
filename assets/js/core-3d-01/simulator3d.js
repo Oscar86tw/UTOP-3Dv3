@@ -4,13 +4,12 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.4.2';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.4.2';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.4.2';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.4.4';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.4.4';
 
 let active=null;
 const THREE_SOURCES=[
-  {name:'專案本地 Three.js',url:'../../../vendor/three/three.module.min.js'}
+  {name:'專案本地 Three.js',url:new URL('../../../vendor/three/three.module.min.js',import.meta.url).href}
 ];
 function setText(id,text){const el=document.getElementById(id);if(el)el.textContent=text;}
 function showToast(text){const el=document.getElementById('simToast');if(!el)return;el.textContent=text;el.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>el.classList.remove('show'),1500);}
@@ -44,20 +43,13 @@ export async function mountSimulator3D(callbacks={}){
     setText('simStatus',`3D READY · ${loaded.source}`);
     return active;
   }catch(err){
-    console.warn('[UTOP-3D] WebGL Three.js 啟動失敗，切換 Local 3D 備援核心',err);
+    console.error('[UTOP-3D] True WebGL 3D 啟動失敗',err);
     if(!document.getElementById('threeStage'))return null;
-    try{
-      active=createLocal3D(host,callbacks);
-      setText('simStatus','LOCAL 3D READY');
-      const toast=document.getElementById('simToast');
-      if(toast){toast.textContent='WebGL 3D 無法啟動，已切換專案內建 Local 3D';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2400);}
-      return active;
-    }catch(fallbackErr){
-      console.error('[UTOP-3D] Local 3D 備援核心也啟動失敗',fallbackErr);
-      host.innerHTML=`<div class="three-error"><b>3D 核心啟動失敗</b><br><small>${String(err?.message||err)}</small><br><small>${String(fallbackErr?.message||fallbackErr)}</small></div>`;
-      setText('simStatus','3D ERROR');
-      return null;
-    }
+    const detail=[err?.message,...(err?.details||[])].filter(Boolean).join('｜');
+    host.innerHTML=`<div class="three-error true3d-error"><b>真正 WebGL 3D 無法啟動</b><br><small>${detail||'未知錯誤'}</small><br><button id="retryTrue3D" class="primary-btn mt10">重新啟動真正 3D</button><br><small class="muted">本版不再切換成平面 Local 3D。</small></div>`;
+    setText('simStatus','TRUE 3D ERROR');
+    document.getElementById('retryTrue3D')?.addEventListener('click',()=>mountSimulator3D(callbacks));
+    return null;
   }
 }
 function createSimulator(THREE,host,callbacks){
@@ -65,7 +57,20 @@ function createSimulator(THREE,host,callbacks){
   const scene=new THREE.Scene();
   scene.background=new THREE.Color(0xbdd7e5);scene.fog=new THREE.Fog(0xbdd7e5,45,100);
   const camera=new THREE.PerspectiveCamera(55,1,.1,240);
-  const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;host.appendChild(renderer.domElement);
+  const canvas=document.createElement('canvas');
+  canvas.className='three-webgl-canvas';
+  const preferred={alpha:false,antialias:true,depth:true,stencil:false,premultipliedAlpha:false,preserveDrawingBuffer:false,powerPreference:'high-performance',failIfMajorPerformanceCaveat:false};
+  let gl=canvas.getContext('webgl2',preferred);
+  let rendererMode='WebGL2 High';
+  if(!gl){
+    const compatible={alpha:false,antialias:false,depth:true,stencil:false,premultipliedAlpha:false,preserveDrawingBuffer:false,powerPreference:'default',failIfMajorPerformanceCaveat:false};
+    gl=canvas.getContext('webgl2',compatible);
+    rendererMode='WebGL2 Compatible';
+  }
+  if(!gl)throw new Error('瀏覽器沒有可用的 WebGL2 Context；已禁止切換到平面 Local 3D。');
+  const renderer=new THREE.WebGLRenderer({canvas,context:gl,antialias:!!gl.getContextAttributes()?.antialias});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;host.appendChild(renderer.domElement);
+  host.dataset.rendererMode=rendererMode;
 
   const hemi=new THREE.HemisphereLight(0xffffff,0x4d5962,1.8);scene.add(hemi);
   const sun=new THREE.DirectionalLight(0xffffff,2.6);sun.position.set(18,22,14);sun.castShadow=true;scene.add(sun);
@@ -91,7 +96,7 @@ function createSimulator(THREE,host,callbacks){
   function floorGroup(id){if(floorGroups[id])return floorGroups[id];const g=new THREE.Group();g.name='FLOOR_'+id;g.position.y=floorElevation(id);scene.add(g);floorGroups[id]=g;return g;}
   function addFloorSlab(id,w=26,d=44){const g=floorGroup(id);const slab=new THREE.Mesh(new THREE.BoxGeometry(w,.24,d),mats.floor.clone());slab.position.y=-.18;slab.receiveShadow=true;slab.userData.layer='road';g.add(slab);return slab;}
   addFloorSlab('1F',30,48);addFloorSlab('B1',28,46);addFloorSlab('B2',28,46);
-  ['1F','B1','B2'].forEach(id=>{const g=floorGroup(id);const road=new THREE.Mesh(new THREE.BoxGeometry(8,.14,38),mats.road);road.position.y=.02;road.receiveShadow=true;road.userData.layer='road';g.add(road);roadObjects.push(road);for(let z=-16;z<=16;z+=4){const d=new THREE.Mesh(new THREE.BoxGeometry(.13,.03,2),mats.white);d.position.set(0,.11,z);d.userData.layer='road';g.add(d);roadObjects.push(d);}});
+  ['1F','B1','B2'].forEach(id=>{const g=floorGroup(id);const road=new THREE.Mesh(new THREE.BoxGeometry(10,.14,38),mats.road);road.position.y=.02;road.receiveShadow=true;road.userData.layer='road';g.add(road);roadObjects.push(road);for(let z=-16;z<=16;z+=4){const d=new THREE.Mesh(new THREE.BoxGeometry(.13,.03,2),mats.white);d.position.set(0,.11,z);d.userData.layer='road';g.add(d);roadObjects.push(d);}});
   // 1F 車道展示場景：雙側人行道、路緣與方向箭頭，接近現場配置視覺
   {
     const g=floorGroup('1F');
@@ -110,7 +115,10 @@ function createSimulator(THREE,host,callbacks){
   rampBetween('1F','B1',20);rampBetween('B1','B2',6);
   const guard=new THREE.Group();const guardBody=new THREE.Mesh(new THREE.BoxGeometry(4,3.1,4),mats.building);guardBody.position.y=1.55;guardBody.castShadow=true;guardBody.receiveShadow=true;const roof=new THREE.Mesh(new THREE.BoxGeometry(4.4,.25,4.4),mats.dark);roof.position.y=3.22;guard.add(guardBody,roof);guard.position.set(-6,0,-1);guard.userData.layer='building';floorGroup('1F').add(guard);
 
-  const car=new THREE.Group();const carBody=new THREE.Mesh(new THREE.BoxGeometry(2.05,.7,4.15),mats.blue);carBody.position.y=.72;carBody.castShadow=true;const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.6,.62,1.9),mats.dark);cabin.position.set(0,1.3,-.2);car.add(carBody,cabin);car.position.set(0,0,15);car.rotation.y=0;floorGroup('1F').add(car);car.userData.layer='vehicle';
+  function createVehicle(colorMat,x,z,rot=0){const car=new THREE.Group();const body=new THREE.Mesh(new THREE.BoxGeometry(1.85,.68,3.75),colorMat);body.position.y=.70;body.castShadow=true;const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.45,.58,1.72),mats.dark);cabin.position.set(0,1.25,-.18);car.add(body,cabin);car.position.set(x,0,z);car.rotation.y=rot;car.userData.layer='vehicle';floorGroup('1F').add(car);return car;}
+  const car=createVehicle(mats.blue,-2.05,15,0);
+  const exitCarMat=new THREE.MeshStandardMaterial({color:0xb45309,roughness:.55,metalness:.08});
+  const exitCar=createVehicle(exitCarMat,2.05,-15,Math.PI);
 
   const signalGroup=new THREE.Group();signalGroup.userData.layer='signals';floorGroup('1F').add(signalGroup);
 
@@ -150,13 +158,13 @@ function createSimulator(THREE,host,callbacks){
     const material=new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false,depthWrite:false});
     const sprite=new THREE.Sprite(material);sprite.renderOrder=1000;sprite.userData.isDeviceLabel=true;sprite.userData.deviceId=device.id;
     root.add(sprite);root.userData.nameLabel=sprite;root.userData.nameLabelCanvas=canvas;root.userData.nameLabelCtx=ctx;root.userData.nameLabelTexture=texture;root.userData.nameLabelText='';
-    const bbox=new THREE.Box3().setFromObject(root);const height=Math.max(1,bbox.max.y-bbox.min.y);sprite.position.set(0,height+0.72,0);sprite.scale.set(3.6,.96,1);
+    const bbox=new THREE.Box3().setFromObject(root);const height=Math.max(1,bbox.max.y-bbox.min.y);sprite.position.set(Number(s.labelOffsetX)||0,height+0.72+(Number(s.labelOffsetY)||0),Number(s.labelOffsetZ)||0);sprite.scale.set(3.6,.96,1);
     return sprite;
   }
   function updateDeviceLabel(device,root,force=false){
     const s=getSettings(device.id),sprite=root.userData.nameLabel;
-    if(s.showLabel===false){if(sprite)sprite.visible=false;return;}
-    const target=sprite||createDeviceLabel(device,root);if(!target)return;target.visible=true;
+    if(s.showLabel===false||state.simulator.labels===false){if(sprite)sprite.visible=false;return;}
+    const target=sprite||createDeviceLabel(device,root);if(!target)return;target.visible=true;const bbox=new THREE.Box3().setFromObject(root);const height=Math.max(1,bbox.max.y-bbox.min.y);target.position.set(Number(s.labelOffsetX)||0,height+0.72+(Number(s.labelOffsetY)||0),Number(s.labelOffsetZ)||0);
     const rt=getRuntime(device.id)||{};const text=`${device.name}|${rt.status||device.state||'READY'}`;if(!force&&root.userData.nameLabelText===text)return;root.userData.nameLabelText=text;
     const c=root.userData.nameLabelCanvas,ctx=root.userData.nameLabelCtx;ctx.clearRect(0,0,c.width,c.height);
     ctx.fillStyle='rgba(9,20,31,.88)';ctx.beginPath();ctx.roundRect(5,5,c.width-10,c.height-10,28);ctx.fill();ctx.strokeStyle='#67c8ed';ctx.lineWidth=6;ctx.stroke();
@@ -268,7 +276,7 @@ function createSimulator(THREE,host,callbacks){
   let pinchDist=0;renderer.domElement.addEventListener('touchstart',e=>{if(e.touches.length===2)pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});renderer.domElement.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(pinchDist)radius=Math.max(7,Math.min(60,radius-(d-pinchDist)*.03));pinchDist=d;}},{passive:true});
 
   const keys=new Set();let speed=0,loopOn=false,barrierOpen=!!state.simulator.barrier;let yaw=.62,pitch=.42,radius=27,target=new THREE.Vector3(0,1,0),follow=!!state.simulator.follow,etagFlash=0;
-  let laneDemo={running:false,step:0,elapsed:0};
+  let laneDemo={running:false,mode:'entry',entry:{step:0,elapsed:0},exit:{step:0,elapsed:0}};
   function onKeyDown(e){const el=document.activeElement;if(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName))return;if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}}
   function onKeyUp(e){keys.delete(e.code);}window.addEventListener('keydown',onKeyDown,{passive:false});window.addEventListener('keyup',onKeyUp);
 
@@ -294,7 +302,7 @@ function createSimulator(THREE,host,callbacks){
     }
     return trace;
   }
-  function applyProjectState(){rebuildRoadMarkings();const profile=getSceneProfile();scene.background.setHex(profile.sky);scene.fog.color.setHex(profile.fog);hemi.intensity=profile.ambient;sun.intensity=profile.sun;mats.road.color.setHex(profile.road);state.floors.forEach(f=>{const fg=floorGroups[f.id];if(!fg)return;fg.visible=floorVisible(f.id);applyMaterialOpacity(fg,f.opacity)});Object.values(deviceRoots).forEach(root=>{root.visible=groupVisible('devices');applyMaterialOpacity(root,groupOpacity('devices'));});car.visible=groupVisible('vehicle');signalGroup.visible=groupVisible('signals')&&state.simulator.signals;roadObjects.forEach(o=>o.visible=groupVisible('road'));guard.visible=groupVisible('building');Object.values(deviceRoots).forEach(root=>{if(root.userData.zone){const on=groupVisible('signals')&&state.simulator.zones;root.userData.zone.visible=on;}if(root.userData.zoneEdges)root.userData.zoneEdges.visible=groupVisible('signals')&&state.simulator.zones;});applyTraceFocus();showToast(`${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`);}
+  function applyProjectState(){rebuildRoadMarkings();const profile=getSceneProfile();scene.background.setHex(profile.sky);scene.fog.color.setHex(profile.fog);hemi.intensity=profile.ambient;sun.intensity=profile.sun;mats.road.color.setHex(profile.road);state.floors.forEach(f=>{const fg=floorGroups[f.id];if(!fg)return;fg.visible=floorVisible(f.id);applyMaterialOpacity(fg,f.opacity)});Object.values(deviceRoots).forEach(root=>{root.visible=groupVisible('devices');applyMaterialOpacity(root,groupOpacity('devices'));});car.visible=groupVisible('vehicle');exitCar.visible=groupVisible('vehicle');signalGroup.visible=groupVisible('signals')&&state.simulator.signals;roadObjects.forEach(o=>o.visible=groupVisible('road'));guard.visible=groupVisible('building');Object.values(deviceRoots).forEach(root=>{if(root.userData.zone){const on=groupVisible('signals')&&state.simulator.zones;root.userData.zone.visible=on;}if(root.userData.zoneEdges)root.userData.zoneEdges.visible=groupVisible('signals')&&state.simulator.zones;});applyTraceFocus();showToast(`${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`);}
   function focusFloor(id){const f=state.floors.find(x=>x.id===id);if(!f)return;setFloorFocus(id);follow=false;target.set(0,f.elevation+1,0);yaw=.58;pitch=.42;radius=29;showToast('聚焦 '+f.name);}
 
   function executeDeviceAction(id,action,visited=new Set()){
@@ -343,7 +351,7 @@ function createSimulator(THREE,host,callbacks){
     triggerEtag(){etagFlash=1;showToast('ETAG DETECTED');setText('etagState','DETECTED');setTimeout(()=>setText('etagState','READY'),1200);},
     toggleSignals(){state.simulator.signals=!state.simulator.signals;signalGroup.visible=state.simulator.signals;return state.simulator.signals;},
     toggleZones(){state.simulator.zones=!state.simulator.zones;Object.values(deviceRoots).forEach(root=>{if(root.userData.zone)root.userData.zone.visible=state.simulator.zones;if(root.userData.zoneEdges)root.userData.zoneEdges.visible=state.simulator.zones;});return state.simulator.zones;},
-    resetCar(){car.position.set(0,0,15);car.rotation.y=0;speed=0;keys.clear();showToast('車輛已重設');},
+    resetCar(){car.position.set(-2.05,0,15);car.rotation.y=0;exitCar.position.set(2.05,0,-15);exitCar.rotation.y=Math.PI;speed=0;keys.clear();showToast('入口／出口車輛已重設');},
     setDrive(dir,on=true){const code={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'}[dir];if(!code)return;if(on)keys.add(code);else keys.delete(code);},
     stop(){keys.clear();speed=0;},
     setFollow(v){follow=!!v;state.simulator.follow=follow;},
@@ -360,10 +368,11 @@ function createSimulator(THREE,host,callbacks){
     applyTraceFocus(){const trace=applyTraceFocus();showToast(state.signalTrace?.enabled?'Focus Network ON':'Focus Network OFF');return trace;},
     selectDevice(id){selectById(id);},
     executeDeviceAction(id,action){return executeDeviceAction(id,action);},
-    runLaneDemo(){
-      this.resetCar();laneDemo={running:true,step:0,elapsed:0};follow=false;yaw=.62;pitch=.48;radius=24;target.set(0,1,0);
-      executeDeviceAction('DEV-001','close');executeDeviceAction('DEV-006','close');executeDeviceAction('DEV-007','red');executeDeviceAction('DEV-008','reset');
-      showToast('▶ 車道動作展示開始');return true;
+    toggleLabels(){state.simulator.labels=state.simulator.labels===false;Object.entries(deviceRoots).forEach(([id,root])=>{const d=devices.find(x=>x.id===id);if(d)updateDeviceLabel(d,root,true)});return state.simulator.labels;},
+    runLaneDemo(mode='entry'){
+      this.resetCar();laneDemo={running:true,mode,entry:{step:0,elapsed:0},exit:{step:0,elapsed:0}};follow=false;yaw=.62;pitch=.50;radius=25;target.set(0,1,0);
+      ['DEV-001','DEV-006'].forEach(id=>executeDeviceAction(id,'close'));['DEV-007','DEV-011'].forEach(id=>executeDeviceAction(id,'red'));['DEV-008','DEV-012'].forEach(id=>executeDeviceAction(id,'reset'));
+      showToast(mode==='both'?'▶ 雙車道動作展示開始':mode==='exit'?'▶ 出口車道展示開始':'▶ 入口車道展示開始');return true;
     },
     destroy(){cancelAnimationFrame(raf);resizeObserver.disconnect();window.removeEventListener('keydown',onKeyDown);window.removeEventListener('keyup',onKeyUp);renderer.domElement.removeEventListener('pointerdown',pd);renderer.domElement.removeEventListener('pointermove',pm);renderer.domElement.removeEventListener('pointerup',pu);renderer.dispose();host.innerHTML='';}
   };
@@ -373,19 +382,27 @@ function createSimulator(THREE,host,callbacks){
 
   let last=performance.now(),raf=0;function frame(now){const dt=Math.min(.04,(now-last)/1000);last=now;ensureDevices();const forward=keys.has('KeyW')||keys.has('ArrowUp'),back=keys.has('KeyS')||keys.has('ArrowDown'),left=keys.has('KeyA')||keys.has('ArrowLeft'),right=keys.has('KeyD')||keys.has('ArrowRight');const accel=(back?1:0)-(forward?1:0);speed+=accel*8*dt;speed*=Math.pow(.88,dt*60);speed=Math.max(-3.4,Math.min(6.2,speed));const steer=((right?1:0)-(left?1:0))*.95;if(Math.abs(speed)>.05){car.rotation.y+=steer*dt*(speed>=0?1:-1);const dir=new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);car.position.addScaledVector(dir,speed*dt);car.position.x=Math.max(-3.1,Math.min(3.1,car.position.x));car.position.z=Math.max(-19,Math.min(19,car.position.z));}
     if(laneDemo.running){
-      laneDemo.elapsed+=dt;
-      if(laneDemo.step===0){keys.add('KeyW');if(car.position.z<4.4){keys.delete('KeyW');laneDemo.step=1;laneDemo.elapsed=0;executeDeviceAction('DEV-003','vehicle');showToast('地感 ON → Controller DI1');}}
-      else if(laneDemo.step===1&&laneDemo.elapsed>.7){executeDeviceAction('DEV-004','unlock');executeDeviceAction('DEV-001','open');executeDeviceAction('DEV-007','green');executeDeviceAction('DEV-008','start');laneDemo.step=2;laneDemo.elapsed=0;}
-      else if(laneDemo.step===2&&laneDemo.elapsed>3.4){keys.add('KeyW');laneDemo.step=3;laneDemo.elapsed=0;}
-      else if(laneDemo.step===3&&car.position.z<-7){keys.delete('KeyW');executeDeviceAction('DEV-003','clear');executeDeviceAction('DEV-001','close');executeDeviceAction('DEV-007','red');laneDemo.step=4;laneDemo.elapsed=0;}
-      else if(laneDemo.step===4&&laneDemo.elapsed>3.5){laneDemo.running=false;showToast('✅ 車道動作展示完成');}
+      const runEntry=laneDemo.mode==='entry'||laneDemo.mode==='both',runExit=laneDemo.mode==='exit'||laneDemo.mode==='both';
+      if(runEntry){const d=laneDemo.entry;d.elapsed+=dt;
+        if(d.step===0){car.position.z-=dt*4.6;if(car.position.z<4.5){d.step=1;d.elapsed=0;executeDeviceAction('DEV-003','vehicle');showToast('入口地感 ON → 入口 Controller');}}
+        else if(d.step===1&&d.elapsed>.65){executeDeviceAction('DEV-001','open');executeDeviceAction('DEV-007','green');executeDeviceAction('DEV-008','start');d.step=2;d.elapsed=0;}
+        else if(d.step===2&&d.elapsed>2.8){d.step=3;d.elapsed=0;}
+        else if(d.step===3){car.position.z-=dt*4.8;if(car.position.z<-8){executeDeviceAction('DEV-003','clear');executeDeviceAction('DEV-001','close');executeDeviceAction('DEV-007','red');d.step=4;d.elapsed=0;}}
+      }
+      if(runExit){const d=laneDemo.exit;d.elapsed+=dt;
+        if(d.step===0){exitCar.position.z+=dt*4.4;if(exitCar.position.z>-4.5){d.step=1;d.elapsed=0;executeDeviceAction('DEV-009','vehicle');showToast('出口地感 ON → 出口 Controller');}}
+        else if(d.step===1&&d.elapsed>.65){executeDeviceAction('DEV-006','open');executeDeviceAction('DEV-011','green');executeDeviceAction('DEV-012','start');d.step=2;d.elapsed=0;}
+        else if(d.step===2&&d.elapsed>2.8){d.step=3;d.elapsed=0;}
+        else if(d.step===3){exitCar.position.z+=dt*4.8;if(exitCar.position.z>8){executeDeviceAction('DEV-009','clear');executeDeviceAction('DEV-006','close');executeDeviceAction('DEV-011','red');d.step=4;d.elapsed=0;}}
+      }
+      const entryDone=!runEntry||laneDemo.entry.step>=4,exitDone=!runExit||laneDemo.exit.step>=4;
+      if(entryDone&&exitDone){laneDemo.entry.elapsed+=dt;laneDemo.exit.elapsed+=dt;if(Math.max(laneDemo.entry.elapsed,laneDemo.exit.elapsed)>3.4){laneDemo.running=false;showToast('✅ 雙車道展示完成');}}
     }
     const loopDevice=devices.find(d=>(d.type||'').toLowerCase().includes('loop'));const barrierDevice=devices.find(d=>(d.type||'').toLowerCase().includes('barrier'));const etagDevice=devices.find(d=>(d.type||'').toLowerCase().includes('etag')||(d.type||'').toLowerCase().includes('uhf'));const loopRoot=loopDevice?deviceRoots[loopDevice.id]:null;const barrierRoot=barrierDevice?deviceRoots[barrierDevice.id]:null;const etagRoot=etagDevice?deviceRoots[etagDevice.id]:null;
     if(loopRoot){const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);const loopWorld=new THREE.Vector3();loopRoot.getWorldPosition(loopWorld);const detected=Math.abs(carWorld.x-loopWorld.x)<3.15&&Math.abs(carWorld.z-loopWorld.z)<2.1;if(detected!==loopOn){loopOn=detected;state.simulator.loop=loopOn;if(loopOn)executeDeviceAction(loopDevice.id,'vehicle');else executeDeviceAction(loopDevice.id,'clear');}if(loopRoot.userData.zoneMat)loopRoot.userData.zoneMat.opacity=loopOn?.55:.2;}
-    if(barrierRoot?.userData.barrierPivot&&barrierRoot.userData.barrierTarget!==null&&barrierRoot.userData.barrierTarget!==undefined){const cur=barrierRoot.userData.barrierPivot.rotation.z,targetAngle=barrierRoot.userData.barrierTarget,secs=Math.max(.2,barrierRoot.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){barrierRoot.userData.barrierPivot.rotation.z=targetAngle;barrierRoot.userData.barrierTarget=null;const bd=barrierDevice&&getRuntime(barrierDevice.id);if(barrierDevice)updateRuntime(barrierDevice.id,{...(bd||{}),status:targetAngle<0?'OPEN':'CLOSED',active:targetAngle<0});}else barrierRoot.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}
-    Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));root.userData.displayPanel.material.emissive?.setHex(0x550000);root.userData.displayPanel.material.emissiveIntensity=pulse;}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
+    Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.barrierPivot&&root.userData.barrierTarget!==null&&root.userData.barrierTarget!==undefined){const cur=root.userData.barrierPivot.rotation.z,targetAngle=root.userData.barrierTarget,secs=Math.max(.2,root.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){root.userData.barrierPivot.rotation.z=targetAngle;root.userData.barrierTarget=null;const bd=getRuntime(id);updateRuntime(id,{...(bd||{}),status:targetAngle<0?'OPEN':'CLOSED',active:targetAngle<0});}else root.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));root.userData.displayPanel.material.emissive?.setHex(0x550000);root.userData.displayPanel.material.emissiveIntensity=pulse;}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.4.2 車道場景動作展示已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);showToast('V1.4.4 雙車道獨立連動已啟動');return controllerApi;
 }
