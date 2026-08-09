@@ -1,4 +1,4 @@
-版本：V1.5.3 Interaction Core Fix
+版本：V1.5.4 Interaction Stability Round 2
 日期：2026-08-09
 
 本版重點：

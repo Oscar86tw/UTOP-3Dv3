@@ -4,8 +4,8 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.5.3';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.5.3';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.5.4';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.5.4';
 
 let active=null;
 const THREE_SOURCES=[
@@ -192,7 +192,12 @@ function createSimulator(THREE,host,callbacks){
   function updateDeviceLabel(device,root,force=false){
     const s=getSettings(device.id),sprite=root.userData.nameLabel;
     if(s.showLabel===false||state.simulator.labels===false){if(sprite)sprite.visible=false;return;}
-    const target=sprite||createDeviceLabel(device,root);if(!target)return;target.visible=true;target.position.set(Number(s.labelOffsetX)||0,deviceLabelY(root,s),Number(s.labelOffsetZ)||0);
+    const target=sprite||createDeviceLabel(device,root);if(!target)return;target.visible=true;
+    const posKey=`${Number(s.labelOffsetX)||0}|${Number(s.labelOffsetY)||0}|${Number(s.labelOffsetZ)||0}|${root.userData.labelGeometryVersion||0}`;
+    if(force||root.userData.nameLabelPositionKey!==posKey){
+      root.userData.nameLabelPositionKey=posKey;
+      target.position.set(Number(s.labelOffsetX)||0,deviceLabelY(root,s),Number(s.labelOffsetZ)||0);
+    }
     const rt=getRuntime(device.id)||{};const text=`${device.name}|${rt.status||device.state||'READY'}`;if(!force&&root.userData.nameLabelText===text)return;root.userData.nameLabelText=text;
     const c=root.userData.nameLabelCanvas,ctx=root.userData.nameLabelCtx;ctx.clearRect(0,0,c.width,c.height);
     ctx.fillStyle='rgba(9,20,31,.88)';ctx.beginPath();ctx.roundRect(5,5,c.width-10,c.height-10,28);ctx.fill();ctx.strokeStyle='#67c8ed';ctx.lineWidth=6;ctx.stroke();
@@ -217,7 +222,7 @@ function createSimulator(THREE,host,callbacks){
       if(root.userData.barrierArm&&s.boomLength){root.userData.barrierArm.scale.x=s.boomLength/(def.boomLength||2.5);}
       if(root.userData.zone&&s.range){const base=def.range||s.range;const ratio=Math.max(.25,s.range/base);root.userData.zone.scale.set(ratio,ratio,ratio);}
     }
-    root.userData.positionLocked=!!s.positionLocked;root.visible=s.hidden!==true;updateDeviceLabel(dev,root,true);
+    root.userData.positionLocked=!!s.positionLocked;root.visible=s.hidden!==true;root.userData.labelGeometryVersion=(root.userData.labelGeometryVersion||0)+1;updateDeviceLabel(dev,root,true);
   }
 
   // Runtime state must exist before ensureDevices() -> refreshSignals() -> applyTraceFocus().
@@ -471,5 +476,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>{const pulsing=(l.userData.signalPulseUntil||0)>now;l.material.opacity=pulsing?1:.22;if(pulsing&&l.material.color){const base=l.userData.baseColor;if(base===undefined)l.userData.baseColor=l.material.color.getHex();l.material.color.setHex(0xfff176);}else if(l.userData.baseColor!==undefined&&l.material.color)l.material.color.setHex(l.userData.baseColor);});
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.5.3 Interaction Core Fix 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.5.4 Interaction Core Fix 已啟動');return controllerApi;
 }
