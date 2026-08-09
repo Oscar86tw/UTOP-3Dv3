@@ -44,7 +44,7 @@ export const state = {
     {name:'ETAG 讀取',result:'未測試'},{name:'地感觸發',result:'未測試'},{name:'Controller DI1',result:'未測試'},
     {name:'Relay NO',result:'未測試'},{name:'DO1 輸出',result:'未測試'},{name:'柵欄 OPEN / CLOSE',result:'未測試'}
   ],
-  activeSignals:{},
+  activeSignals:{},activePorts:{},
   eventLog:['10:02:14 ETAG01 DETECTED','10:02:15 DI1 ON','10:02:15 Relay01 NO CLOSED','10:02:16 DO1 ON','10:02:16 Barrier01 OPEN'],
   field:{comparePercent:50,replaySpeed:'1x',currentView:'入口車道全景',barrierState:'CLOSED',scriptIndex:0,remoteState:'遙控器待命。'},
   scripts:[

@@ -1,9 +1,10 @@
 import {state} from '../state.js';
 import {MODULE_DEFINITIONS} from '../core-module-01/module-definitions.js';
 import {devices} from '../data.js';
-import {terminalsFor,controlsFor} from '../core-module-01/module-manager.js';
-import {verifyConnectionActionChains} from '../core-logic-01/connection-runtime.js?v=1.7.3';
-import {APP_VERSION,APP_VERSION_LABEL} from '../core-version-01/version-info.js?v=1.7.3';
+import {controlsFor} from '../core-module-01/module-manager.js';
+import {deviceAllConnectables} from '../core-wiring-01/wiring-manager.js';
+import {verifyConnectionActionChains} from '../core-logic-01/connection-runtime.js?v=1.7.5';
+import {APP_VERSION,APP_VERSION_LABEL} from '../core-version-01/version-info.js?v=1.7.5';
 
 function finite(n){return Number.isFinite(Number(n));}
 function add(arr,name,ok,detail){arr.push({name,ok:!!ok,detail});}
@@ -18,7 +19,7 @@ export function runFunctionStateAudit(){
   const missingRuntime=devices.filter(d=>!state.deviceRuntime?.[d.id]);add(checks,'設備 Runtime',missingRuntime.length===0,missingRuntime.length?`缺少 ${missingRuntime.length} 台`:'完整');
   const missingHotkey=devices.filter(d=>!state.deviceHotkeys?.[d.id]);add(checks,'設備 Hotkey Map',missingHotkey.length===0,missingHotkey.length?`缺少 ${missingHotkey.length} 台`:'完整');
   const noControls=devices.filter(d=>controlsFor(d.type).length===0);add(checks,'3D 設備控制定義',noControls.length===0,noControls.length?`${noControls.length} 台沒有控制動作`:'全部設備都有控制定義');
-  const invalidConnections=(state.connections||[]).filter(c=>{const a=devices.find(d=>d.id===c.fromDevice),b=devices.find(d=>d.id===c.toDevice);return !a||!b||!terminalsFor(a.type).includes(c.fromTerminal)||!terminalsFor(b.type).includes(c.toTerminal);});
+  const invalidConnections=(state.connections||[]).filter(c=>{const a=devices.find(d=>d.id===c.fromDevice),b=devices.find(d=>d.id===c.toDevice);return !a||!b||!deviceAllConnectables(a.id).includes(c.fromTerminal)||!deviceAllConnectables(b.id).includes(c.toTerminal);});
   add(checks,'接線狀態',invalidConnections.length===0,invalidConnections.length?`${invalidConnections.length} 條無效 Connection`:`${state.connections?.length||0} 條 Connection 可用`);
   const legacyDemoIds=['DEV-001','DEV-003','DEV-006','DEV-007','DEV-008','DEV-009','DEV-011','DEV-012'];if(legacyDemoIds.every(id=>ids.has(id)))for(const c of verifyConnectionActionChains())add(checks,`3D動作鏈：${c.name}`,c.ok,c.detail);
   const invalidMarkings=(state.roadMarkings||[]).filter(m=>!m.id||!m.floor||![m.x,m.z,m.rotation,m.width,m.length].every(finite));add(checks,'道路標線狀態',invalidMarkings.length===0,invalidMarkings.length?`${invalidMarkings.length} 個標線資料異常`:`${state.roadMarkings?.length||0} 個標線正常`);

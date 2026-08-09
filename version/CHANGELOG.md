@@ -1,7 +1,7 @@
-# V1.7.4
+# V1.7.5
 
-- 接線卡片改為固定顯示「DI / 輸入」「DO / 輸出」「實體端子」三層。
-- 29 類模組全部依模組定義顯示自己的 Inputs / Outputs，不再只依 physical terminals 猜測。
-- 柵欄機現在完整顯示 OPEN/CLOSE/STOP/SAFETY/RESET 與 FULLY_OPEN/FULLY_CLOSED/RUNNING/FAULT。
-- `connectableTerminals()` 擴充支援功能 I/O 訊號，可直接用功能訊號建立 Connection。
-- Debug Function State 增加「全模組 DI/DO 定義」檢查。
+- 接線卡 DI / DO 新增即時 ON / OFF 顯示。
+- DI 輸入訊號觸發時藍色高亮；DO 輸出訊號觸發時橘色高亮。
+- Connection 傳遞期間，接線清單同步顯示「訊號傳遞中」。
+- 即時狀態採 DOM 原地更新，不重新 Render 工程/接線浮窗，保留捲動與端子選取狀態。
+- 版本資訊與前端快取同步為 V1.7.5。

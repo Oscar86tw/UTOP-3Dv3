@@ -269,3 +269,18 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
 .wiring-device-card .terminal-subtitle{font-size:.78rem;letter-spacing:.04em;color:#78716c;margin:.55rem 0 .3rem}
 .wiring-device-card .wiring-di .terminal-chip{border-color:#60a5fa;background:#dbeafe}
 .wiring-device-card .wiring-do .terminal-chip{border-color:#fb923c;background:#ffedd5}
+
+
+/* V1.7.5 - Live IO Wiring Status */
+.wiring-live-legend{display:flex;flex-wrap:wrap;gap:8px 18px}
+.wiring-signal-chip{display:grid!important;grid-template-columns:minmax(56px,1fr) auto;grid-template-areas:"name state" "dir state";align-items:center;gap:1px 8px;min-width:118px;text-align:left;transition:transform .12s,box-shadow .12s,background .12s}
+.wiring-signal-chip .wiring-port-name{grid-area:name;font-weight:800}
+.wiring-signal-chip .wiring-port-dir{grid-area:dir;font-size:10px;opacity:.62}
+.wiring-signal-chip .wiring-port-state{grid-area:state;color:#6b7280;font-size:12px}
+.wiring-signal-chip.signal-on{transform:translateY(-1px);box-shadow:0 0 0 3px rgba(255,255,255,.7),0 0 20px rgba(59,130,246,.42)}
+.wiring-di .wiring-signal-chip.signal-on{background:#60a5fa!important;border-color:#2563eb!important;color:#07162b}.wiring-di .wiring-signal-chip.signal-on .wiring-port-state{color:#052e67}
+.wiring-do .wiring-signal-chip.signal-on{background:#fb923c!important;border-color:#ea580c!important;color:#431407;box-shadow:0 0 0 3px rgba(255,255,255,.7),0 0 20px rgba(249,115,22,.45)}.wiring-do .wiring-signal-chip.signal-on .wiring-port-state{color:#431407}
+.wiring-device-card.signal-active{box-shadow:0 0 0 2px rgba(245,158,11,.28),0 12px 28px rgba(0,0,0,.12)}
+.connection-live-state{display:inline-block;margin-top:4px;color:#78716c}.connection-row.signal-live{border-color:#f59e0b;background:#fff4d8;box-shadow:0 0 0 3px rgba(245,158,11,.13)}.connection-row.signal-live .connection-live-state{color:#c2410c;font-weight:800}
+@keyframes wiringSignalPulse{0%,100%{opacity:1}50%{opacity:.62}}
+.connection-row.signal-live .connection-live-state,.wiring-signal-chip.signal-on .wiring-port-state{animation:wiringSignalPulse .42s ease-in-out infinite}

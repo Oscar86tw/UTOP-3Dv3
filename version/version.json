@@ -1,7 +1,7 @@
 {
   "product": "UTOP-3Dv3",
-  "version": "1.7.4",
+  "version": "1.7.5",
   "schema": "6.1",
-  "title": "All Module IO Wiring Cards",
+  "title": "Live IO Wiring Status",
   "updated": "2026-08-10"
 }

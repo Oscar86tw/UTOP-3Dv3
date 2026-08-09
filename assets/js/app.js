@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.4';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.4';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.5';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.5';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,10 +11,10 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.4';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.4';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.4';
-import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.4';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.5';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.5';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.5';
+import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.5';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -40,7 +40,7 @@ function reportUiError(where,err){
 function safeHandler(where,fn){return async e=>{try{return await fn(e);}catch(err){reportUiError(where,err);}}}
 
 
-// V1.7.4 - Official Module Behavior.
+// V1.7.5 - Live IO Wiring Status.
 document.documentElement.dataset.utopVersion=APP_VERSION;
 document.title=`UTOP-3Dv3 ${APP_VERSION_LABEL} ${APP_TITLE}`;
 const versionMeta=document.getElementById('projectMeta');if(versionMeta)versionMeta.textContent=APP_META;
@@ -360,6 +360,30 @@ function refreshAllToolPanels(){
     const route=panel.dataset.toolRoute;if(route)refreshToolPanelBody(panel,route);
   }
 }
+function wiringPortIsLive(deviceId,direction,signal,now=Date.now()){
+  const rt=state.deviceRuntime?.[deviceId]||{},io=rt.io||{};if(io[signal])return true;
+  for(const c of state.connections||[]){
+    const until=Number(state.activeSignals?.[c.id]||0);if(until<=now)continue;
+    if(direction==='DO'&&c.fromDevice===deviceId&&String(c.fromTerminal).toUpperCase()===String(signal).toUpperCase())return true;
+    if(direction==='DI'&&c.toDevice===deviceId&&String(c.toTerminal).toUpperCase()===String(signal).toUpperCase())return true;
+  }
+  return false;
+}
+function refreshEngineeringLiveStatus(){
+  const panel=toolPanelLayer?.querySelector('.floating-tool-window[data-tool-route="engineering"]');if(!panel)return;
+  const now=Date.now();
+  for(const [id,until] of Object.entries(state.activeSignals||{}))if(Number(until)<=now)delete state.activeSignals[id];
+  panel.querySelectorAll('[data-wiring-live-port]').forEach(el=>{
+    const [deviceId,direction,...rest]=String(el.dataset.wiringLivePort||'').split('|'),signal=rest.join('|');
+    const on=wiringPortIsLive(deviceId,direction,signal,now);el.classList.toggle('signal-on',on);const stateEl=el.querySelector('.wiring-port-state');if(stateEl)stateEl.textContent=on?'ON':'OFF';
+  });
+  panel.querySelectorAll('[data-wiring-live-connection]').forEach(row=>{
+    const id=row.dataset.wiringLiveConnection||'',on=Number(state.activeSignals?.[id]||0)>now;row.classList.toggle('signal-live',on);const label=row.querySelector('.connection-live-state');if(label)label.textContent=on?'● 訊號傳遞中':'待命';
+  });
+  panel.querySelectorAll('[data-wiring-device-card]').forEach(card=>{card.classList.toggle('signal-active',!!card.querySelector('.wiring-signal-chip.signal-on'));});
+}
+setInterval(refreshEngineeringLiveStatus,110);
+
 async function openToolPanel(route){
   if(route==='simulator'){const top=topOpenPanel();if(top)closeToolPanel(top.dataset.toolRoute);return;}
   let panel=toolPanelLayer.querySelector(`.floating-tool-window[data-tool-route="${CSS.escape(route)}"]`);

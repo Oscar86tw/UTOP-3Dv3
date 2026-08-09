@@ -1,11 +1,10 @@
-UTOP-3Dv3 V1.7.4 All Module IO Wiring Cards
+UTOP-3Dv3 V1.7.5 Live IO Wiring Status
 
 本次重點
-1. 所有模組接線卡都固定分成 DI / DO / 實體端子。
-2. DI、DO 直接讀取各模組自己的功能定義，不再用端子名稱推測。
-3. 29 類現有模組都已確認至少有一組 DI 與 DO 功能定義。
-4. 功能 I/O 也可以作為 Connection 的來源 / 目標。
+1. 卡片式接線圖的 DI / DO 直接顯示 OFF / ON。
+2. 訊號傳遞時，DI、DO、Connection 三者同步亮起。
+3. 狀態更新不重畫工具窗，避免捲動位置與已選端子跳掉。
+4. 延續 0.45 秒 DI/DO 脈衝規則；Connection 高亮約 0.9 秒。
 
 修改說明事項／後續追蹤
-- 後續新增任何模組，如果沒有 Inputs 或 Outputs，Debug 會直接顯示「全模組 DI/DO 定義」失敗。
-- 下一步可再把 DI/DO 卡片加上即時狀態燈與訊號方向箭頭，讓接線模擬更直觀。
+- 下一步可再加入訊號方向動畫（流動光點）以及端子電壓/接點型態（NO/NC）顯示。

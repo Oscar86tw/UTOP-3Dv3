@@ -118,7 +118,8 @@ export function noteSignal(connection){
   state.eventLog=state.eventLog||[];
   state.eventLog.push(`${new Date().toLocaleTimeString('zh-TW',{hour12:false})} ${msg}`);
   if(state.eventLog.length>80)state.eventLog.splice(0,state.eventLog.length-80);
-  state.activeSignals=state.activeSignals||{};state.activeSignals[connection.id]=Date.now()+900;
+  state.activeSignals=state.activeSignals||{};const until=Date.now()+900;state.activeSignals[connection.id]=until;
+  state.activePorts=state.activePorts||{};state.activePorts[`${connection.fromDevice}|DO|${connection.fromTerminal}`]=until;state.activePorts[`${connection.toDevice}|DI|${connection.toTerminal}`]=until;
   updateRuntime(connection.toDevice,{lastSignal:msg,lastInput:connection.toTerminal});
   return msg;
 }
