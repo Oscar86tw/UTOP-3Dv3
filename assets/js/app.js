@@ -1,108 +1,134 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render} from './views.js';
+import {render,renderDeviceInspector} from './views.js';
 import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js';
-import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,hotkeyConflict,isReservedHotkey} from './core-project-01/project-controls.js';
+import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
-import {addModule,removeModule,updateSettings,getSettings} from './core-module-01/module-manager.js';
-import {addConnection,deleteConnection,inferSignalType,selectTerminalForBuilder,resetWiringBuilder} from './core-wiring-01/wiring-manager.js';
+import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
+import {deleteConnection,selectTerminalForBuilder,resetWiringBuilder} from './core-wiring-01/wiring-manager.js';
 import {setTraceFocus,clearTraceFocus} from './core-signal-01/signal-trace.js';
+
 const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let capturing=false,sim3d=null;
-function nav(){tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');bottom.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));}
-async function go(route){if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;}state.route=route;nav();root.innerHTML=render(route);bind();if(route==='simulator'){sim3d=await mountSimulator3D({onSelection:syncPropertyPanel,onTransform:syncPropertyPanel});}}
-function syncPropertyPanel(id){
-  const d=devices.find(x=>x.id===id);if(!d)return;state.selectedDevice=id;const t=getDeviceTransform(id);
-  const name=document.getElementById('propertyDeviceName'),badge=document.getElementById('deviceIdBadge'),sel=document.getElementById('selectedState');
-  if(name)name.textContent=d.name;if(badge)badge.textContent=d.id;if(sel)sel.textContent=d.name;
-  const map={propX:t.x,propY:t.y,propZ:t.z,propRot:Math.round((t.rotationY||0)*180/Math.PI),propFloor:t.floor,planX:t.x,planZ:t.z,planRot:Math.round((t.rotationY||0)*180/Math.PI),planFloor:t.floor};
-  Object.entries(map).forEach(([k,v])=>{const el=document.getElementById(k);if(el)el.value=v});
+
+function nav(){
+  tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');
+  bottom.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));
+  document.body.dataset.route=state.route;
 }
-function selectDeviceEverywhere(id){state.selectedDevice=id;selectDevice(id);sim3d?.selectDevice(id);if(state.route==='sync2d')go('sync2d');else syncPropertyPanel(id);}
-function applyPlanPatch(patch){const id=state.selectedDevice;if(!id)return;updateDeviceTransform(id,patch);sim3d?.applyDeviceTransform(id);if(state.route==='sync2d')go('sync2d');else syncPropertyPanel(id);}
+async function go(route){
+  if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;}
+  state.route=route;nav();root.innerHTML=render(route);bind();
+  if(route==='simulator'&&state.workspace.mode!=='2d'){
+    sim3d=await mountSimulator3D({onSelection:id=>syncInspector(id,true),onTransform:id=>syncInspector(id,false)});
+  }
+}
+function ensureInspectorShell(){
+  const workspace=root.querySelector('.legacy-workspace');if(!workspace)return null;
+  let aside=document.getElementById('deviceInspectorSidebar');
+  if(!aside){
+    aside=document.createElement('aside');aside.id='deviceInspectorSidebar';aside.className='legacy-sidebar right-sidebar';aside.innerHTML='<div id="deviceInspectorPanelContent"></div>';workspace.appendChild(aside);workspace.classList.add('has-right');
+  }
+  state.workspace.rightOpen=true;return aside;
+}
+function syncInspector(id,open=true){
+  const d=devices.find(x=>x.id===id);if(!d)return;state.selectedDevice=id;selectDevice(id);
+  if(open)ensureInspectorShell();
+  const slot=document.getElementById('deviceInspectorPanelContent');if(slot){slot.innerHTML=renderDeviceInspector(id);bindDynamicInspector();}
+  const badge=root.querySelector('.selected-badge');if(badge)badge.textContent=d.name;
+  const sel=document.getElementById('selectedState');if(sel)sel.textContent=d.name;
+}
+function selectDeviceEverywhere(id){state.selectedDevice=id;selectDevice(id);sim3d?.selectDevice(id);if(state.route==='sync2d')go('sync2d');else if(state.route==='simulator')syncInspector(id,true);}
+function applyPlanPatch(patch){const id=state.selectedDevice;if(!id)return;updateDeviceTransform(id,patch);sim3d?.applyDeviceTransform(id);if(state.route==='sync2d')go('sync2d');else syncInspector(id,false);}
+function updateModuleSearch(q){state.moduleLibrary.search=q;const term=q.trim().toLowerCase();root.querySelectorAll('.legacy-module-card').forEach(card=>{card.hidden=!!term&&!card.textContent.toLowerCase().includes(term);});}
+function currentHotkeyConflict(combo,exceptDevice='',exceptAction=''){
+  for(const [deviceId,map] of Object.entries(state.deviceHotkeys||{}))for(const [action,key] of Object.entries(map||{}))if(key===combo&&!(deviceId===exceptDevice&&action===exceptAction))return {deviceId,action,key};
+  return null;
+}
+function assignmentForKey(combo){for(const [deviceId,map] of Object.entries(state.deviceHotkeys||{}))for(const [action,key] of Object.entries(map||{}))if(key===combo)return {deviceId,action};return null;}
+function keyCombo(e){const keys=[];if(e.ctrlKey)keys.push('Ctrl');if(e.altKey)keys.push('Alt');if(e.shiftKey)keys.push('Shift');if(!['Control','Alt','Shift','Meta'].includes(e.key))keys.push(e.key.length===1?e.key.toUpperCase():e.key);return keys.join(' + ');}
+function safeKey(){const el=document.activeElement;return !(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName));}
+function bindDynamicInspector(){
+  root.querySelectorAll('[data-inspector-tab]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab=b.dataset.inspectorTab;const slot=document.getElementById('deviceInspectorPanelContent');if(slot){slot.innerHTML=renderDeviceInspector(state.selectedDevice);bindDynamicInspector();}}));
+  document.getElementById('closeInspectorSidebar')?.addEventListener('click',()=>{state.workspace.rightOpen=false;const aside=document.getElementById('deviceInspectorSidebar');aside?.remove();root.querySelector('.legacy-workspace')?.classList.remove('has-right');});
+  document.getElementById('applyInspectorProperties')?.addEventListener('click',()=>{
+    const id=state.selectedDevice,d=devices.find(x=>x.id===id);if(!d)return;
+    d.name=document.getElementById('inspectorName')?.value.trim()||d.name;
+    updateDeviceTransform(id,{x:Number(propX.value)||0,y:Number(propY.value)||0,z:Number(propZ.value)||0,rotationY:(Number(propRot.value)||0)*Math.PI/180,floor:propFloor.value});
+    updateSettings(id,{showLabel:!!document.getElementById('showLabelSetting')?.checked,positionLocked:!!document.getElementById('lockPositionSetting')?.checked});
+    sim3d?.applyDeviceTransform(id);sim3d?.applyDeviceSettings(id);syncInspector(id,false);
+  });
+  document.getElementById('applyModuleSettings')?.addEventListener('click',()=>{
+    const id=state.selectedDevice,patch={};root.querySelectorAll('[data-setting-param]').forEach(el=>patch[el.dataset.settingParam]=Number(el.value));updateSettings(id,patch);sim3d?.applyDeviceSettings(id);syncInspector(id,false);
+  });
+  root.querySelectorAll('[data-device-action]').forEach(b=>b.addEventListener('click',()=>{const [id,action]=b.dataset.deviceAction.split('|');sim3d?.executeDeviceAction(id,action);setTimeout(()=>syncInspector(id,false),80);}));
+}
 function bind(){
   root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{state.simulator.cameraPreset=Number(b.dataset.view);go('simulator').then(()=>sim3d?.gotoView(Number(b.dataset.view)))}));
   root.querySelectorAll('[data-rename-view]').forEach(b=>b.addEventListener('click',()=>{const i=Number(b.dataset.renameView);const name=prompt('新的視野名稱',state.simulator.viewpoints[i]?.name||'');if(name?.trim()){renameViewpoint(i,name.trim());go('scene')}}));
   root.querySelectorAll('[data-delete-view]').forEach(b=>b.addEventListener('click',()=>{deleteViewpoint(Number(b.dataset.deleteView));go('scene')}));
-  document.getElementById('applyScene')?.addEventListener('click',()=>{state.scene={place:scenePlace.value,time:sceneTime.value,weather:sceneWeather.value,event:sceneEvent.value};sceneSummary.textContent=`目前：${state.scene.place} · ${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`;if(sim3d)sim3d.applyProjectState();});
+  document.getElementById('applyScene')?.addEventListener('click',()=>{state.scene={place:scenePlace.value,time:sceneTime.value,weather:sceneWeather.value,event:sceneEvent.value};sceneSummary.textContent=`目前：${state.scene.place} · ${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`;sim3d?.applyProjectState();});
   root.querySelectorAll('[data-floor]').forEach(b=>b.addEventListener('click',()=>{toggleFloor(b.dataset.floor);go('layers')}));
   root.querySelectorAll('[data-floor-focus]').forEach(b=>b.addEventListener('click',()=>{setFloorFocus(b.dataset.floorFocus);go('simulator').then(()=>sim3d?.focusFloor(b.dataset.floorFocus))}));
   root.querySelectorAll('[data-group]').forEach(b=>b.addEventListener('click',()=>{toggleGroup(b.dataset.group);go('layers')}));
-  root.querySelectorAll('[data-group-opacity]').forEach(r=>r.addEventListener('input',()=>{setGroupOpacity(r.dataset.group,Number(r.value)/100);const m=r.closest('.layer-row')?.querySelector('.muted');if(m){const g=state.groups.find(x=>x.id===r.dataset.group);m.textContent=`${g.visible?'顯示':'隱藏'} · ${Math.round(g.opacity*100)}%`;}}));
+  root.querySelectorAll('[data-group-opacity]').forEach(r=>r.addEventListener('input',()=>setGroupOpacity(r.dataset.group,Number(r.value)/100)));
   root.querySelectorAll('[data-select2d]').forEach(b=>b.addEventListener('click',()=>selectDeviceEverywhere(b.dataset.select2d)));
-  root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',()=>{const id=addModule(b.dataset.addTemplate,state.editor.floorFocus||'1F');if(id)go('simulator');}));
-  root.querySelectorAll('[data-remove-device]').forEach(b=>b.addEventListener('click',()=>{removeModule(b.dataset.removeDevice);go('simulator');}));
-  document.getElementById('moduleSearch')?.addEventListener('input',e=>{state.moduleLibrary.search=e.target.value;clearTimeout(bind.moduleSearchTimer);bind.moduleSearchTimer=setTimeout(()=>go('simulator'),180);});
-  document.getElementById('moduleGroup')?.addEventListener('change',e=>{state.moduleLibrary.group=e.target.value;go('simulator');});
-  document.getElementById('applyModuleSettings')?.addEventListener('click',()=>{const id=state.selectedDevice;if(!id)return;const val=(name,fallback)=>Number(document.getElementById(name)?.value)||fallback;const patch={width:val('setWidth',1),height:val('setHeight',1),depth:val('setDepth',1)};if(document.getElementById('setBoomLength'))patch.boomLength=val('setBoomLength',5.8);if(document.getElementById('setSpeed'))patch.speed=val('setSpeed',1);if(document.getElementById('setRange'))patch.range=val('setRange',1);if(document.getElementById('setAngle'))patch.angle=val('setAngle',55);if(document.getElementById('setFov'))patch.fov=val('setFov',70);updateSettings(id,patch);sim3d?.applyDeviceSettings(id);syncPropertyPanel(id);});
-  root.querySelectorAll('[data-plan-nudge]').forEach(b=>b.addEventListener('click',()=>{const t=getDeviceTransform(state.selectedDevice),step=state.editor.gridSize||.25;const p={};if(b.dataset.planNudge==='x-')p.x=t.x-step;if(b.dataset.planNudge==='x+')p.x=t.x+step;if(b.dataset.planNudge==='z-')p.z=t.z-step;if(b.dataset.planNudge==='z+')p.z=t.z+step;applyPlanPatch(p)}));
-  root.querySelectorAll('[data-plan-rotate]').forEach(b=>b.addEventListener('click',()=>{const t=getDeviceTransform(state.selectedDevice);applyPlanPatch({rotationY:(t.rotationY||0)+Number(b.dataset.planRotate)*Math.PI/180})}));
-  document.getElementById('applyPlanTransform')?.addEventListener('click',()=>applyPlanPatch({x:Number(planX.value)||0,z:Number(planZ.value)||0,rotationY:(Number(planRot.value)||0)*Math.PI/180,floor:planFloor.value}));
-  document.getElementById('captureHotkey')?.addEventListener('click',()=>{capturing=true;captureStatus.textContent='請直接按下單鍵或組合鍵；Esc取消，Delete清除。'});
-  root.querySelectorAll('[data-hotkey-toggle]').forEach(b=>b.addEventListener('click',()=>{const h=state.hotkeys[Number(b.dataset.hotkeyToggle)];h.enabled=!h.enabled;go('hotkeys')}));
-  root.querySelectorAll('[data-hotkey-delete]').forEach(b=>b.addEventListener('click',()=>{state.hotkeys.splice(Number(b.dataset.hotkeyDelete),1);go('hotkeys')}));
-  document.getElementById('addDisplay')?.addEventListener('click',()=>{state.displays.push({name:'新顯示裝置 '+(state.displays.length+1),mode:'Browser Display',view:'跟隨主控',resolution:'自動',quality:'平衡',state:'STANDBY',signals:false,hud:true});go('display')});
-  root.querySelectorAll('[data-display-mode]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayMode),{mode:x.value})));
-  root.querySelectorAll('[data-display-view]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayView),{view:x.value})));
-  root.querySelectorAll('[data-display-quality]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayQuality),{quality:x.value})));
-  root.querySelectorAll('[data-display-signals]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displaySignals),{signals:x.checked})));
-  root.querySelectorAll('[data-display-hud]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayHud),{hud:x.checked})));
-  document.getElementById('addConnection')?.addEventListener('click',()=>{const [fromDevice,fromTerminal]=connectionFrom.value.split('|');const [toDevice,toTerminal]=connectionTo.value.split('|');const type=inferSignalType(fromTerminal,toTerminal);const result=addConnection(fromDevice,fromTerminal,toDevice,toTerminal,type);connectionStatus.textContent=result.ok?`✅ 已建立 ${result.connection.id} · ${type}`:`⚠️ ${result.message}`;if(result.ok){resetWiringBuilder(`✅ 已建立 ${result.connection.id} · ${type}`);setTimeout(()=>go('engineering'),350);}});
-  root.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',()=>{deleteConnection(b.dataset.deleteConnection);go('engineering');}));
-  root.querySelectorAll('[data-terminal-pick]').forEach(b=>b.addEventListener('click',()=>{const [deviceId,terminal]=b.dataset.terminalPick.split('|');selectDeviceEverywhere(deviceId);selectTerminalForBuilder(deviceId,terminal);go('engineering');}));
-  document.getElementById('resetWiringBuilder')?.addEventListener('click',()=>{resetWiringBuilder();go('engineering');});
-  document.getElementById('showAllWiring3D')?.addEventListener('click',()=>{clearTraceFocus();go('simulator').then(()=>sim3d?.applyProjectState());});
-  root.querySelectorAll('[data-focus-wiring-3d]').forEach(b=>b.addEventListener('click',()=>{setTraceFocus(b.dataset.focusWiring3d,'full');state.selectedDevice=b.dataset.focusWiring3d;go('simulator').then(()=>sim3d?.applyTraceFocus());}));
-  root.querySelectorAll('[data-focus-connection-3d]').forEach(b=>b.addEventListener('click',()=>{setTraceFocus(b.dataset.focusConnection3d,'full');state.selectedDevice=b.dataset.focusConnection3d;go('simulator').then(()=>sim3d?.applyTraceFocus());}));
-  document.getElementById('validateWire')?.addEventListener('click',()=>{const a=wireFrom.value,b=wireTo.value;wireResult.textContent=a.includes('+12V')&&b.includes('+24V')?'❌ 電壓不相容：12V 不可直接接到 24V 端子。':a.includes('GND')&&!b.includes('GND')?'⚠️ GND 接到非接地端子，請確認。':'✅ 接線類型相容，可建立連線。'});
-  document.getElementById('addSnapshot')?.addEventListener('click',()=>{state.snapshots.push('快照 '+(state.snapshots.length+1));go('project')});
-  document.getElementById('playMission')?.addEventListener('click',()=>{const steps=[...document.querySelectorAll('.step')];let i=0;missionState.textContent='任務執行中';const t=setInterval(()=>{steps.forEach((s,n)=>s.classList.toggle('active',n===i));missionState.textContent=steps[i]?.querySelector('b')?.textContent||'完成';i++;if(i>=steps.length){clearInterval(t);setTimeout(()=>{missionState.textContent='✅ 任務完成';steps.forEach(s=>s.classList.remove('active'))},500)}},650)});
-  root.querySelectorAll('[data-drive]').forEach(b=>{const dir=b.dataset.drive;if(dir==='stop'){b.addEventListener('click',()=>sim3d?.stop());return;}const down=e=>{e.preventDefault();sim3d?.setDrive(dir,true)};const up=e=>{e.preventDefault();sim3d?.setDrive(dir,false)};b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,up));});
+
+  document.getElementById('toggleModuleSidebar')?.addEventListener('click',()=>{state.workspace.leftOpen=!state.workspace.leftOpen;go('simulator')});
+  document.getElementById('toggleInspectorSidebar')?.addEventListener('click',()=>{state.workspace.rightOpen=!state.workspace.rightOpen;go('simulator')});
+  document.getElementById('closeModuleSidebar')?.addEventListener('click',()=>{state.workspace.leftOpen=false;go('simulator')});
+  document.getElementById('closeInspectorSidebar')?.addEventListener('click',()=>{state.workspace.rightOpen=false;go('simulator')});
+  root.querySelectorAll('[data-workspace-mode]').forEach(b=>b.addEventListener('click',()=>{state.workspace.mode=b.dataset.workspaceMode;go('simulator')}));
+  document.getElementById('toggle3DFullscreen')?.addEventListener('click',()=>{state.workspace.fullscreen3d=!state.workspace.fullscreen3d;go('simulator')});
   root.querySelectorAll('[data-editor-mode]').forEach(b=>b.addEventListener('click',()=>{setEditorMode(b.dataset.editorMode);root.querySelectorAll('[data-editor-mode]').forEach(x=>x.classList.toggle('active',x.dataset.editorMode===state.editor.mode));sim3d?.setEditorMode(state.editor.mode)}));
   document.getElementById('toggleSnap')?.addEventListener('click',e=>{state.editor.snap=!state.editor.snap;e.currentTarget.classList.toggle('active',state.editor.snap);e.currentTarget.textContent=`Snap ${state.editor.snap?'ON':'OFF'}`;sim3d?.setSnap(state.editor.snap)});
-  document.getElementById('focusFloor')?.addEventListener('click',()=>sim3d?.focusFloor(state.editor.floorFocus));
-  document.getElementById('applyTransform')?.addEventListener('click',()=>{const id=state.selectedDevice;if(!id)return;const patch={x:Number(propX.value)||0,y:Number(propY.value)||0,z:Number(propZ.value)||0,rotationY:(Number(propRot.value)||0)*Math.PI/180,floor:propFloor.value};updateDeviceTransform(id,patch);sim3d?.applyDeviceTransform(id);syncPropertyPanel(id)});
-  document.getElementById('propFloor')?.addEventListener('change',()=>{const id=state.selectedDevice;if(!id)return;updateDeviceTransform(id,{floor:propFloor.value});sim3d?.applyDeviceTransform(id);syncPropertyPanel(id)});
-  root.querySelectorAll('[data-nudge]').forEach(b=>b.addEventListener('click',()=>{const id=state.selectedDevice;if(!id)return;const t=getDeviceTransform(id),step=state.editor.gridSize||.25;const p={};if(b.dataset.nudge==='x-')p.x=t.x-step;if(b.dataset.nudge==='x+')p.x=t.x+step;if(b.dataset.nudge==='z-')p.z=t.z-step;if(b.dataset.nudge==='z+')p.z=t.z+step;updateDeviceTransform(id,p);sim3d?.applyDeviceTransform(id);syncPropertyPanel(id)}));
-  root.querySelectorAll('[data-rotate]').forEach(b=>b.addEventListener('click',()=>{const id=state.selectedDevice;if(!id)return;const t=getDeviceTransform(id);updateDeviceTransform(id,{rotationY:(t.rotationY||0)+Number(b.dataset.rotate)*Math.PI/180});sim3d?.applyDeviceTransform(id);syncPropertyPanel(id)}));
-  document.getElementById('toggleSignals')?.addEventListener('click',e=>{const on=sim3d?.toggleSignals();e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線';});
-  document.getElementById('toggleZones')?.addEventListener('click',e=>{const on=sim3d?.toggleZones();e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍';});
-  document.getElementById('followCar')?.addEventListener('click',e=>{state.simulator.follow=!state.simulator.follow;sim3d?.setFollow(state.simulator.follow);e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角';});
-  document.getElementById('next3DView')?.addEventListener('click',()=>sim3d?.nextView());
-  document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());
-  document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
-  document.getElementById('refresh3DState')?.addEventListener('click',()=>sim3d?.applyProjectState());
-  document.getElementById('traceSelected')?.addEventListener('click',()=>{setTraceFocus(state.selectedDevice,'full');sim3d?.applyTraceFocus();});
-  document.getElementById('clearTrace')?.addEventListener('click',()=>{clearTraceFocus();sim3d?.applyTraceFocus();});
-  root.querySelectorAll('[data-trace-device]').forEach(b=>b.addEventListener('click',()=>{setTraceFocus(b.dataset.traceDevice,'full');state.selectedDevice=b.dataset.traceDevice;go('diagrams');}));
-  document.getElementById('applyTrace')?.addEventListener('click',()=>{setTraceFocus(traceDevice.value,traceMode.value);go('diagrams');});
-  document.getElementById('showTrace3D')?.addEventListener('click',()=>{setTraceFocus(traceDevice.value,traceMode.value);state.selectedDevice=traceDevice.value;go('simulator').then(()=>sim3d?.applyTraceFocus());});
-  document.getElementById('clearTraceFromDiagram')?.addEventListener('click',()=>{clearTraceFocus();go('diagrams');});
-  root.querySelectorAll('[data-diagram]').forEach(b=>b.addEventListener('click',()=>{diagramStatus.textContent=`已依目前專案產生：${b.dataset.diagram} 預覽。`;}));
-  document.getElementById('compareRange')?.addEventListener('input',e=>{state.field.comparePercent=Number(e.target.value);compareText.textContent=`目前 ${state.field.comparePercent}% 疊圖比較：原車道 vs 改善後車道。`;});
+  root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',()=>{const id=addModule(b.dataset.addTemplate,state.editor.floorFocus||'1F');if(id){state.workspace.rightOpen=true;go('simulator')}}));
+  document.getElementById('moduleSearch')?.addEventListener('input',e=>updateModuleSearch(e.target.value));
+  document.getElementById('moduleGroup')?.addEventListener('change',e=>{state.moduleLibrary.group=e.target.value;go('simulator')});
+  bindDynamicInspector();
+
+  root.querySelectorAll('[data-drive]').forEach(b=>{const dir=b.dataset.drive;if(dir==='stop'){b.addEventListener('click',()=>sim3d?.stop());return;}const down=e=>{e.preventDefault();sim3d?.setDrive(dir,true)},up=e=>{e.preventDefault();sim3d?.setDrive(dir,false)};b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,up));});
+  document.getElementById('toggleSignals')?.addEventListener('click',e=>{const on=sim3d?.toggleSignals();e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線'});
+  document.getElementById('toggleZones')?.addEventListener('click',e=>{const on=sim3d?.toggleZones();e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍'});
+  document.getElementById('followCar')?.addEventListener('click',e=>{state.simulator.follow=!state.simulator.follow;sim3d?.setFollow(state.simulator.follow);e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角'});
+  document.getElementById('next3DView')?.addEventListener('click',()=>sim3d?.nextView());document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
+
+  document.getElementById('applyPlanTransform')?.addEventListener('click',()=>applyPlanPatch({x:Number(planX.value)||0,z:Number(planZ.value)||0,rotationY:(Number(planRot.value)||0)*Math.PI/180,floor:planFloor.value}));
+
+  document.getElementById('hotkeyDevice')?.addEventListener('change',e=>{state.hotkeyEditor.deviceId=e.target.value;state.hotkeyEditor.actionId='';state.hotkeyEditor.message='請選擇這台模組要設定的功能。';go('hotkeys')});
+  document.getElementById('hotkeyAction')?.addEventListener('change',e=>{state.hotkeyEditor.actionId=e.target.value;state.hotkeyEditor.message=e.target.value?'按「設定按鍵」後，直接按你要使用的按鍵。':'請選擇功能。';go('hotkeys')});
+  document.getElementById('captureHotkey')?.addEventListener('click',()=>{if(!state.hotkeyEditor.actionId)return;capturing=true;state.hotkeyEditor.capture=true;const el=document.getElementById('captureStatus');if(el)el.textContent='請直接按下單鍵或組合鍵；Esc 取消，Delete 清除此功能按鍵。'});
+  root.querySelectorAll('[data-clear-device-hotkey]').forEach(b=>b.addEventListener('click',()=>{const [id,action]=b.dataset.clearDeviceHotkey.split('|');if(state.deviceHotkeys[id])delete state.deviceHotkeys[id][action];state.hotkeyEditor.message='已清除快捷鍵。';go('hotkeys')}));
+
+  root.querySelectorAll('[data-display-mode]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayMode),{mode:x.value})));root.querySelectorAll('[data-display-view]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayView),{view:x.value})));root.querySelectorAll('[data-display-quality]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayQuality),{quality:x.value})));
+  root.querySelectorAll('[data-terminal-pick]').forEach(b=>b.addEventListener('click',()=>{const [deviceId,terminal]=b.dataset.terminalPick.split('|');selectTerminalForBuilder(deviceId,terminal);go('engineering')}));
+  root.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',()=>{deleteConnection(b.dataset.deleteConnection);go('engineering')}));
+  document.getElementById('resetWiringBuilder')?.addEventListener('click',()=>{resetWiringBuilder();go('engineering')});
+  document.getElementById('showAllWiring3D')?.addEventListener('click',()=>{clearTraceFocus();state.workspace.mode='3d';go('simulator').then(()=>sim3d?.applyProjectState())});
+  root.querySelectorAll('[data-focus-wiring-3d]').forEach(b=>b.addEventListener('click',()=>{setTraceFocus(b.dataset.focusWiring3d,'full');state.selectedDevice=b.dataset.focusWiring3d;state.workspace.mode='3d';go('simulator').then(()=>sim3d?.applyTraceFocus())}));
+  root.querySelectorAll('[data-trace-device]').forEach(b=>b.addEventListener('click',()=>{setTraceFocus(b.dataset.traceDevice,'full');state.selectedDevice=b.dataset.traceDevice;go('diagrams')}));
+  document.getElementById('applyTrace')?.addEventListener('click',()=>{setTraceFocus(traceDevice.value,traceMode.value);go('diagrams')});document.getElementById('showTrace3D')?.addEventListener('click',()=>{setTraceFocus(traceDevice.value,traceMode.value);state.selectedDevice=traceDevice.value;state.workspace.mode='3d';go('simulator').then(()=>sim3d?.applyTraceFocus())});document.getElementById('clearTraceFromDiagram')?.addEventListener('click',()=>{clearTraceFocus();go('diagrams')});
+  root.querySelectorAll('[data-diagram]').forEach(b=>b.addEventListener('click',()=>{const el=document.getElementById('diagramStatus');if(el)el.textContent=`已依目前 Connection / Trace 產生：${b.dataset.diagram} 預覽。`}));
+  document.getElementById('playMission')?.addEventListener('click',()=>{const steps=[...document.querySelectorAll('.step')];let i=0;const label=document.getElementById('missionState');if(label)label.textContent='任務執行中';const timer=setInterval(()=>{steps.forEach((s,n)=>s.classList.toggle('active',n===i));if(label)label.textContent=steps[i]?.querySelector('b')?.textContent||'完成';i++;if(i>=steps.length){clearInterval(timer);setTimeout(()=>{if(label)label.textContent='✅ 任務完成';steps.forEach(s=>s.classList.remove('active'))},400)}},600)});
+  document.getElementById('compareRange')?.addEventListener('input',e=>{state.field.comparePercent=Number(e.target.value);const el=document.getElementById('compareText');if(el)el.textContent=`目前 ${state.field.comparePercent}% 疊圖比較。`});
   document.getElementById('addPhoto')?.addEventListener('click',()=>{state.photos.push({id:'P-'+String(state.photos.length+1).padStart(3,'0'),title:'新現場照片',device:state.selectedDevice});go('field')});
-  document.getElementById('runAllTests')?.addEventListener('click',()=>{state.tests.forEach(t=>t.result='PASS');testSummary.textContent='✅ 6/6 測試通過，可產生驗收報告。';go('field')});
-  document.getElementById('speed')?.addEventListener('change',e=>state.field.replaySpeed=e.target.value);
-  document.getElementById('replayBtn')?.addEventListener('click',()=>{const lines=[...root.querySelectorAll('#eventStatus')];let i=0;const speedMap={'0.25x':1200,'0.5x':850,'1x':600,'2x':300};const timer=setInterval(()=>{if(i>=state.eventLog.length){clearInterval(timer);lines.forEach(el=>el.textContent='Replay 完成');return;}lines.forEach(el=>el.textContent=state.eventLog[i]);i++;},speedMap[state.field.replaySpeed]||600)});
-  document.getElementById('docDevice')?.addEventListener('change',e=>{state.docsDevice=e.target.value;go('field')});
-  document.getElementById('qrDevice')?.addEventListener('change',e=>{state.docsDevice=e.target.value;go('field')});
-  root.querySelectorAll('[data-script-jump]').forEach(b=>b.addEventListener('click',()=>{state.field.scriptIndex=Number(b.dataset.scriptJump);go('field')}));
-  document.getElementById('playScript')?.addEventListener('click',()=>{state.field.scriptIndex=0;go('field')});
-  document.getElementById('nextScript')?.addEventListener('click',()=>{state.field.scriptIndex=(state.field.scriptIndex+1)%state.scripts.length;go('field')});
-  document.getElementById('remotePrev')?.addEventListener('click',()=>{state.field.currentView='上一個視野';state.field.remoteState='已切換到上一個保存視野。';go('field')});
-  document.getElementById('remoteNext')?.addEventListener('click',()=>{state.field.currentView='下一個視野';state.field.remoteState='已切換到下一個保存視野。';go('field')});
-  document.getElementById('remoteOpen')?.addEventListener('click',()=>{state.field.barrierState='OPEN';state.field.remoteState='已送出 Barrier OPEN 指令。';sim3d?.setBarrier(true);go('field')});
-  document.getElementById('remoteClose')?.addEventListener('click',()=>{state.field.barrierState='CLOSED';state.field.remoteState='已送出 Barrier CLOSE 指令。';sim3d?.setBarrier(false);go('field')});
-  document.getElementById('remoteSignal')?.addEventListener('click',()=>{state.field.remoteState='已切換 DI/DO 顯示狀態。';sim3d?.toggleSignals();go('field')});
-  document.getElementById('remoteMission')?.addEventListener('click',()=>{state.field.remoteState='已送出任務播放指令。';go('field')});
+  document.getElementById('runAllTests')?.addEventListener('click',()=>{state.tests.forEach(t=>t.result='PASS');go('field')});
+  document.getElementById('docDevice')?.addEventListener('change',e=>{state.docsDevice=e.target.value;go('field')});root.querySelectorAll('[data-script-jump]').forEach(b=>b.addEventListener('click',()=>{state.field.scriptIndex=Number(b.dataset.scriptJump);go('field')}));
 }
-function safeKey(){const el=document.activeElement;return !(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName));}
-function keyCombo(e){const keys=[];if(e.ctrlKey)keys.push('Ctrl');if(e.altKey)keys.push('Alt');if(e.shiftKey)keys.push('Shift');if(!['Control','Alt','Shift','Meta'].includes(e.key))keys.push(e.key.length===1?e.key.toUpperCase():e.key);return keys.join(' + ');}
+
 window.addEventListener('keydown',e=>{
-  if(capturing){e.preventDefault();if(e.key==='Escape'){capturing=false;captureStatus.textContent='已取消。';return}if(['Backspace','Delete'].includes(e.key)){capturing=false;captureStatus.textContent='已清除快捷鍵設定。';return}const combo=keyCombo(e);if(!combo)return;if(isReservedHotkey(combo)){captureStatus.textContent='⚠️ 此按鍵可能與瀏覽器功能衝突，請改用其他按鍵。';capturing=false;return}const conflict=hotkeyConflict(combo);if(conflict){captureStatus.textContent=`⚠️ ${combo} 已設定給 ${conflict.target} ${conflict.action}`;capturing=false;return}const parts=hotkeyAction.value.split(' ');state.hotkeys.push({key:combo,target:parts.slice(0,-1).join(' '),action:parts.at(-1),enabled:true});capturing=false;go('hotkeys');return}
-  if(!safeKey())return;const combo=keyCombo(e);const h=state.hotkeys.find(x=>x.enabled&&x.key===combo);if(!h)return;
-  if(h.action==='OPEN')sim3d?.setBarrier(true);else if(h.action==='CLOSE')sim3d?.setBarrier(false);else if(h.action==='ON/OFF')sim3d?.toggleLoop();else if(h.action==='TRIGGER')sim3d?.triggerEtag();else if(h.action==='VIEW'||h.action==='NEXT VIEW')sim3d?.nextView();
+  if(capturing){
+    e.preventDefault();const status=document.getElementById('captureStatus');
+    if(e.key==='Escape'){capturing=false;state.hotkeyEditor.capture=false;state.hotkeyEditor.message='已取消設定。';if(status)status.textContent=state.hotkeyEditor.message;return;}
+    const deviceId=state.hotkeyEditor.deviceId,actionId=state.hotkeyEditor.actionId;if(!deviceId||!actionId)return;
+    if(['Backspace','Delete'].includes(e.key)){state.deviceHotkeys[deviceId]??={};delete state.deviceHotkeys[deviceId][actionId];capturing=false;state.hotkeyEditor.capture=false;state.hotkeyEditor.message='已清除此功能按鍵。';go('hotkeys');return;}
+    const combo=keyCombo(e);if(!combo)return;if(isReservedHotkey(combo)){capturing=false;state.hotkeyEditor.message='⚠️ 此按鍵與瀏覽器功能衝突，請使用其他按鍵。';go('hotkeys');return;}
+    const conflict=currentHotkeyConflict(combo,deviceId,actionId);if(conflict){const d=devices.find(x=>x.id===conflict.deviceId);capturing=false;state.hotkeyEditor.message=`⚠️ ${combo} 已設定給 ${d?.name||conflict.deviceId} 的 ${conflict.action}`;go('hotkeys');return;}
+    state.deviceHotkeys[deviceId]??={};state.deviceHotkeys[deviceId][actionId]=combo;capturing=false;state.hotkeyEditor.capture=false;state.hotkeyEditor.message=`✅ 已設定 ${combo}`;go('hotkeys');return;
+  }
+  if(!safeKey())return;const combo=keyCombo(e),assign=assignmentForKey(combo);if(!assign)return;e.preventDefault();sim3d?.executeDeviceAction(assign.deviceId,assign.action);
 });
+
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)go(b.dataset.route)});
 document.getElementById('presentationToggle').addEventListener('click',()=>{state.presentation=!state.presentation;document.body.classList.toggle('presentation',state.presentation);presentationToggle.textContent=state.presentation?'退出簡報':'簡報模式'});
 document.getElementById('saveBtn').addEventListener('click',()=>{state.savedAt=new Date();projectMeta.textContent='已儲存 · '+state.savedAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})});
