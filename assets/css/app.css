@@ -284,3 +284,5 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
 .connection-live-state{display:inline-block;margin-top:4px;color:#78716c}.connection-row.signal-live{border-color:#f59e0b;background:#fff4d8;box-shadow:0 0 0 3px rgba(245,158,11,.13)}.connection-row.signal-live .connection-live-state{color:#c2410c;font-weight:800}
 @keyframes wiringSignalPulse{0%,100%{opacity:1}50%{opacity:.62}}
 .connection-row.signal-live .connection-live-state,.wiring-signal-chip.signal-on .wiring-port-state{animation:wiringSignalPulse .42s ease-in-out infinite}
+
+/* V1.7.6 boot diagnostics uses critical inline styles in index.html so it remains visible even if CSS/module loading fails. */

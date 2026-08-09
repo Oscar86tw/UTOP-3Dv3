@@ -1,12 +1,12 @@
 import {state} from '../state.js';
-import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.5';
+import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.6';
 import {devices} from '../data.js';
 import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} from '../core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.5';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.5';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.6';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.6';
 
 let active=null;
 const THREE_SOURCES=[
@@ -40,18 +40,22 @@ async function loadThree(){
 }
 export function unmountSimulator3D(){if(!active)return;active.destroy();active=null;}
 export async function mountSimulator3D(callbacks={}){
+  window.__utopBoot?.phase?.('mountSimulator3D ENTER');
   unmountSimulator3D();
   const host=document.getElementById('threeStage');
   if(!host)return null;
   setText('threeLoading','正在載入專案內建 3D 核心…');
   try{
+    window.__utopBoot?.phase?.('LOAD LOCAL THREE.JS');
     const loaded=await loadThree();
+    window.__utopBoot?.phase?.('LOCAL THREE.JS IMPORT OK');
     if(!document.getElementById('threeStage'))return null;
+    window.__utopBoot?.phase?.('CREATE WEBGL SIMULATOR');
     active=createSimulator(loaded.THREE,host,callbacks);
-    setText('simStatus',`3D READY · ${loaded.source}`);
+    setText('simStatus',`3D READY · ${loaded.source}`);window.__utopBoot?.mark?.('simulatorReady',true);window.__utopBoot?.phase?.('WEBGL 3D READY');
     return active;
   }catch(err){
-    console.error('[UTOP-3D] True WebGL 3D 啟動失敗',err);
+    console.error('[UTOP-3D] True WebGL 3D 啟動失敗',err);window.__utopBoot?.error?.('TRUE WEBGL 3D STARTUP',err);
     if(!document.getElementById('threeStage'))return null;
     state.runtimeHealth??={};state.runtimeHealth.webglReady=false;state.runtimeHealth.simulatorReady=false;state.runtimeHealth.lastError=String(err?.message||err);
     const detail=[err?.message,...(err?.details||[])].filter(Boolean).join('｜');

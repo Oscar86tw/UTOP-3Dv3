@@ -1,10 +1,18 @@
-UTOP-3Dv3 V1.7.5 Live IO Wiring Status
+UTOP-3Dv3 V1.7.6 Global Error & Boot Diagnostics
 
-本次重點
-1. 卡片式接線圖的 DI / DO 直接顯示 OFF / ON。
-2. 訊號傳遞時，DI、DO、Connection 三者同步亮起。
-3. 狀態更新不重畫工具窗，避免捲動位置與已選端子跳掉。
-4. 延續 0.45 秒 DI/DO 脈衝規則；Connection 高亮約 0.9 秒。
+本版目的
+- 解決「程式出錯只剩白畫面，沒有錯誤資訊」的問題。
+- 任何啟動錯誤都要直接顯示，方便截圖追查。
+
+新增診斷
+1. window.onerror
+2. unhandledrejection
+3. ES Module / app.js 啟動階段記錄
+4. Persistent Workspace Render 階段
+5. Three.js Import / WebGL 建立階段
+6. 5 秒 Boot Watchdog
+7. 複製錯誤資訊按鈕
+8. 清除工作區布局並重載按鈕
 
 修改說明事項／後續追蹤
-- 下一步可再加入訊號方向動畫（流動光點）以及端子電壓/接點型態（NO/NC）顯示。
+- 部署後如果還是空白，請直接截取紅色錯誤診斷畫面；裡面會顯示檔名、行號、錯誤與啟動階段。

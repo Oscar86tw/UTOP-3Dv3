@@ -4,19 +4,85 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f59e0b" />
-  <title>UTOP-3Dv3 V1.7.5 Live IO Wiring Status</title>
-  <link rel="stylesheet" href="assets/css/app.css?v=1.7.5" />
+  <title>UTOP-3Dv3 V1.7.6 Global Error & Boot Diagnostics</title>
+  <link rel="stylesheet" href="assets/css/app.css?v=1.7.6" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div><div class="eyebrow">昱拓弱電</div><h1>UTOP-3Dv3</h1><div id="projectMeta" class="subtle">Live IO Wiring Status · V1.7.5</div></div>
+      <div><div class="eyebrow">昱拓弱電</div><h1>UTOP-3Dv3</h1><div id="projectMeta" class="subtle">Global Error & Boot Diagnostics · V1.7.6</div></div>
       <div class="top-actions"><button id="presentationToggle" class="chip-btn">簡報模式</button><button id="saveBtn" class="primary-btn">Google 儲存</button></div>
     </header>
     <nav class="main-tabs" id="mainTabs"></nav>
     <main id="workspaceRoot" class="persistent-workspace"></main><div id="toolPanelLayer" class="tool-panel-layer" aria-live="polite"></div>
     <footer class="bottom-nav" id="bottomNav"><button data-route="overview">總覽</button><button data-route="simulator">3D</button><button data-route="sync2d">2D</button><button data-route="field">現場</button><button data-route="project">專案</button></footer>
   </div>
-  <script type="module" src="assets/js/app.js?v=1.7.5"></script>
+
+<script>
+(()=>{
+  const VERSION='1.7.6';
+  const boot={version:VERSION,startedAt:new Date().toISOString(),phase:'HTML READY',phases:[],errors:[],appStarted:false,workspaceReady:false,simulatorReady:false};
+  const now=()=>new Date().toISOString();
+  function info(extra={}){
+    let webgl2='unknown';
+    try{const c=document.createElement('canvas');webgl2=!!c.getContext('webgl2');}catch(_){webgl2=false;}
+    return {...boot,...extra,url:location.href,userAgent:navigator.userAgent,online:navigator.onLine,webgl2};
+  }
+  function ensureOverlay(){
+    let el=document.getElementById('utopGlobalError');if(el)return el;
+    el=document.createElement('section');el.id='utopGlobalError';
+    el.style.cssText='position:fixed;inset:86px 12px 76px;z-index:2147483647;background:#fff8eb;border:3px solid #ef4444;border-radius:18px;box-shadow:0 20px 70px rgba(0,0,0,.22);padding:20px;overflow:auto;font-family:Arial,"Microsoft JhengHei",sans-serif;color:#1f2937';
+    el.innerHTML='<div style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div><div style="font-size:28px;font-weight:800;color:#c62828">UTOP 啟動 / 程式錯誤</div><div id="utopErrorPhase" style="margin-top:6px;font-size:16px"></div></div><div style="display:flex;gap:8px"><button id="utopCopyError" style="padding:12px 16px;border-radius:12px;border:1px solid #d1d5db;background:white">複製錯誤資訊</button><button id="utopClearLayout" style="padding:12px 16px;border-radius:12px;border:1px solid #d1d5db;background:white">清除工作區設定後重載</button><button id="utopReload" style="padding:12px 16px;border-radius:12px;border:0;background:#f59e0b;font-weight:700">重新載入</button></div></div><pre id="utopErrorText" style="white-space:pre-wrap;word-break:break-word;background:#fff;border:1px solid #f0caca;border-radius:12px;padding:16px;line-height:1.55;font-size:14px;margin-top:16px"></pre>';
+    document.body.appendChild(el);
+    el.querySelector('#utopReload').onclick=()=>location.reload();
+    el.querySelector('#utopClearLayout').onclick=()=>{try{for(const k of Object.keys(localStorage)){if(k.startsWith('utop3dv3.workspace.'))localStorage.removeItem(k);}}catch(_){} location.reload();};
+    el.querySelector('#utopCopyError').onclick=async()=>{const text=el.querySelector('#utopErrorText').textContent;try{await navigator.clipboard.writeText(text);el.querySelector('#utopCopyError').textContent='已複製';}catch(_){prompt('請複製以下錯誤資訊',text);}};
+    return el;
+  }
+  function renderError(kind,message,detail=''){
+    const el=ensureOverlay();
+    el.hidden=false;
+    const snapshot=info({kind,message,detail});
+    el.querySelector('#utopErrorPhase').textContent=`版本 V${VERSION} · 階段：${boot.phase}`;
+    el.querySelector('#utopErrorText').textContent=[
+      `類型：${kind}`,
+      `訊息：${message||'未知錯誤'}`,
+      detail?`詳細：${detail}`:'',
+      '',
+      `目前階段：${boot.phase}`,
+      `app.js 已開始：${boot.appStarted}`,
+      `工作區已建立：${boot.workspaceReady}`,
+      `Simulator Ready：${boot.simulatorReady}`,
+      `WebGL2：${snapshot.webgl2}`,
+      `網路：${snapshot.online?'online':'offline'}`,
+      `網址：${snapshot.url}`,
+      '',
+      '啟動紀錄：',...(boot.phases.length?boot.phases.map(x=>`- ${x.time} ${x.phase}`):['- 尚無']),
+      '',
+      '錯誤紀錄：',...(boot.errors.length?boot.errors.map((x,i)=>`${i+1}. ${x.time} ${x.message}\n${x.detail||''}`):['- 尚無']),
+      '',
+      `UserAgent：${snapshot.userAgent}`
+    ].filter(Boolean).join('\n');
+    console.error('[UTOP GLOBAL ERROR]',snapshot);
+  }
+  window.__utopBoot={
+    state:boot,
+    phase(name){boot.phase=String(name||'');boot.phases.push({time:now(),phase:boot.phase});console.info('[UTOP BOOT]',boot.phase);},
+    mark(key,value=true){boot[key]=value;},
+    error(kind,err,extra=''){const msg=String(err?.message||err||'未知錯誤');const detail=[String(err?.stack||''),String(extra||'')].filter(Boolean).join('\n');boot.errors.push({time:now(),kind,message:msg,detail});renderError(kind,msg,detail);},
+    show(kind,message,detail=''){renderError(kind,message,detail);},
+    hide(){const el=document.getElementById('utopGlobalError');if(el)el.hidden=true;}
+  };
+  window.__utopBoot.phase('HTML BOOTSTRAP READY');
+  window.addEventListener('error',e=>window.__utopBoot.error('window.onerror',e.error||e.message,`檔案：${e.filename||''}\n行：${e.lineno||''}:${e.colno||''}`));
+  window.addEventListener('unhandledrejection',e=>window.__utopBoot.error('unhandledrejection',e.reason||'Promise rejected'));
+  setTimeout(()=>{
+    const root=document.getElementById('workspaceRoot');
+    const meaningful=!!root?.querySelector('.legacy-workspace,.workspace-center,.three-stage');
+    if(!meaningful)window.__utopBoot.show('BOOT WATCHDOG','啟動超過 5 秒，工作區仍是空白。','這通常表示 ES Module 載入失敗、初始化 Promise 中止，或 Render 前發生錯誤。');
+  },5000);
+})();
+</script>
+  <script type="module" src="assets/js/app.js?v=1.7.6"></script>
 </body>
 </html>

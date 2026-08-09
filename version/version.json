@@ -1,7 +1,7 @@
 {
   "product": "UTOP-3Dv3",
-  "version": "1.7.5",
+  "version": "1.7.6",
   "schema": "6.1",
-  "title": "Live IO Wiring Status",
+  "title": "Global Error & Boot Diagnostics",
   "updated": "2026-08-10"
 }

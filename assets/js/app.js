@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.5';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.5';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.6';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.6';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,10 +11,10 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.5';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.5';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.5';
-import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.5';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.6';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.6';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.6';
+import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.6';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -33,6 +33,7 @@ const num=(id,fallback=0)=>{const n=Number(val(id,''));return Number.isFinite(n)
 const checked=id=>!!byId(id)?.checked;
 function reportUiError(where,err){
   console.error(`[UTOP UI] ${where}`,err);
+  window.__utopBoot?.error?.(`UI:${where}`,err);
   const toast=byId('simToast');
   if(toast){toast.textContent=`${where} 失敗：${err?.message||err}`;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2600);}
   else {const meta=byId('projectMeta');if(meta)meta.textContent=`⚠ ${where} 失敗：${err?.message||err}`;}
@@ -40,7 +41,8 @@ function reportUiError(where,err){
 function safeHandler(where,fn){return async e=>{try{return await fn(e);}catch(err){reportUiError(where,err);}}}
 
 
-// V1.7.5 - Live IO Wiring Status.
+// V1.7.6 - Global Error & Boot Diagnostics.
+window.__utopBoot?.mark('appStarted',true);window.__utopBoot?.phase('app.js MODULE EXECUTION START');
 document.documentElement.dataset.utopVersion=APP_VERSION;
 document.title=`UTOP-3Dv3 ${APP_VERSION_LABEL} ${APP_TITLE}`;
 const versionMeta=document.getElementById('projectMeta');if(versionMeta)versionMeta.textContent=APP_META;
@@ -222,17 +224,20 @@ function initDockableSidebars(){
 }
 
 async function ensurePersistentWorkspace(){
+  window.__utopBoot?.phase('ensurePersistentWorkspace ENTER');
   if(workspaceReady&&sim3d)return sim3d;
   if(!workspaceReady){
     state.workspace.mode='3d';state.workspace.leftOpen=true;
+    window.__utopBoot?.phase('RENDER SIMULATOR WORKSPACE');
     workspaceRoot.innerHTML=render('simulator');
     const prev=root;root=workspaceRoot;bind();root=prev;
     enhanceStableSelects(workspaceRoot);
     initDockableSidebars();
-    workspaceReady=true;
+    workspaceReady=true;window.__utopBoot?.mark('workspaceReady',true);window.__utopBoot?.phase('WORKSPACE DOM READY');
   }
   if(!sim3d&&!simulatorMountPromise){
     const epoch=++navEpoch;
+    window.__utopBoot?.phase('THREE.JS MOUNT START');
     simulatorMountPromise=mountSimulator3D({onSelection:id=>syncInspector(id,true),onTransform:id=>syncInspector(id,false)});
     const mounted=await simulatorMountPromise;
     simulatorMountPromise=null;
@@ -242,6 +247,7 @@ async function ensurePersistentWorkspace(){
     state.runtimeHealth.simulatorReady=!!sim3d;
     state.runtimeHealth.webglReady=!!sim3d&&sim3d.localFallback!==true;
     state.runtimeHealth.lastError=sim3d?'':'3D 初始化沒有回傳 Simulator API';
+    window.__utopBoot?.mark('simulatorReady',!!sim3d);window.__utopBoot?.phase(sim3d?'THREE.JS SIMULATOR READY':'THREE.JS SIMULATOR NULL');
   }else if(simulatorMountPromise)await simulatorMountPromise;
   return sim3d;
 }
@@ -617,16 +623,23 @@ window.addEventListener('keydown',e=>{
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)go(b.dataset.route)});
 byId('presentationToggle')?.addEventListener('click',()=>{state.presentation=!state.presentation;document.body.classList.toggle('presentation',state.presentation);const b=byId('presentationToggle');if(b)b.textContent=state.presentation?'退出簡報':'簡報模式'});
 byId('saveBtn')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{if(!state.cloud?.webAppUrl){state.cloud??={};state.cloud.status='請先到「專案 / Debug」設定 Google Apps Script Web App 網址';await go('project');return;}await cloudSave(false);const meta=byId('projectMeta');if(meta)meta.textContent=`Google 已儲存 · ${state.cloud.projectName}`;}));
-enhanceStableSelects(document);
-restoreCloudUrl();
-migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
-markCloudBaseline();
-const bootRoute=state.route||'overview';state.route='simulator';
-ensurePersistentWorkspace().then(async()=>{
-  const persisted=readOpenPanelRoutes();
-  if(window.innerWidth<=900&&persisted.length){await openToolPanel(persisted[persisted.length-1]);return;}
-  if(persisted.length){for(const route of persisted)await openToolPanel(route);return;}
-  await go(bootRoute==='simulator'?'simulator':bootRoute);
-});
-
 window.addEventListener('resize',()=>{updateDockedPanelLayout();});
+
+(async function bootApplication(){
+  try{
+    window.__utopBoot?.phase('ENHANCE SELECTS');enhanceStableSelects(document);
+    window.__utopBoot?.phase('RESTORE CLOUD URL');restoreCloudUrl();
+    window.__utopBoot?.phase('MIGRATE PROJECT STATE');migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
+    markCloudBaseline();
+    const bootRoute=state.route||'overview';state.route='simulator';
+    window.__utopBoot?.phase('PERSISTENT WORKSPACE BOOT');await ensurePersistentWorkspace();
+    const persisted=readOpenPanelRoutes();
+    if(window.innerWidth<=900&&persisted.length)await openToolPanel(persisted[persisted.length-1]);
+    else if(persisted.length){for(const route of persisted)await openToolPanel(route);}
+    else await go(bootRoute==='simulator'?'simulator':bootRoute);
+    window.__utopBoot?.phase('APPLICATION BOOT COMPLETE');window.__utopBoot?.hide?.();
+  }catch(err){
+    window.__utopBoot?.error?.('APPLICATION BOOT FAILED',err);
+    reportUiError('應用程式啟動',err);
+  }
+})();
