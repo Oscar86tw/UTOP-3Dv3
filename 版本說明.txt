@@ -1,8 +1,11 @@
-UTOP-3Dv3 V1.7.8 Version Import Hotfix
+UTOP-3Dv3 V1.7.9 Module Cache Sync Hotfix
 
-本次修正：
-1. views.js 補上 APP_VERSION_LABEL 與 SCHEMA_VERSION 正確 import。
-2. 所有 version-info.js 快取版本同步為 V1.7.8。
-3. 修正總覽工具窗因版本變數未定義而中止的問題。
+本次修正
+1. 修正 app.js 已是 V1.7.8，但 views.js / simulator3d.js 等子模組仍指定 V1.7.7 的快取版本。
+2. 全部 ES Module query string 統一為 V1.7.9。
+3. 首頁、Runtime、Version Info、Google Cloud / Apps Script 版本同步為 V1.7.9。
+4. 保留 V1.7.6 之後的全域錯誤診斷；若後續仍有錯誤，會直接顯示真正檔案與行號。
 
-本版屬啟動熱修，功能邏輯不做其他變更。
+部署建議
+- 請使用「1.完整程式碼」整包部署。
+- 部署後網址載入時，診斷內容應看到 app.js / views.js 等皆為 `?v=1.7.9`。

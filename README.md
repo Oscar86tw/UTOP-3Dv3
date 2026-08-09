@@ -65,3 +65,7 @@
 
 ## V1.7.8
 - 修正 views.js 版本常數未 import 的啟動錯誤。
+
+
+## V1.7.9
+- 全面同步 ES Module 快取版本，避免 app.js 新版但 views.js / simulator3d.js 還讀舊版。
