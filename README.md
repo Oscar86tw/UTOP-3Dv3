@@ -69,3 +69,7 @@
 
 ## V1.7.9
 - 全面同步 ES Module 快取版本，避免 app.js 新版但 views.js / simulator3d.js 還讀舊版。
+
+
+## V1.7.10
+- 新增部署版本一致性檢查，避免 GitHub Pages 混合載入舊版 index / app / views。

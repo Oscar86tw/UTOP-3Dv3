@@ -5,12 +5,12 @@ const UTOP_CONFIG = Object.freeze({
   FILE_SUFFIX: '.utop3d.json'
 });
 
-function doGet(){return json_({ok:true,service:'UTOP-3Dv3 Cloud',version:'1.7.9'});}
+function doGet(){return json_({ok:true,service:'UTOP-3Dv3 Cloud',version:'1.7.10'});}
 function doPost(e){
   try{
     const body=JSON.parse((e&&e.postData&&e.postData.contents)||'{}');
     const action=String(body.action||'ping');
-    if(action==='ping')return json_({ok:true,service:'UTOP-3Dv3 Cloud',version:'1.7.9',time:new Date().toISOString()});
+    if(action==='ping')return json_({ok:true,service:'UTOP-3Dv3 Cloud',version:'1.7.10',time:new Date().toISOString()});
     if(action==='selfTest')return json_(selfTest_());
     if(action==='verifyWrite')return json_(withLock_(function(){return verifyWrite_();}));
     if(action==='repairIndex')return json_(repairIndex_());
@@ -77,7 +77,7 @@ function verifyWrite_(){
 }
 function selfTest_(){
   const folder=folder_(),ss=SpreadsheetApp.openById(UTOP_CONFIG.SPREADSHEET_ID),sh=sheet_();
-  return {ok:true,service:'UTOP-3Dv3 Cloud',version:'1.7.9',folderId:folder.getId(),folderName:folder.getName(),spreadsheetId:ss.getId(),spreadsheetName:ss.getName(),sheetName:sh.getName(),projects:listProjects_().length,time:new Date().toISOString()};
+  return {ok:true,service:'UTOP-3Dv3 Cloud',version:'1.7.10',folderId:folder.getId(),folderName:folder.getName(),spreadsheetId:ss.getId(),spreadsheetName:ss.getName(),sheetName:sh.getName(),projects:listProjects_().length,time:new Date().toISOString()};
 }
 function repairIndex_(){
   const sh=sheet_();sh.clearContents();sh.appendRow(['projectId','projectName','fileId','updatedAt','version']);

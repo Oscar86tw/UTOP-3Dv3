@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.9';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.9';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.10';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.10';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,10 +11,10 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.9';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.9';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.9';
-import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.9';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.10';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.10';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.10';
+import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.10';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -44,6 +44,9 @@ function safeHandler(where,fn){return async e=>{try{return await fn(e);}catch(er
 // V1.7.7 - Global Error & Boot Diagnostics.
 window.__utopBoot?.mark('appStarted',true);window.__utopBoot?.phase('app.js MODULE EXECUTION START');
 document.documentElement.dataset.utopVersion=APP_VERSION;
+const INDEX_VERSION=document.documentElement.dataset.utopIndexVersion||window.__utopBoot?.state?.version||'';
+window.__utopBuild={indexVersion:INDEX_VERSION,runtimeVersion:APP_VERSION,manifestVersion:'',consistent:INDEX_VERSION===APP_VERSION};
+(async()=>{try{const r=await fetch(`assets/build-info.json?ts=${Date.now()}`,{cache:'no-store'});if(r.ok){const m=await r.json();window.__utopBuild.manifestVersion=String(m.version||'');window.__utopBuild.consistent=INDEX_VERSION===APP_VERSION&&window.__utopBuild.manifestVersion===APP_VERSION;if(!window.__utopBuild.consistent)window.__utopBoot?.show?.('DEPLOYMENT VERSION MISMATCH',`部署版本不一致：Index ${INDEX_VERSION||'-'} / Runtime ${APP_VERSION} / Manifest ${window.__utopBuild.manifestVersion||'-'}`,'請確認 GitHub Pages 已部署完整同一版本檔案。');}}catch(err){console.warn('[UTOP] build manifest check skipped',err);}})();
 document.title=`UTOP-3Dv3 ${APP_VERSION_LABEL} ${APP_TITLE}`;
 const versionMeta=document.getElementById('projectMeta');if(versionMeta)versionMeta.textContent=APP_META;
 

@@ -3,8 +3,8 @@ import {MODULE_DEFINITIONS} from '../core-module-01/module-definitions.js';
 import {devices} from '../data.js';
 import {controlsFor} from '../core-module-01/module-manager.js';
 import {deviceAllConnectables} from '../core-wiring-01/wiring-manager.js';
-import {verifyConnectionActionChains} from '../core-logic-01/connection-runtime.js?v=1.7.9';
-import {APP_VERSION,APP_VERSION_LABEL} from '../core-version-01/version-info.js?v=1.7.9';
+import {verifyConnectionActionChains} from '../core-logic-01/connection-runtime.js?v=1.7.10';
+import {APP_VERSION,APP_VERSION_LABEL} from '../core-version-01/version-info.js?v=1.7.10';
 
 function finite(n){return Number.isFinite(Number(n));}
 function add(arr,name,ok,detail){arr.push({name,ok:!!ok,detail});}
@@ -12,6 +12,7 @@ export function runFunctionStateAudit(){
   state.runtimeHealth??={webglReady:false,simulatorReady:false,lastError:'',lastValidatedAt:''};
   const checks=[];const ids=new Set(devices.map(d=>d.id));
   const meta=document.getElementById('projectMeta')?.textContent||'';const domVersion=document.documentElement.dataset.utopVersion||'';add(checks,'版本同步',domVersion===APP_VERSION&&meta.includes(APP_VERSION_LABEL),`首頁 ${meta||'-'} / Runtime ${domVersion||'-'} / Expected ${APP_VERSION_LABEL}`);
+  const build=window.__utopBuild||{};add(checks,'部署檔案一致性',build.consistent!==false&&(!build.indexVersion||build.indexVersion===APP_VERSION)&&(!build.manifestVersion||build.manifestVersion===APP_VERSION),`Index ${build.indexVersion||'-'} / Runtime ${APP_VERSION} / Manifest ${build.manifestVersion||'-'}`);
   add(checks,'設備清單',true,devices.length?`${devices.length} 台設備`:'空白專案，尚未加入設備');
   const badTransform=devices.filter(d=>{const t=state.deviceTransforms?.[d.id];return !t||![t.x,t.y,t.z,t.rotationX,t.rotationY,t.rotationZ].every(finite)||!t.floor;});
   add(checks,'XYZ / RX RY RZ',badTransform.length===0,badTransform.length?`${badTransform.length} 台座標不完整`:'全部設備六軸資料完整');

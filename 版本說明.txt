@@ -1,11 +1,12 @@
-UTOP-3Dv3 V1.7.9 Module Cache Sync Hotfix
+UTOP-3Dv3 V1.7.10 Deployment Consistency Hotfix
 
-本次修正
-1. 修正 app.js 已是 V1.7.8，但 views.js / simulator3d.js 等子模組仍指定 V1.7.7 的快取版本。
-2. 全部 ES Module query string 統一為 V1.7.9。
-3. 首頁、Runtime、Version Info、Google Cloud / Apps Script 版本同步為 V1.7.9。
-4. 保留 V1.7.6 之後的全域錯誤診斷；若後續仍有錯誤，會直接顯示真正檔案與行號。
+這版不是功能擴充，專門處理 GitHub Pages 混合版本載入。
 
-部署建議
-- 請使用「1.完整程式碼」整包部署。
-- 部署後網址載入時，診斷內容應看到 app.js / views.js 等皆為 `?v=1.7.9`。
+1. index.html 的標題、Boot VERSION、app.js / app.css query 全部同步 V1.7.10。
+2. 所有 ES Module query 統一 V1.7.10。
+3. 新增 build-info.json，啟動時用 no-store 讀取。
+4. Index / Runtime / Manifest 任一版本不同，就直接顯示部署版本不一致。
+
+修改說明事項／後續追蹤
+- 部署後診斷網址應全部看到 v=1.7.10。
+- 若仍看到 v=1.7.7，代表 GitHub Pages 或瀏覽器仍提供舊部署，不是 Runtime 功能錯誤。
