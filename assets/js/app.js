@@ -1,4 +1,4 @@
-import {categories,devices} from './data.js';
+import {categories,devices,moduleCatalog} from './data.js';
 import {state} from './state.js';
 import {render} from './views.js';
 import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js';
@@ -6,6 +6,11 @@ import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let capturing=false,sim3d=null;
+function nextDeviceId(){const nums=devices.map(d=>Number((d.id||'').split('-')[1])||0);return `DEV-${String(Math.max(0,...nums)+1).padStart(3,'0')}`;}
+function templateByKey(key){for(const g of moduleCatalog){const found=g.items.find(x=>x.key===key);if(found)return found;}return null;}
+function addModuleFromTemplate(key){const tpl=templateByKey(key);if(!tpl)return;const id=nextDeviceId();const count=devices.length;const floor=state.editor.floorFocus||'1F';const nameBase=tpl.name;const same=devices.filter(d=>d.name.startsWith(nameBase)).length+1;devices.push({id,name:`${nameBase}${String(same).padStart(2,'0')}`,type:tpl.type,floor,state:tpl.state||'READY'});state.deviceTransforms[id]={x:-3+(count%5)*1.8,y:0,z:-8+Math.floor(count/5)*2.2,rotationY:0,floor};state.selectedDevice=id;go('simulator');}
+function removeDevice(id){const idx=devices.findIndex(d=>d.id===id);if(idx<0)return;devices.splice(idx,1);delete state.deviceTransforms[id];if(state.selectedDevice===id)state.selectedDevice=devices[0]?.id||null;go(state.route==='simulator'?'simulator':state.route);}
+
 function nav(){tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');bottom.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));}
 async function go(route){if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;}state.route=route;nav();root.innerHTML=render(route);bind();if(route==='simulator'){sim3d=await mountSimulator3D({onSelection:syncPropertyPanel,onTransform:syncPropertyPanel});}}
 function syncPropertyPanel(id){
@@ -15,7 +20,7 @@ function syncPropertyPanel(id){
   const map={propX:t.x,propY:t.y,propZ:t.z,propRot:Math.round((t.rotationY||0)*180/Math.PI),propFloor:t.floor,planX:t.x,planZ:t.z,planRot:Math.round((t.rotationY||0)*180/Math.PI),planFloor:t.floor};
   Object.entries(map).forEach(([k,v])=>{const el=document.getElementById(k);if(el)el.value=v});
 }
-function selectDeviceEverywhere(id){state.selectedDevice=id;selectDevice(id);if(state.route==='sync2d')go('sync2d');else syncPropertyPanel(id);}
+function selectDeviceEverywhere(id){state.selectedDevice=id;selectDevice(id);sim3d?.selectDevice(id);if(state.route==='sync2d')go('sync2d');else syncPropertyPanel(id);}
 function applyPlanPatch(patch){const id=state.selectedDevice;if(!id)return;updateDeviceTransform(id,patch);sim3d?.applyDeviceTransform(id);if(state.route==='sync2d')go('sync2d');else syncPropertyPanel(id);}
 function bind(){
   root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{state.simulator.cameraPreset=Number(b.dataset.view);go('simulator').then(()=>sim3d?.gotoView(Number(b.dataset.view)))}));
@@ -27,6 +32,8 @@ function bind(){
   root.querySelectorAll('[data-group]').forEach(b=>b.addEventListener('click',()=>{toggleGroup(b.dataset.group);go('layers')}));
   root.querySelectorAll('[data-group-opacity]').forEach(r=>r.addEventListener('input',()=>{setGroupOpacity(r.dataset.group,Number(r.value)/100);const m=r.closest('.layer-row')?.querySelector('.muted');if(m){const g=state.groups.find(x=>x.id===r.dataset.group);m.textContent=`${g.visible?'顯示':'隱藏'} · ${Math.round(g.opacity*100)}%`;}}));
   root.querySelectorAll('[data-select2d]').forEach(b=>b.addEventListener('click',()=>selectDeviceEverywhere(b.dataset.select2d)));
+  root.querySelectorAll('[data-add-template]').forEach(b=>b.addEventListener('click',()=>addModuleFromTemplate(b.dataset.addTemplate)));
+  root.querySelectorAll('[data-remove-device]').forEach(b=>b.addEventListener('click',()=>removeDevice(b.dataset.removeDevice)));
   root.querySelectorAll('[data-plan-nudge]').forEach(b=>b.addEventListener('click',()=>{const t=getDeviceTransform(state.selectedDevice),step=state.editor.gridSize||.25;const p={};if(b.dataset.planNudge==='x-')p.x=t.x-step;if(b.dataset.planNudge==='x+')p.x=t.x+step;if(b.dataset.planNudge==='z-')p.z=t.z-step;if(b.dataset.planNudge==='z+')p.z=t.z+step;applyPlanPatch(p)}));
   root.querySelectorAll('[data-plan-rotate]').forEach(b=>b.addEventListener('click',()=>{const t=getDeviceTransform(state.selectedDevice);applyPlanPatch({rotationY:(t.rotationY||0)+Number(b.dataset.planRotate)*Math.PI/180})}));
   document.getElementById('applyPlanTransform')?.addEventListener('click',()=>applyPlanPatch({x:Number(planX.value)||0,z:Number(planZ.value)||0,rotationY:(Number(planRot.value)||0)*Math.PI/180,floor:planFloor.value}));
