@@ -51,7 +51,22 @@ function makeBarrier(THREE,mats,settings){
   return clearApply(root,(st,def)=>{
     const w=num(st,'width',def.width||.34),h=num(st,'height',def.height||1.03),d=num(st,'depth',def.depth||.28),boom=Math.max(.3,num(st,'boomLength',def.boomLength||2.5));
     setScale(body,w/(def.width||.34),h/(def.height||1.03),d/(def.depth||.28));
-    const ratio=boom/(def.boomLength||2.5);arm.scale.x=ratio;underside.scale.x=ratio;endCap.position.x=-boom+.025;
+    const baseBoom=def.boomLength||2.5;
+    const ratio=boom/baseBoom;
+    arm.scale.x=ratio;
+    arm.position.x=-boom/2;
+    const undersideLen=Math.max(.25,boom-.22);
+    const undersideBase=Math.max(.25,(def.boomLength||2.5)-.22);
+    underside.scale.x=undersideLen/undersideBase;
+    underside.position.x=-boom/2-.06;
+    endCap.position.x=-boom+.025;
+    const stripeSpacing=.36;
+    const stripeStart=-.18;
+    (root.userData.barrierStripes||[]).forEach((stripe,i)=>{
+      const x=stripeStart-i*stripeSpacing;
+      stripe.visible=Math.abs(x)<=boom-.14;
+      stripe.position.x=Math.max(-boom+.12,x);
+    });
     const side=String(st.armSide||'left').toLowerCase();pivot.scale.x=side==='right'?-1:1;
   });
 }
@@ -86,11 +101,14 @@ function makeLoop(THREE,mats,settings){
 function makeLoopDetector(THREE,mats){const root=new THREE.Group(); box(THREE,root,.19,.09,.22,mats.gray); box(THREE,root,.15,.055,.012,mats.dark,0,.065,.116); for(let i=0;i<4;i++)ledBulb(THREE,root,i===0?mats.green:mats.red,-.045+i*.03,.075,.126,.008); for(let i=0;i<8;i++)box(THREE,root,.012,.035,.025,mats.dark,-.07+i*.02,.018,-.12); return clearApply(root,()=>{});}
 function makeInfrared(THREE,mats,settings){
   const root=new THREE.Group();
-  const range=Math.max(1,num(settings,'range',20)); const half=Math.min(2.2,Math.max(.6,range/12)); const h=Math.max(.4,num(settings,'height',.6));
-  const tx=box(THREE,root,.085,h,.075,mats.dark,-half,h/2,0),rx=box(THREE,root,.085,h,.075,mats.dark,half,h/2,0);
-  for(const x of [-half,half]){lens(THREE,root,mats,x,h*.70,.043,.022);lens(THREE,root,mats,x,h*.48,.043,.022);}const beamMat=new THREE.MeshBasicMaterial({color:0xff3b30,transparent:true,opacity:.48}); const beam=cyl(THREE,root,.009,.009,half*2,beamMat,0,h*.59,0,10,0,0,Math.PI/2);
-  root.userData.beam=beam; root.userData.tx=tx; root.userData.rx=rx;
-  return clearApply(root,(s,def)=>{const rr=Math.max(1,num(s,'range',def.range||20)); const hh=Math.max(.4,num(s,'height',def.height||.6)); const hh2=Math.min(2.2,Math.max(.6,rr/12)); tx.scale.y=hh/(def.height||.6); rx.scale.y=hh/(def.height||.6); tx.position.set(-hh2,hh/2,0); rx.position.set(hh2,hh/2,0); beam.scale.y=hh2*2/(Math.min(2.2,Math.max(.6,(def.range||20)/12))*2); beam.position.set(0,hh*.59,0);});
+  const range=Math.max(.5,num(settings,'range',40)),half=range/2,h=Math.max(.4,num(settings,'height',.8));
+  const unitMat=cloneMat(mats.dark,{roughness:.34,metalness:.38});
+  function makeUnit(sign){const g=new THREE.Group();const body=box(THREE,g,.12,h,.10,unitMat,0,h/2,0);lens(THREE,g,mats,0,h*.70,.056,.025);lens(THREE,g,mats,0,h*.47,.056,.025);g.position.x=sign*half;root.add(g);return {g,body};}
+  const tx=makeUnit(-1),rx=makeUnit(1);
+  const beamMat=new THREE.MeshBasicMaterial({color:0xff2d2d,transparent:true,opacity:.52,depthWrite:false});
+  const beam=cyl(THREE,root,.012,.012,range,beamMat,0,h*.59,0,12,0,0,Math.PI/2);
+  root.userData.beam=beam;root.userData.txUnit=tx.g;root.userData.rxUnit=rx.g;root.userData.beamMat=beamMat;
+  return clearApply(root,(s,def)=>{const rr=Math.max(.5,num(s,'range',def.range||40)),hh=Math.max(.4,num(s,'height',def.height||.8)),halfNow=rr/2;tx.g.position.x=-halfNow;rx.g.position.x=halfNow;tx.body.scale.y=hh/(def.height||.8);rx.body.scale.y=hh/(def.height||.8);beam.scale.y=rr/(def.range||40);beam.position.y=hh*.59;});
 }
 function makeRadar(THREE,mats){const root=new THREE.Group(); pole(THREE,root,mats,1.65,0,0,.045); box(THREE,root,.18,.12,.06,mats.dark,0,1.58,.02); box(THREE,root,.16,.10,.008,mats.blue,0,1.58,.055); const cone=new THREE.Mesh(new THREE.ConeGeometry(.55,1.2,18,1,true),new THREE.MeshBasicMaterial({color:0x7dd3fc,transparent:true,opacity:.12,side:THREE.DoubleSide,depthWrite:false})); cone.position.set(0,1.58,-.55); cone.rotation.x=Math.PI/2; root.add(cone); root.userData.zone=cone; return clearApply(root,()=>{});}
 function makeLpr(THREE,mats){const root=new THREE.Group(); pole(THREE,root,mats,2.1); const boxy=box(THREE,root,.34,.16,.24,mats.white,0,2.03,0); box(THREE,root,.31,.13,.02,mats.dark,0,2.03,.132); lens(THREE,root,mats,-.08,2.03,.148,.04); for(let i=0;i<4;i++)ledBulb(THREE,root,mats.red,.03+i*.045,2.03,.148,.01); root.userData.cameraBody=boxy; return clearApply(root,()=>{});}
@@ -112,18 +130,16 @@ function makeSignalHost(THREE,mats,type='signal2way'){const root=new THREE.Group
 function makeTimer(THREE,mats,settings){const root=new THREE.Group(); const w=num(settings,'width',.487),h=num(settings,'height',.270),d=num(settings,'depth',.032); const mountH=num(settings,'mountHeight',2.0); pole(THREE,root,mats,mountH); const body=box(THREE,root,w,h,d,mats.dark,0,mountH,0); const display=box(THREE,root,w*.46,h*.38,.01,mats.red,-w*.12,mountH,d/2+.008); ledBulb(THREE,root,mats.green,w*.26,mountH+h*.17,d/2+.014,.008); ledBulb(THREE,root,mats.orange,w*.26,mountH+h*.02,d/2+.014,.008); root.userData.displayPanel=display; root.userData.body=body; return clearApply(root,(s,def)=>{body.scale.set(num(s,'width',def.width||.487)/(def.width||.487),num(s,'height',def.height||.270)/(def.height||.270),num(s,'depth',def.depth||.032)/(def.depth||.032)); display.scale.copy(body.scale);});}
 function makeLedPanel(THREE,mats,settings){const root=new THREE.Group(); pole(THREE,root,mats,1.95); const body=box(THREE,root,.487,.270,.032,mats.dark,0,1.92,0); const red=ledBulb(THREE,root,mats.red,-.165,1.965,.024,.040),green=ledBulb(THREE,root,mats.green,-.165,1.875,.024,.040); const display=box(THREE,root,.21,.15,.012,mats.green,.095,1.92,.024); root.userData.trafficRed=red; root.userData.trafficGreen=green; root.userData.displayPanel=display; root.userData.body=body; return clearApply(root,()=>{});}
 function makeTraffic(THREE,mats,settings){
-  const root=new THREE.Group();const h=num(settings,'height',1.5);
-  const poleMat=cloneMat(mats.dark,{roughness:.4,metalness:.55});pole(THREE,root,{...mats,dark:poleMat},h-.4);
-  const bodyMat=cloneMat(mats.dark,{roughness:.34,metalness:.30});
-  const boxy=box(THREE,root,.30,.59,.17,bodyMat,0,h-.22,0);
-  const hood1=box(THREE,root,.19,.05,.13,bodyMat,0,h+.015,.12,0,0,-.08);
-  const hood2=box(THREE,root,.19,.05,.13,bodyMat,0,h-.275,.12,0,0,-.08);
-  const rimMat=cloneMat(mats.gray,{roughness:.3,metalness:.48});
-  const redRim=cyl(THREE,root,.075,.075,.018,rimMat,0,h-.06,.095,28,Math.PI/2);
-  const greenRim=cyl(THREE,root,.075,.075,.018,rimMat,0,h-.35,.095,28,Math.PI/2);
-  const red=ledBulb(THREE,root,cloneMat(mats.red,{emissive:0x5a0707,emissiveIntensity:.9}),0,h-.06,.108,.058);
-  const green=ledBulb(THREE,root,cloneMat(mats.green,{emissive:0x075c21,emissiveIntensity:.9}),0,h-.35,.108,.058);
-  root.userData.trafficRed=red;root.userData.trafficGreen=green;root.userData.body=boxy;root.userData.hoods=[hood1,hood2];root.userData.rims=[redRim,greenRim];return clearApply(root,()=>{});
+  const root=new THREE.Group(),h=num(settings,'height',1.7);
+  const poleMat=cloneMat(mats.dark,{roughness:.36,metalness:.58});pole(THREE,root,{...mats,dark:poleMat},Math.max(.8,h-.55));
+  const bodyMat=cloneMat(mats.dark,{roughness:.28,metalness:.34});const boxy=box(THREE,root,.46,.92,.22,bodyMat,0,h-.34,0);
+  const rimMat=cloneMat(mats.gray,{roughness:.25,metalness:.62});
+  const redRim=cyl(THREE,root,.13,.13,.025,rimMat,0,h-.12,.128,32,Math.PI/2),greenRim=cyl(THREE,root,.13,.13,.025,rimMat,0,h-.56,.128,32,Math.PI/2);
+  const redMat=cloneMat(mats.red,{color:new THREE.Color(0x3b0808),emissive:new THREE.Color(0x000000),emissiveIntensity:.05,roughness:.18}),greenMat=cloneMat(mats.green,{color:new THREE.Color(0x063719),emissive:new THREE.Color(0x000000),emissiveIntensity:.05,roughness:.18});
+  const red=sph(THREE,root,.102,redMat,0,h-.12,.145),green=sph(THREE,root,.102,greenMat,0,h-.56,.145);
+  const hood1=box(THREE,root,.30,.055,.18,bodyMat,0,h+.02,.15,0,0,-.10),hood2=box(THREE,root,.30,.055,.18,bodyMat,0,h-.42,.15,0,0,-.10);
+  const redGlow=new THREE.PointLight(0xff2b2b,0,3.8,2);redGlow.position.set(0,h-.12,.45);root.add(redGlow);const greenGlow=new THREE.PointLight(0x25ff72,0,3.8,2);greenGlow.position.set(0,h-.56,.45);root.add(greenGlow);
+  root.userData.trafficRed=red;root.userData.trafficGreen=green;root.userData.trafficRedGlow=redGlow;root.userData.trafficGreenGlow=greenGlow;root.userData.body=boxy;root.userData.hoods=[hood1,hood2];root.userData.rims=[redRim,greenRim];return clearApply(root,()=>{});
 }
 function makeShutter(THREE,mats,settings){const root=new THREE.Group(); const w=num(settings,'width',3),h=num(settings,'height',2.6); const frame=box(THREE,root,w+.18,h+.18,.18,mats.dark,0,(h+.18)/2,0); const opening=box(THREE,root,w,h,.10,mats.gray,0,h/2,.05); for(let i=0;i<10;i++)box(THREE,root,w*.96,.02,.102,mats.dark,0,.22+i*(h*.08),.052); const topBox=box(THREE,root,w+.10,.16,.20,mats.dark,0,h+.09,0); root.userData.shutterDoor=opening; root.userData.shutterFrame=frame; root.userData.topBox=topBox; return clearApply(root,(s,def)=>{const ww=num(s,'width',def.width||3),hh=num(s,'height',def.height||2.6); frame.scale.set(ww/(def.width||3),hh/(def.height||2.6),1); opening.scale.set(ww/(def.width||3),hh/(def.height||2.6),1); topBox.scale.x=ww/(def.width||3); topBox.position.y=hh+.09;});}
 function makeFallback(THREE,mats){const root=new THREE.Group(); const geo=new THREE.DodecahedronGeometry(.25); const mesh=new THREE.Mesh(geo,mats.gray); mesh.castShadow=true; mesh.receiveShadow=true; root.add(mesh); return clearApply(root,()=>{});}

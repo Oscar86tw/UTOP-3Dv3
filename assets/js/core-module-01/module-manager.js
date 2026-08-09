@@ -9,7 +9,7 @@ export function templateByKey(key){
 export function definitionForDevice(id){const d=devices.find(x=>x.id===id);return d?definitionForType(d.type):null;}
 export function nextDeviceId(){const max=Math.max(0,...devices.map(d=>Number((d.id||'').split('-')[1])||0));return `DEV-${String(max+1).padStart(3,'0')}`;}
 export function defaultSettings(type='Generic'){
-  const def=definitionForType(type);const out={showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false,installationHeight:0};
+  const def=definitionForType(type);const out={showLabel:true,labelOffsetX:0,labelOffsetY:0,labelOffsetZ:0,positionLocked:false,allowOverlap:false,installationHeight:0};
   for(const param of def?.parameters||[])out[param.id]=param.value;
   if(out.width===undefined)out.width=1;if(out.height===undefined)out.height=1;if(out.depth===undefined)out.depth=1;
   if(String(type).toLowerCase()==='barrier'){if(out.armSide===undefined)out.armSide='left';if(out.autoCloseEnabled===undefined)out.autoCloseEnabled=false;if(out.autoCloseSeconds===undefined)out.autoCloseSeconds=5;}

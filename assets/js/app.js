@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.6.8';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.8';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.0';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.0';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,9 +11,9 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.8';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.8';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.8';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.0';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.0';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.0';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -368,7 +368,7 @@ function bindDynamicInspector(){
     const id=state.selectedDevice,d=devices.find(x=>x.id===id);if(!d)return;
     d.name=String(val('inspectorName',d.name)).trim()||d.name;
     const clampPos=v=>Math.max(-100,Math.min(300,Number(v)||0));updateDeviceTransform(id,{x:clampPos(num('propX')),y:clampPos(num('propY')),z:clampPos(num('propZ')),rotationX:num('propRX')*Math.PI/180,rotationY:num('propRY')*Math.PI/180,rotationZ:num('propRZ')*Math.PI/180,floor:val('propFloor',getDeviceTransform(id).floor)});
-    updateSettings(id,{showLabel:checked('showLabelSetting'),labelOffsetX:num('labelOffsetX'),labelOffsetY:num('labelOffsetY'),labelOffsetZ:num('labelOffsetZ'),positionLocked:checked('lockPositionSetting')});
+    updateSettings(id,{showLabel:checked('showLabelSetting'),labelOffsetX:num('labelOffsetX'),labelOffsetY:num('labelOffsetY'),labelOffsetZ:num('labelOffsetZ'),positionLocked:checked('lockPositionSetting'),allowOverlap:checked('allowOverlapSetting')});
     withSimulator('設備屬性套用',s=>{s.applyDeviceTransform(id);s.applyDeviceSettings(id);});syncInspector(id,false);
   });
   workspaceRoot.querySelectorAll('[data-setting-param]').forEach(el=>el.addEventListener('input',()=>{
@@ -458,6 +458,7 @@ function bind(){
   byId('cloudConnect')?.addEventListener('click',safeHandler('Google 雲端連線',async()=>{state.cloud.webAppUrl=val('cloudWebAppUrl',state.cloud.webAppUrl).trim();rememberCloudUrl();const r=await pingCloud(state.cloud.webAppUrl);state.cloud.status=`✅ Google 雲端已連線 · ${r.service||'UTOP'} · V${r.version||''}`;byId('cloudStatus').textContent=state.cloud.status;}));
   byId('cloudSelfTest')?.addEventListener('click',safeHandler('Google 雲端自我檢查',async()=>{state.cloud.webAppUrl=val('cloudWebAppUrl',state.cloud.webAppUrl).trim();rememberCloudUrl();const r=await selfTestCloud(state.cloud.webAppUrl);state.cloud.status=`✅ Drive：${r.folderName} · Sheet：${r.sheetName} · ${r.projects} 個專案`;byId('cloudStatus').textContent=state.cloud.status;}));
   byId('cloudWriteTest')?.addEventListener('click',safeHandler('Google 雲端儲存驗證',async()=>{state.cloud.webAppUrl=val('cloudWebAppUrl',state.cloud.webAppUrl).trim();rememberCloudUrl();const r=await verifyCloudWrite(state.cloud.webAppUrl);state.cloud.status=`✅ Google Drive 寫入／讀取／刪除權限正常 · ${r.folderName}`;byId('cloudStatus').textContent=state.cloud.status;}));
+  byId('cloudRunExample')?.addEventListener('click',safeHandler('Google 儲存範例',async()=>{const status=byId('cloudExampleStatus');state.cloud.webAppUrl=val('cloudWebAppUrl',state.cloud.webAppUrl).trim();if(!state.cloud.webAppUrl)throw new Error('請先貼上 Apps Script /exec 網址');rememberCloudUrl();if(status)status.textContent='1/4 測試連線…';await pingCloud(state.cloud.webAppUrl);if(status)status.textContent='2/4 測試 Drive 寫入權限…';await verifyCloudWrite(state.cloud.webAppUrl);const d=new Date(),pad=n=>String(n).padStart(2,'0');state.cloud.projectName=`UTOP_儲存範例_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;const nameInput=byId('cloudProjectName');if(nameInput)nameInput.value=state.cloud.projectName;if(status)status.textContent='3/4 建立範例專案並儲存…';const saved=await cloudSave(true);if(status)status.textContent='4/4 更新 Google 專案清單…';await refreshCloudProjectList();const sel=byId('cloudProjectList');if(sel&&saved?.projectId)sel.value=saved.projectId;state.cloud.selectedProjectId=saved?.projectId||'';if(status)status.textContent=`✅ 範例完成：${saved?.projectName||state.cloud.projectName}。現在可按「開啟選取專案」測試讀取。`;}));
   byId('cloudRepairIndex')?.addEventListener('click',safeHandler('重建 Google 專案索引',async()=>{const r=await repairCloudIndex(state.cloud.webAppUrl);state.cloud.status=`✅ 已重建 Google 專案索引：${r.count} 筆`;byId('cloudStatus').textContent=state.cloud.status;await refreshCloudProjectList();}));
   byId('cloudRefresh')?.addEventListener('click',safeHandler('讀取雲端專案',refreshCloudProjectList));
   byId('cloudSave')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{await cloudSave(false);byId('cloudStatus').textContent=state.cloud.status;await refreshCloudProjectList();}));

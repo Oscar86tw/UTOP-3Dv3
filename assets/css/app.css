@@ -239,3 +239,5 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
 .inline-field{display:grid;grid-template-columns:auto minmax(80px,1fr) auto;gap:8px;align-items:center}.inline-field input{min-height:40px}
 .io-trigger{transition:background .1s,border-color .1s,box-shadow .1s,transform .08s}.io-trigger:active{transform:scale(.985)}
 @media(max-width:760px){.quick-scene-view label{width:100%;display:grid;grid-template-columns:auto minmax(0,1fr)}.quick-scene-view select{width:100%;max-width:none;min-width:0}}
+
+.cloud-example-card{border:1px solid #f4b942;background:#fff8e7}.cloud-example-steps{margin:.7rem 0 1rem 1.25rem;line-height:1.8}
