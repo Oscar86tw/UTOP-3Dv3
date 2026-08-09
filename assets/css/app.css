@@ -183,3 +183,16 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
   .floating-tool-window,.floating-tool-window.docked{left:3px!important;right:3px!important;bottom:62px!important;height:76vh;border-radius:14px;}
   .floating-tool-body{padding:8px}.floating-tool-header{padding-left:10px}.floating-tool-header small{display:none}
 }
+
+/* V1.6.1 multi floating panel stability */
+.tool-panel-layer.open{display:block;pointer-events:none;}
+.floating-tool-window{transition:box-shadow .14s ease,transform .14s ease;}
+.floating-tool-window:focus-within{box-shadow:0 28px 82px rgba(15,23,42,.32);}
+.floating-tool-window.minimized{overflow:hidden;}
+.floating-tool-window.minimized .floating-tool-header{border-bottom:0;}
+.floating-tool-window.docked{z-index:auto;}
+.floating-tool-window[data-tool-route]{contain:layout style;}
+@media(max-width:900px){
+  .floating-tool-window{max-width:calc(100vw - 12px);}
+  .floating-tool-window:not(:last-child){transform:none;}
+}

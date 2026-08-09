@@ -1,4 +1,4 @@
-# UTOP-3Dv3 V1.6.0 Persistent Workspace / Floating Panels
+# UTOP-3Dv3 V1.6.1 Floating Panel Workspace Stability
 
 本版將原本多頁切換改為「單一持續工作區 + 抽屜 / 浮動工具窗」。Three.js 3D Canvas 在操作期間保持掛載，開啟場景、快捷鍵、接線、Debug、Google 雲端等工具時不再卸載或重新建立 3D。
 

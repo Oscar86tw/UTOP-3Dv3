@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.6.0';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.0';
+import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.6.1';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.1';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,15 +11,17 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.0';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.0';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.0';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.1';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.1';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.1';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
-let capturing=false,sim3d=null,navEpoch=0,simulatorMountPromise=null,missionTimer=null,lastCloudFingerprint='',workspaceReady=false,activeToolRoute='';
+let capturing=false,sim3d=null,navEpoch=0,simulatorMountPromise=null,missionTimer=null,lastCloudFingerprint='',workspaceReady=false,activeToolRoute='',panelZ=120;
 const CLOUD_URL_KEY='utop3dv3.cloud.webAppUrl';
 const LEGACY_STORAGE_KEY='utop3dv3.project.v1';
+const WORKSPACE_LAYOUT_KEY='utop3dv3.workspace.layout.v1';
+const WORKSPACE_OPEN_KEY='utop3dv3.workspace.openPanels.v1';
 const DEFAULTS=cloneDefaults(state,devices);
 
 const byId=id=>document.getElementById(id);
@@ -100,28 +102,78 @@ async function withSimulator(where,fn){
   }catch(err){reportUiError(where,err);return null;}
 }
 function toolTitle(route){return categories.find(c=>c.id===route)?.label||'工具';}
-function closeToolPanel(){
-  if(activeToolRoute==='diagrams')unmountNeuralView();
-  activeToolRoute='';toolPanelLayer.innerHTML='';toolPanelLayer.classList.remove('open');state.route='simulator';nav();
+function readWorkspaceLayouts(){try{return JSON.parse(localStorage.getItem(WORKSPACE_LAYOUT_KEY)||'{}')||{};}catch(_){return {};}}
+function readOpenPanelRoutes(){try{const v=JSON.parse(localStorage.getItem(WORKSPACE_OPEN_KEY)||'[]');return Array.isArray(v)?v.filter(r=>categories.some(c=>c.id===r)&&r!=='simulator'):[];}catch(_){return [];}}
+function writeOpenPanelRoutes(routes){try{localStorage.setItem(WORKSPACE_OPEN_KEY,JSON.stringify([...new Set(routes||[])]));}catch(_){} }
+function rememberPanelOpen(route){const routes=readOpenPanelRoutes().filter(r=>r!==route);routes.push(route);writeOpenPanelRoutes(routes);}
+function rememberPanelClosed(route){writeOpenPanelRoutes(readOpenPanelRoutes().filter(r=>r!==route));}
+function writeWorkspaceLayouts(layouts){try{localStorage.setItem(WORKSPACE_LAYOUT_KEY,JSON.stringify(layouts||{}));}catch(_){} }
+function savePanelLayout(panel,route){
+  if(!panel||!route)return;
+  const layouts=readWorkspaceLayouts(),r=panel.getBoundingClientRect();
+  layouts[route]={left:Math.round(r.left),top:Math.round(r.top),width:Math.round(r.width),height:Math.round(r.height),docked:panel.classList.contains('docked'),minimized:panel.classList.contains('minimized'),z:Number(panel.style.zIndex)||panelZ};
+  writeWorkspaceLayouts(layouts);
+}
+function restorePanelLayout(panel,route,index=0){
+  const layout=readWorkspaceLayouts()[route];
+  if(layout){
+    panel.classList.toggle('docked',!!layout.docked);panel.classList.toggle('minimized',!!layout.minimized);
+    if(!layout.docked&&window.innerWidth>900){
+      const w=Math.max(320,Math.min(Number(layout.width)||660,window.innerWidth-16));
+      const h=Math.max(180,Math.min(Number(layout.height)||620,window.innerHeight-88));
+      const left=Math.max(0,Math.min(Number(layout.left)||18,window.innerWidth-w));
+      const top=Math.max(72,Math.min(Number(layout.top)||116,window.innerHeight-h));
+      Object.assign(panel.style,{right:'auto',left:left+'px',top:top+'px',width:w+'px',height:h+'px'});
+    }
+    panel.style.zIndex=String(Number(layout.z)||++panelZ);panelZ=Math.max(panelZ,Number(layout.z)||0);
+  }else if(window.innerWidth>900){
+    const cascade=(index%6)*24;panel.style.right='auto';panel.style.left=Math.max(12,window.innerWidth-680-cascade)+'px';panel.style.top=(104+cascade)+'px';panel.style.zIndex=String(++panelZ);
+  }
+}
+function topOpenPanel(){return [...toolPanelLayer.querySelectorAll('.floating-tool-window')].sort((a,b)=>(Number(b.style.zIndex)||0)-(Number(a.style.zIndex)||0))[0]||null;}
+function syncPanelLayerState(){const any=!!toolPanelLayer.querySelector('.floating-tool-window');toolPanelLayer.classList.toggle('open',any);const top=topOpenPanel();activeToolRoute=top?.dataset.toolRoute||'';state.route=activeToolRoute||'simulator';nav();}
+function bringPanelToFront(panel){if(!panel)return;panel.style.zIndex=String(++panelZ);activeToolRoute=panel.dataset.toolRoute||'';state.route=activeToolRoute||'simulator';nav();}
+function closeToolPanel(route=activeToolRoute){
+  const panel=toolPanelLayer.querySelector(`.floating-tool-window[data-tool-route="${CSS.escape(route||'')}"]`);if(!panel){syncPanelLayerState();return;}
+  if(route==='diagrams')unmountNeuralView();savePanelLayout(panel,route);rememberPanelClosed(route);panel._layoutObserver?.disconnect?.();panel.remove();syncPanelLayerState();
+}
+function resetFloatingPanelLayouts(){
+  try{localStorage.removeItem(WORKSPACE_LAYOUT_KEY);}catch(_){}
+  const panels=[...toolPanelLayer.querySelectorAll('.floating-tool-window')];panels.forEach((panel,i)=>{panel.classList.remove('docked','minimized');panel.removeAttribute('style');restorePanelLayout(panel,panel.dataset.toolRoute,i);});syncPanelLayerState();
 }
 function enableFloatingPanelDrag(panel){
-  const handle=panel.querySelector('.floating-tool-header');let drag=null;
-  handle?.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;const r=panel.getBoundingClientRect();drag={dx:e.clientX-r.left,dy:e.clientY-r.top};panel.style.right='auto';handle.setPointerCapture?.(e.pointerId);});
-  handle?.addEventListener('pointermove',e=>{if(!drag)return;const maxX=Math.max(0,window.innerWidth-panel.offsetWidth),maxY=Math.max(0,window.innerHeight-panel.offsetHeight);panel.style.left=Math.max(0,Math.min(maxX,e.clientX-drag.dx))+'px';panel.style.top=Math.max(72,Math.min(maxY,e.clientY-drag.dy))+'px';});
-  const stop=()=>drag=null;handle?.addEventListener('pointerup',stop);handle?.addEventListener('pointercancel',stop);
-  panel.querySelector('[data-tool-close]')?.addEventListener('click',closeToolPanel);
-  panel.querySelector('[data-tool-minimize]')?.addEventListener('click',()=>panel.classList.toggle('minimized'));
-  panel.querySelector('[data-tool-dock]')?.addEventListener('click',()=>panel.classList.toggle('docked'));
+  const route=panel.dataset.toolRoute||'',handle=panel.querySelector('.floating-tool-header');let drag=null;
+  const startFront=()=>bringPanelToFront(panel);panel.addEventListener('pointerdown',startFront,{capture:true});
+  handle?.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;if(panel.classList.contains('docked')||window.innerWidth<=900)return;const r=panel.getBoundingClientRect();drag={dx:e.clientX-r.left,dy:e.clientY-r.top};panel.style.right='auto';bringPanelToFront(panel);handle.setPointerCapture?.(e.pointerId);});
+  handle?.addEventListener('pointermove',e=>{if(!drag)return;const maxX=Math.max(0,window.innerWidth-panel.offsetWidth),maxY=Math.max(72,window.innerHeight-panel.offsetHeight);panel.style.left=Math.max(0,Math.min(maxX,e.clientX-drag.dx))+'px';panel.style.top=Math.max(72,Math.min(maxY,e.clientY-drag.dy))+'px';});
+  const stop=()=>{if(drag)savePanelLayout(panel,route);drag=null;};handle?.addEventListener('pointerup',stop);handle?.addEventListener('pointercancel',stop);
+  panel.querySelector('[data-tool-close]')?.addEventListener('click',()=>closeToolPanel(route));
+  panel.querySelector('[data-tool-minimize]')?.addEventListener('click',()=>{panel.classList.toggle('minimized');bringPanelToFront(panel);savePanelLayout(panel,route);});
+  panel.querySelector('[data-tool-dock]')?.addEventListener('click',()=>{panel.classList.toggle('docked');panel.classList.remove('minimized');if(!panel.classList.contains('docked')&&window.innerWidth>900){const r=panel.getBoundingClientRect();panel.style.right='auto';panel.style.left=Math.max(8,window.innerWidth-r.width-18)+'px';panel.style.top='104px';}bringPanelToFront(panel);savePanelLayout(panel,route);});
+  if(typeof ResizeObserver!=='undefined'){let last='';const ro=new ResizeObserver(()=>{const r=panel.getBoundingClientRect(),sig=`${Math.round(r.width)}x${Math.round(r.height)}`;if(sig!==last){last=sig;clearTimeout(panel._layoutTimer);panel._layoutTimer=setTimeout(()=>savePanelLayout(panel,route),140);}});ro.observe(panel);panel._layoutObserver=ro;}
+}
+function refreshToolPanelBody(panel,route){
+  if(!panel)return;
+  if(route==='diagrams')unmountNeuralView();
+  const body=panel.querySelector('.floating-tool-body');if(!body)return;
+  body.innerHTML=render(route);const prev=root;root=body;bind();root=prev;
+  if(route==='diagrams')mountNeuralView();
+}
+function refreshAllToolPanels(){
+  for(const panel of toolPanelLayer.querySelectorAll('.floating-tool-window')){
+    const route=panel.dataset.toolRoute;if(route)refreshToolPanelBody(panel,route);
+  }
 }
 async function openToolPanel(route){
-  if(route==='simulator'){closeToolPanel();return;}
-  if(activeToolRoute==='diagrams'&&route!=='diagrams')unmountNeuralView();
-  activeToolRoute=route;state.route=route;syncDirtyFlag();nav();
-  toolPanelLayer.innerHTML=`<section class="floating-tool-window" data-tool-route="${route}"><header class="floating-tool-header"><div><b>${toolTitle(route)}</b><small>工作區保持運作，不重新載入 3D</small></div><div class="floating-tool-actions"><button data-tool-minimize title="最小化">—</button><button data-tool-dock title="靠右/浮動">▣</button><button data-tool-close title="關閉">×</button></div></header><div id="floatingToolBody" class="floating-tool-body">${render(route)}</div></section>`;
-  toolPanelLayer.classList.add('open');
-  const panel=toolPanelLayer.querySelector('.floating-tool-window');enableFloatingPanelDrag(panel);
-  const body=toolPanelLayer.querySelector('#floatingToolBody');const prev=root;root=body;bind();root=prev;
-  if(route==='diagrams')mountNeuralView();
+  if(route==='simulator'){const top=topOpenPanel();if(top)closeToolPanel(top.dataset.toolRoute);return;}
+  let panel=toolPanelLayer.querySelector(`.floating-tool-window[data-tool-route="${CSS.escape(route)}"]`);
+  if(panel){panel.classList.remove('minimized');bringPanelToFront(panel);refreshToolPanelBody(panel,route);savePanelLayout(panel,route);rememberPanelOpen(route);return panel;}
+  const count=toolPanelLayer.querySelectorAll('.floating-tool-window').length;
+  const safeRoute=String(route).replace(/[^a-z0-9_-]/gi,'');const bodyId=`floatingToolBody_${safeRoute}`;
+  toolPanelLayer.insertAdjacentHTML('beforeend',`<section class="floating-tool-window" data-tool-route="${route}"><header class="floating-tool-header"><div><b>${toolTitle(route)}</b><small>工作區保持運作，不重新載入 3D</small></div><div class="floating-tool-actions"><button data-tool-minimize title="最小化">—</button><button data-tool-dock title="靠右/浮動">▣</button><button data-tool-close title="關閉">×</button></div></header><div id="${bodyId}" class="floating-tool-body">${render(route)}</div></section>`);
+  toolPanelLayer.classList.add('open');panel=toolPanelLayer.querySelector(`.floating-tool-window[data-tool-route="${CSS.escape(route)}"]`);restorePanelLayout(panel,route,count);enableFloatingPanelDrag(panel);bringPanelToFront(panel);
+  const body=panel.querySelector(`#${bodyId}`),prev=root;root=body;bind();root=prev;
+  if(route==='diagrams')mountNeuralView();rememberPanelOpen(route);return panel;
 }
 function nav(){
   tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');
@@ -135,7 +187,7 @@ async function go(route){
     return openToolPanel(route);
   }
   if(route==='simulator'){
-    closeToolPanel();sim3d?.applyProjectState?.();return sim3d;
+    const top=topOpenPanel();if(top)closeToolPanel(top.dataset.toolRoute);sim3d?.applyProjectState?.();return sim3d;
   }
   return openToolPanel(route);
 }
@@ -234,6 +286,7 @@ function bind(){
   root.querySelectorAll('[data-select2d]').forEach(b=>b.addEventListener('click',()=>selectDeviceEverywhere(b.dataset.select2d)));
 
   document.getElementById('toggleModuleSidebar')?.addEventListener('click',()=>{const aside=document.getElementById('moduleLibrarySidebar');if(!aside)return;state.workspace.leftOpen=aside.hidden;aside.hidden=!state.workspace.leftOpen;document.getElementById('toggleModuleSidebar')?.classList.toggle('active',state.workspace.leftOpen);});
+  document.getElementById('resetToolWindows')?.addEventListener('click',resetFloatingPanelLayouts);
   document.getElementById('toggleInspectorSidebar')?.addEventListener('click',()=>{let aside=document.getElementById('deviceInspectorSidebar');if(!aside&&state.selectedDevice)aside=ensureInspectorShell();if(!aside)return;state.workspace.rightOpen=aside.hidden;aside.hidden=!state.workspace.rightOpen;document.getElementById('toggleInspectorSidebar')?.classList.toggle('active',state.workspace.rightOpen);});
   document.getElementById('closeModuleSidebar')?.addEventListener('click',()=>{state.workspace.leftOpen=false;const aside=document.getElementById('moduleLibrarySidebar');if(aside)aside.hidden=true;document.getElementById('toggleModuleSidebar')?.classList.remove('active');});
   root.querySelectorAll('[data-workspace-mode]').forEach(b=>b.addEventListener('click',()=>{const mode=b.dataset.workspaceMode;if(mode==='3d'){state.workspace.mode='3d';closeToolPanel();}else{state.workspace.mode=mode;openToolPanel('sync2d');}}));
@@ -287,10 +340,10 @@ function bind(){
   byId('cloudRefresh')?.addEventListener('click',safeHandler('讀取雲端專案',refreshCloudProjectList));
   byId('cloudSave')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{await cloudSave(false);byId('cloudStatus').textContent=state.cloud.status;await refreshCloudProjectList();}));
   byId('cloudSaveAs')?.addEventListener('click',safeHandler('Google 雲端另存',async()=>{await cloudSave(true);byId('cloudStatus').textContent=state.cloud.status;await refreshCloudProjectList();}));
-  byId('cloudImportLegacy')?.addEventListener('click',safeHandler('匯入舊版本機專案',async()=>{importLegacyLocalProject();await go('project');}));
-  byId('cloudNew')?.addEventListener('click',safeHandler('建立空白專案',async()=>{if(!confirmDiscard('建立空白專案？目前尚未儲存到 Google 的內容會被清除。'))return;resetToBlankProject();await go('simulator');}));
+  byId('cloudImportLegacy')?.addEventListener('click',safeHandler('匯入舊版本機專案',async()=>{importLegacyLocalProject();await go('project');sim3d?.applyProjectState?.();refreshAllToolPanels();}));
+  byId('cloudNew')?.addEventListener('click',safeHandler('建立空白專案',async()=>{if(!confirmDiscard('建立空白專案？目前尚未儲存到 Google 的內容會被清除。'))return;resetToBlankProject();await go('simulator');sim3d?.applyProjectState?.();refreshAllToolPanels();}));
   byId('cloudProjectList')?.addEventListener('change',e=>{state.cloud.selectedProjectId=e.target.value;});
-  byId('cloudOpen')?.addEventListener('click',safeHandler('開啟 Google 專案',async()=>{const id=val('cloudProjectList');if(!id)throw new Error('請先選擇雲端專案');if(!confirmDiscard('開啟其他 Google 專案？目前未儲存內容會被替換。'))return;const r=await loadCloudProject(state.cloud.webAppUrl,id);replaceProjectData(r.project);await go('simulator');}));
+  byId('cloudOpen')?.addEventListener('click',safeHandler('開啟 Google 專案',async()=>{const id=val('cloudProjectList');if(!id)throw new Error('請先選擇雲端專案');if(!confirmDiscard('開啟其他 Google 專案？目前未儲存內容會被替換。'))return;const r=await loadCloudProject(state.cloud.webAppUrl,id);replaceProjectData(r.project);await go('simulator');sim3d?.applyProjectState?.();refreshAllToolPanels();}));
   byId('cloudDelete')?.addEventListener('click',safeHandler('刪除 Google 專案',async()=>{const id=val('cloudProjectList');if(!id)throw new Error('請先選擇雲端專案');if(!confirm('確定刪除選取的 Google 雲端專案？檔案會移到 Google Drive 垃圾桶。'))return;await deleteCloudProject(state.cloud.webAppUrl,id);if(state.cloud.projectId===id){resetToBlankProject();state.cloud.status='已刪除目前 Google 專案，已切換成空白專案';}else state.cloud.status='已刪除 Google 雲端專案';state.cloud.selectedProjectId='';await refreshCloudProjectList();}));
   document.getElementById('runDebugAudit')?.addEventListener('click',()=>{runDebugAudit();go('project');});
   document.getElementById('repairProjectState')?.addEventListener('click',()=>{migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);runFunctionStateAudit();syncDirtyFlag();go('project');});
@@ -319,4 +372,9 @@ restoreCloudUrl();
 migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);
 markCloudBaseline();
 const bootRoute=state.route||'overview';state.route='simulator';
-ensurePersistentWorkspace().then(()=>go(bootRoute==='simulator'?'simulator':bootRoute));
+ensurePersistentWorkspace().then(async()=>{
+  const persisted=readOpenPanelRoutes();
+  if(window.innerWidth<=900&&persisted.length){await openToolPanel(persisted[persisted.length-1]);return;}
+  if(persisted.length){for(const route of persisted)await openToolPanel(route);return;}
+  await go(bootRoute==='simulator'?'simulator':bootRoute);
+});
