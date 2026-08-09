@@ -4,8 +4,8 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.4.4';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.4.4';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.4.5';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.4.5';
 
 let active=null;
 const THREE_SOURCES=[
@@ -192,8 +192,16 @@ function createSimulator(THREE,host,callbacks){
     root.userData.positionLocked=!!s.positionLocked;root.visible=s.hidden!==true;updateDeviceLabel(dev,root,true);
   }
 
+  // Runtime state must exist before ensureDevices() -> refreshSignals() -> applyTraceFocus().
+  // Keep these declarations above the first initialization call to avoid TDZ startup errors.
+  const keys=new Set();
+  let speed=0,loopOn=false,barrierOpen=!!state.simulator.barrier;
+  let yaw=.62,pitch=.42,radius=27,target=new THREE.Vector3(0,1,0),follow=!!state.simulator.follow,etagFlash=0;
+  let laneDemo={running:false,mode:'entry',entry:{step:0,elapsed:0},exit:{step:0,elapsed:0}};
+  let selectedId=state.selectedDevice||devices[0]?.id||null;
+  let editorMode=state.editor.mode||'select',snap=!!state.editor.snap,draggingDevice=false,gizmoDragging=false,gizmoKind='',gizmoAxis='',gizmoStart={x:0,y:0},gizmoBase=null,orbiting=false,panning=false,lastX=0,lastY=0,rotateStart=0,rotateBase={x:0,y:0,z:0},rotateAxis='y',moveVertical=false;
+
   function refreshSignals(){signalGroup.clear();function curvedLine(a,b,color){const mid=new THREE.Vector3((a.x+b.x)/2,Math.max(a.y,b.y)+2.4,(a.z+b.z)/2);const c=new THREE.QuadraticBezierCurve3(a,mid,b);return new THREE.Line(new THREE.BufferGeometry().setFromPoints(c.getPoints(36)),new THREE.LineBasicMaterial({color,transparent:true,opacity:.9}));}const colors={DI:0x52b7ff,DO:0xff8c25,POWER:0xf5c542,NETWORK:0x4ade80,RS485:0xc084fc,SIGNAL:0xe5e7eb};state.connections.filter(c=>c.enabled!==false).forEach(c=>{const a=deviceRoots[c.fromDevice],b=deviceRoots[c.toDevice];if(!a||!b)return;const ap=new THREE.Vector3(),bp=new THREE.Vector3();a.getWorldPosition(ap);b.getWorldPosition(bp);const line=curvedLine(ap,bp,colors[c.type]||colors.SIGNAL);line.userData.connectionId=c.id;line.userData.fromDevice=c.fromDevice;line.userData.toDevice=c.toDevice;signalGroup.add(line);});applyTraceFocus();}
-  ensureDevices();
   function ensureCountdownLabel(id,root){
     if(root.userData.countdownSprite)return root.userData.countdownSprite;
     const type=String(devices.find(d=>d.id===id)?.type||'').toLowerCase();if(!(type==='timer'||type==='ledpanel'||type.includes('delay')))return null;
@@ -212,7 +220,6 @@ function createSimulator(THREE,host,callbacks){
   function makeRotateAxis(axis){const info=axisInfo[axis],mat=new THREE.MeshBasicMaterial({color:info.color,depthTest:false,transparent:true,opacity:.86,side:THREE.DoubleSide});const ring=new THREE.Mesh(new THREE.TorusGeometry(1.04,.018,8,72),mat);if(axis==='x')ring.rotation.y=Math.PI/2;else if(axis==='y')ring.rotation.x=Math.PI/2;ring.userData.gizmoKind='rotate';ring.userData.gizmoAxis=axis;gizmoObjects.push(ring);gizmoRotate.add(ring);}
   ['x','y','z'].forEach(makeMoveAxis);['x','y','z'].forEach(makeRotateAxis);
   const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0),dragOffset=new THREE.Vector3(),hitPoint=new THREE.Vector3();
-  let selectedId=state.selectedDevice||devices[0]?.id||null,editorMode=state.editor.mode||'select',snap=!!state.editor.snap,draggingDevice=false,gizmoDragging=false,gizmoKind='',gizmoAxis='',gizmoStart={x:0,y:0},gizmoBase=null,orbiting=false,panning=false,lastX=0,lastY=0,rotateStart=0,rotateBase={x:0,y:0,z:0},rotateAxis='y',moveVertical=false;
   function updateSelection(){
     if(!selectedId||!deviceRoots[selectedId]){selectionHelper.visible=false;selectionAxes.visible=false;transformGizmo.visible=false;setText('transformHud','XYZ -- / -- / -- · R -- / -- / --');return;}
     const root=deviceRoots[selectedId],tr=getDeviceTransform(selectedId);selectionBox.setFromObject(root);selectionHelper.visible=true;const wp=new THREE.Vector3();root.getWorldPosition(wp);selectionAxes.position.copy(wp);selectionAxes.rotation.copy(root.rotation);selectionAxes.visible=true;
@@ -275,8 +282,6 @@ function createSimulator(THREE,host,callbacks){
   renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(7,Math.min(60,radius+e.deltaY*.025));},{passive:false});
   let pinchDist=0;renderer.domElement.addEventListener('touchstart',e=>{if(e.touches.length===2)pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});renderer.domElement.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(pinchDist)radius=Math.max(7,Math.min(60,radius-(d-pinchDist)*.03));pinchDist=d;}},{passive:true});
 
-  const keys=new Set();let speed=0,loopOn=false,barrierOpen=!!state.simulator.barrier;let yaw=.62,pitch=.42,radius=27,target=new THREE.Vector3(0,1,0),follow=!!state.simulator.follow,etagFlash=0;
-  let laneDemo={running:false,mode:'entry',entry:{step:0,elapsed:0},exit:{step:0,elapsed:0}};
   function onKeyDown(e){const el=document.activeElement;if(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName))return;if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}}
   function onKeyUp(e){keys.delete(e.code);}window.addEventListener('keydown',onKeyDown,{passive:false});window.addEventListener('keyup',onKeyUp);
 
@@ -377,7 +382,7 @@ function createSimulator(THREE,host,callbacks){
     destroy(){cancelAnimationFrame(raf);resizeObserver.disconnect();window.removeEventListener('keydown',onKeyDown);window.removeEventListener('keyup',onKeyUp);renderer.domElement.removeEventListener('pointerdown',pd);renderer.domElement.removeEventListener('pointermove',pm);renderer.domElement.removeEventListener('pointerup',pu);renderer.dispose();host.innerHTML='';}
   };
 
-  applyProjectState();focusFloor(state.editor.floorFocus||'1F');if(selectedId&&deviceRoots[selectedId])selectById(selectedId,false);
+  ensureDevices();applyProjectState();focusFloor(state.editor.floorFocus||'1F');if(selectedId&&deviceRoots[selectedId])selectById(selectedId,false);
   function resize(){const r=host.getBoundingClientRect(),w=Math.max(1,r.width),h=Math.max(1,r.height);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(host);resize();
 
   let last=performance.now(),raf=0;function frame(now){const dt=Math.min(.04,(now-last)/1000);last=now;ensureDevices();const forward=keys.has('KeyW')||keys.has('ArrowUp'),back=keys.has('KeyS')||keys.has('ArrowDown'),left=keys.has('KeyA')||keys.has('ArrowLeft'),right=keys.has('KeyD')||keys.has('ArrowRight');const accel=(back?1:0)-(forward?1:0);speed+=accel*8*dt;speed*=Math.pow(.88,dt*60);speed=Math.max(-3.4,Math.min(6.2,speed));const steer=((right?1:0)-(left?1:0))*.95;if(Math.abs(speed)>.05){car.rotation.y+=steer*dt*(speed>=0?1:-1);const dir=new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);car.position.addScaledVector(dir,speed*dt);car.position.x=Math.max(-3.1,Math.min(3.1,car.position.x));car.position.z=Math.max(-19,Math.min(19,car.position.z));}
@@ -404,5 +409,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);showToast('V1.4.4 雙車道獨立連動已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);showToast('V1.4.5 雙車道獨立連動已啟動');return controllerApi;
 }

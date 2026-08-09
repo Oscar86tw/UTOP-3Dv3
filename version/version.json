@@ -2,7 +2,7 @@
   "name": "UTOP-3Dv3",
   "version": "1.4.4",
   "schema": "4.7",
-  "title": "True WebGL 3D Only",
+  "title": "Startup Order Hotfix",
   "notes": [
     "入口與出口為兩條獨立車道連動鏈",
     "新增第二台車輛，可播放入口、出口或雙車道同時展示",
