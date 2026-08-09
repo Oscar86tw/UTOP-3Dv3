@@ -197,7 +197,7 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
   .floating-tool-window:not(:last-child){transform:none;}
 }
 
-/* V1.6.2 Dockable module library / inspector workspace */
+/* V1.6.3 Dockable module library / inspector workspace */
 .sidebar-title-actions{display:flex;align-items:center;gap:5px}.sidebar-title-actions button{min-width:34px;height:34px;padding:4px 8px;border-radius:9px}
 .dockable-sidebar.sidebar-docked{resize:none;overflow:hidden}
 .dockable-sidebar.sidebar-floating{position:fixed!important;z-index:106!important;right:auto!important;bottom:auto!important;min-width:280px;min-height:260px;max-width:calc(100vw - 8px);max-height:calc(100vh - 76px);resize:both;overflow:auto;border-radius:16px;box-shadow:0 24px 70px rgba(15,23,42,.28);background:rgba(255,255,255,.985);backdrop-filter:blur(10px)}
@@ -209,3 +209,20 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
   .dockable-sidebar.sidebar-floating{left:5px!important;right:5px!important;top:auto!important;bottom:66px!important;width:auto!important;height:min(72vh,700px)!important;max-width:none;resize:none;border-radius:16px}
   .dockable-sidebar.sidebar-floating .sidebar-pane-title{cursor:default}
 }
+
+/* V1.6.3 CAD Workspace Layout */
+.workspace-presets{align-items:center}.workspace-presets select{min-width:150px;max-width:220px;height:38px;padding:6px 9px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.floating-tool-window.docked{position:fixed!important;border-radius:14px;resize:none!important;max-width:none;max-height:none}
+.floating-tool-window.dock-left{left:8px!important;right:auto!important;border-radius:0 14px 14px 0}
+.floating-tool-window.dock-right{right:8px!important;left:auto!important;border-radius:14px 0 0 14px}
+.floating-tool-window.dock-top{top:104px!important;bottom:auto!important;border-radius:0 0 14px 14px}
+.floating-tool-window.dock-bottom{bottom:76px!important;top:auto!important;border-radius:14px 14px 0 0}
+.floating-tool-window.docked .floating-tool-header{cursor:default}
+.floating-tool-window [data-tool-dock][data-edge="left"]::after{content:" L";font-size:9px}
+.floating-tool-window [data-tool-dock][data-edge="right"]::after{content:" R";font-size:9px}
+.floating-tool-window [data-tool-dock][data-edge="top"]::after{content:" T";font-size:9px}
+.floating-tool-window [data-tool-dock][data-edge="bottom"]::after{content:" B";font-size:9px}
+@media(max-width:900px){.workspace-presets{width:100%;display:grid;grid-template-columns:minmax(0,1fr) auto auto}.workspace-presets select{max-width:none;width:100%}.floating-tool-window.dock-left,.floating-tool-window.dock-right,.floating-tool-window.dock-top,.floating-tool-window.dock-bottom{left:6px!important;right:6px!important;top:auto!important;bottom:68px!important;width:auto!important;height:min(72vh,720px)!important;border-radius:18px!important}}
+
+/* V1.6.4 Device Transform Controls */
+.transform-slider-grid{display:grid;grid-template-columns:1fr;gap:12px}.axis-control,.rotation-control{border:1px solid var(--border);border-radius:14px;padding:10px;background:var(--panel2)}.axis-control-head{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:center}.axis-control-head label{font-weight:800}.axis-control-head input{min-width:0}.transform-range{width:100%;margin-top:8px;accent-color:#f59e0b}.range-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:2px}.rotation-presets{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.rotation-presets button{padding:8px 4px;border-radius:10px;font-size:12px}.rotation-presets button:hover{background:#fff3d6;border-color:#f59e0b}@media(min-width:900px){.transform-slider-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}

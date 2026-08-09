@@ -4,8 +4,8 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.6.2';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.6.2';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.6.4';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.6.4';
 
 let active=null;
 const THREE_SOURCES=[
@@ -256,8 +256,8 @@ function createSimulator(THREE,host,callbacks){
   const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0),dragOffset=new THREE.Vector3(),hitPoint=new THREE.Vector3();
   function updateSelection(){
     if(!selectedId||!deviceRoots[selectedId]){selectionHelper.visible=false;selectionAxes.visible=false;transformGizmo.visible=false;setText('transformHud','XYZ -- / -- / -- · R -- / -- / --');return;}
-    const root=deviceRoots[selectedId],tr=getDeviceTransform(selectedId);physicalBoxOf(root,selectionBox);selectionHelper.visible=true;const wp=new THREE.Vector3();root.getWorldPosition(wp);selectionAxes.position.copy(wp);selectionAxes.rotation.copy(root.rotation);selectionAxes.visible=true;
-    transformGizmo.position.copy(wp);transformGizmo.visible=['unified','move','rotate'].includes(editorMode);gizmoMove.visible=editorMode==='unified'||editorMode==='move';gizmoRotate.visible=editorMode==='unified'||editorMode==='rotate';
+    const root=deviceRoots[selectedId],tr=getDeviceTransform(selectedId),showTools=state.editor.showTransformGizmo!==false;physicalBoxOf(root,selectionBox);selectionHelper.visible=showTools;const wp=new THREE.Vector3();root.getWorldPosition(wp);selectionAxes.position.copy(wp);selectionAxes.rotation.copy(root.rotation);selectionAxes.visible=showTools;
+    transformGizmo.position.copy(wp);transformGizmo.visible=showTools&&['unified','move','rotate'].includes(editorMode);gizmoMove.visible=editorMode==='unified'||editorMode==='move';gizmoRotate.visible=editorMode==='unified'||editorMode==='rotate';
     const dist=camera.position.distanceTo(wp);const gs=Math.max(.48,Math.min(1.25,dist*.032));transformGizmo.scale.setScalar(gs);
     const deg=v=>Math.round((v||0)*180/Math.PI);setText('transformHud',`XYZ ${Number(tr.x).toFixed(2)} / ${Number(tr.y).toFixed(2)} / ${Number(tr.z).toFixed(2)} · R ${deg(tr.rotationX)} / ${deg(tr.rotationY)} / ${deg(tr.rotationZ)}`);
   }
@@ -433,6 +433,7 @@ function createSimulator(THREE,host,callbacks){
     refreshRoadMarkings(){rebuildRoadMarkings();showToast('道路標線已更新');},
     focusFloor,
     setEditorMode(mode){editorMode=mode;saveEditorMode(mode);host.dataset.tool=mode;updateSelection();showToast('3D工具：'+mode);},
+    setTransformGizmoVisible(v){state.editor.showTransformGizmo=!!v;updateSelection();return state.editor.showTransformGizmo;},
     setSnap(v){snap=!!v;state.editor.snap=snap;},
     applyDeviceTransform(id){ensureDevices();syncTransform(id);updateSelection();refreshSignals();},
     applyDeviceSettings(id){applySettings(id);updateSelection();refreshSignals();},
@@ -476,5 +477,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>{const pulsing=(l.userData.signalPulseUntil||0)>now;l.material.opacity=pulsing?1:.22;if(pulsing&&l.material.color){const base=l.userData.baseColor;if(base===undefined)l.userData.baseColor=l.material.color.getHex();l.material.color.setHex(0xfff176);}else if(l.userData.baseColor!==undefined&&l.material.color)l.material.color.setHex(l.userData.baseColor);});
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.6.2 Dockable Workspace 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus',`TRUE 3D READY · ${host.dataset.rendererMode||'WebGL2'}`);state.runtimeHealth??={};state.runtimeHealth.webglReady=true;state.runtimeHealth.simulatorReady=true;state.runtimeHealth.lastError='';controllerApi.localFallback=false;showToast('V1.6.4 Device Transform Controls 已啟動');return controllerApi;
 }

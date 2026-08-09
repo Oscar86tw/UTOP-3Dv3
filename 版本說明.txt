@@ -1,10 +1,10 @@
-版本：UTOP-3Dv3 V1.6.2 Dockable Workspace
+版本：UTOP-3Dv3 V1.6.4 Device Transform Controls
 
-重點：
-1. 模組庫可左側停靠或切換成浮動視窗。
-2. 設備設定可右側停靠或切換成浮動視窗。
-3. 浮動後可拖曳與調整大小，布局只保存在本機，不寫入 Google 專案。
-4. 模組分類/搜尋只更新模組庫內容，不重新載入 3D。
-5. 中央 Three.js Canvas 持續運作。
+本版新增：
+1. 設備屬性新增「顯示3D操作線」，可隱藏橘色選取框、XYZ軸、移動箭頭與RX/RY/RZ旋轉環。
+2. RX／RY／RZ 每軸新增 0°／90°／180°／270° 快速按鈕。
+3. XYZ 新增 -100 ～ +300 左右拉桿，拖曳時即時同步真正 WebGL 3D。
+4. 數字欄仍可直接輸入，位置限制同步為 -100 ～ +300。
+5. Persistent Workspace、Google Cloud Project Manager、Dockable/CAD Workspace 全部保留。
 
-建議部署：使用 1.完整程式碼 整包更新。
+本版未刪除檔案。

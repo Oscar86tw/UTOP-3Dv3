@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.6.2';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.2';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.6.4';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.6.4';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,9 +11,9 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.2';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.2';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.2';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.6.4';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.6.4';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.6.4';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -23,6 +23,7 @@ const LEGACY_STORAGE_KEY='utop3dv3.project.v1';
 const WORKSPACE_LAYOUT_KEY='utop3dv3.workspace.layout.v1';
 const WORKSPACE_OPEN_KEY='utop3dv3.workspace.openPanels.v1';
 const SIDEBAR_LAYOUT_KEY='utop3dv3.workspace.sidebars.v1';
+const WORKSPACE_PRESET_KEY='utop3dv3.workspace.presets.v1';
 const DEFAULTS=cloneDefaults(state,devices);
 
 const byId=id=>document.getElementById(id);
@@ -173,14 +174,14 @@ function writeWorkspaceLayouts(layouts){try{localStorage.setItem(WORKSPACE_LAYOU
 function savePanelLayout(panel,route){
   if(!panel||!route)return;
   const layouts=readWorkspaceLayouts(),r=panel.getBoundingClientRect();
-  layouts[route]={left:Math.round(r.left),top:Math.round(r.top),width:Math.round(r.width),height:Math.round(r.height),docked:panel.classList.contains('docked'),minimized:panel.classList.contains('minimized'),z:Number(panel.style.zIndex)||panelZ};
+  const dockEdge=panel.dataset.dockEdge||'';layouts[route]={left:Math.round(r.left),top:Math.round(r.top),width:Math.round(r.width),height:Math.round(r.height),dockEdge,minimized:panel.classList.contains('minimized'),z:Number(panel.style.zIndex)||panelZ};
   writeWorkspaceLayouts(layouts);
 }
 function restorePanelLayout(panel,route,index=0){
   const layout=readWorkspaceLayouts()[route];
   if(layout){
-    panel.classList.toggle('docked',!!layout.docked);panel.classList.toggle('minimized',!!layout.minimized);
-    if(!layout.docked&&window.innerWidth>900){
+    const edge=layout.dockEdge||(layout.docked?'right':'');panel.dataset.dockEdge=edge;panel.classList.toggle('docked',!!edge);panel.classList.toggle('minimized',!!layout.minimized);
+    if(!edge&&window.innerWidth>900){
       const w=Math.max(320,Math.min(Number(layout.width)||660,window.innerWidth-16));
       const h=Math.max(180,Math.min(Number(layout.height)||620,window.innerHeight-88));
       const left=Math.max(0,Math.min(Number(layout.left)||18,window.innerWidth-w));
@@ -192,26 +193,71 @@ function restorePanelLayout(panel,route,index=0){
     const cascade=(index%6)*24;panel.style.right='auto';panel.style.left=Math.max(12,window.innerWidth-680-cascade)+'px';panel.style.top=(104+cascade)+'px';panel.style.zIndex=String(++panelZ);
   }
 }
+const DOCK_ORDER=['','right','left','bottom','top'];
+function dockLabel(edge){return edge?({'right':'右側','left':'左側','bottom':'下方','top':'上方'}[edge]||edge):'浮動';}
+function updateDockedPanelLayout(){
+  const panels=[...toolPanelLayer.querySelectorAll('.floating-tool-window')];
+  for(const edge of ['left','right','top','bottom']){
+    const list=panels.filter(p=>(p.dataset.dockEdge||'')===edge&&!p.classList.contains('minimized'));
+    const n=Math.max(1,list.length);
+    list.forEach((panel,i)=>{
+      panel.classList.add('docked');panel.classList.add('dock-'+edge);panel.style.resize='none';panel.style.zIndex=String(Math.max(100,Number(panel.style.zIndex)||100));
+      if(edge==='left'||edge==='right'){
+        const h=Math.max(180,Math.floor((window.innerHeight-186)/n));
+        Object.assign(panel.style,{top:(104+i*h)+'px',bottom:'auto',height:h+'px',width:'min(520px,42vw)',left:edge==='left'?'8px':'auto',right:edge==='right'?'8px':'auto'});
+      }else{
+        const w=Math.max(320,Math.floor((window.innerWidth-24)/n));
+        Object.assign(panel.style,{left:(8+i*w)+'px',right:'auto',width:w+'px',height:'min(360px,38vh)',top:edge==='top'?'104px':'auto',bottom:edge==='bottom'?'76px':'auto'});
+      }
+    });
+  }
+  panels.filter(p=>!(p.dataset.dockEdge||'')).forEach(panel=>{panel.classList.remove('docked','dock-left','dock-right','dock-top','dock-bottom');if(!panel.classList.contains('minimized'))panel.style.resize='both';});
+}
+function cyclePanelDock(panel){
+  const current=panel.dataset.dockEdge||'';const next=DOCK_ORDER[(DOCK_ORDER.indexOf(current)+1)%DOCK_ORDER.length];panel.dataset.dockEdge=next;panel.classList.remove('dock-left','dock-right','dock-top','dock-bottom');
+  if(next){panel.classList.add('docked','dock-'+next);panel.classList.remove('minimized');}
+  else{panel.classList.remove('docked');const r=panel.getBoundingClientRect();Object.assign(panel.style,{right:'auto',bottom:'auto',left:Math.max(8,Math.min(window.innerWidth-r.width-8,r.left||18))+'px',top:Math.max(84,Math.min(window.innerHeight-r.height-8,r.top||104))+'px',width:Math.max(320,r.width)+'px',height:Math.max(180,r.height)+'px',resize:'both'});}
+  const btn=panel.querySelector('[data-tool-dock]');if(btn){btn.title='吸附：'+dockLabel(next);btn.dataset.edge=next;}
+  updateDockedPanelLayout();savePanelLayout(panel,panel.dataset.toolRoute||'');
+}
+function readWorkspacePresets(){try{return JSON.parse(localStorage.getItem(WORKSPACE_PRESET_KEY)||'{}')||{};}catch(_){return {};}}
+function writeWorkspacePresets(v){try{localStorage.setItem(WORKSPACE_PRESET_KEY,JSON.stringify(v||{}));}catch(_){} }
+function captureWorkspacePreset(name){
+  const title=String(name||'').trim();if(!title)throw new Error('請輸入工作區版型名稱');
+  [...toolPanelLayer.querySelectorAll('.floating-tool-window')].forEach(p=>savePanelLayout(p,p.dataset.toolRoute||''));saveSidebarLayout('module');saveSidebarLayout('inspector');
+  const presets=readWorkspacePresets();presets[title]={name:title,createdAt:new Date().toISOString(),openRoutes:readOpenPanelRoutes(),layouts:readWorkspaceLayouts(),sidebars:readSidebarLayouts(),sidebarOpen:{module:state.workspace.leftOpen!==false,inspector:state.workspace.rightOpen!==false}};writeWorkspacePresets(presets);refreshWorkspacePresetSelect(title);return title;
+}
+async function applyWorkspacePreset(name){
+  const p=readWorkspacePresets()[name];if(!p)throw new Error('找不到工作區版型');
+  try{localStorage.setItem(WORKSPACE_LAYOUT_KEY,JSON.stringify(p.layouts||{}));localStorage.setItem(SIDEBAR_LAYOUT_KEY,JSON.stringify(p.sidebars||{}));writeOpenPanelRoutes(p.openRoutes||[]);}catch(_){}
+  for(const panel of [...toolPanelLayer.querySelectorAll('.floating-tool-window')]){panel._layoutObserver?.disconnect?.();panel.remove();}
+  applySidebarLayout('module');applySidebarLayout('inspector');showSidebar('module',p.sidebarOpen?.module!==false);showSidebar('inspector',p.sidebarOpen?.inspector!==false);
+  for(const route of p.openRoutes||[])await openToolPanel(route);
+  updateDockedPanelLayout();syncPanelLayerState();
+}
+function refreshWorkspacePresetSelect(selected=''){
+  const sel=document.getElementById('workspacePresetSelect');if(!sel)return;const names=Object.keys(readWorkspacePresets()).sort((a,b)=>a.localeCompare(b,'zh-Hant'));sel.innerHTML='';const first=document.createElement('option');first.value='';first.textContent='工作區版型';sel.appendChild(first);for(const name of names){const o=document.createElement('option');o.value=name;o.textContent=name;o.selected=name===selected;sel.appendChild(o);}
+}
 function topOpenPanel(){return [...toolPanelLayer.querySelectorAll('.floating-tool-window')].sort((a,b)=>(Number(b.style.zIndex)||0)-(Number(a.style.zIndex)||0))[0]||null;}
 function syncPanelLayerState(){const any=!!toolPanelLayer.querySelector('.floating-tool-window');toolPanelLayer.classList.toggle('open',any);const top=topOpenPanel();activeToolRoute=top?.dataset.toolRoute||'';state.route=activeToolRoute||'simulator';nav();}
 function bringPanelToFront(panel){if(!panel)return;panel.style.zIndex=String(++panelZ);activeToolRoute=panel.dataset.toolRoute||'';state.route=activeToolRoute||'simulator';nav();}
 function closeToolPanel(route=activeToolRoute){
   const panel=toolPanelLayer.querySelector(`.floating-tool-window[data-tool-route="${CSS.escape(route||'')}"]`);if(!panel){syncPanelLayerState();return;}
-  if(route==='diagrams')unmountNeuralView();savePanelLayout(panel,route);rememberPanelClosed(route);panel._layoutObserver?.disconnect?.();panel.remove();syncPanelLayerState();
+  if(route==='diagrams')unmountNeuralView();savePanelLayout(panel,route);rememberPanelClosed(route);panel._layoutObserver?.disconnect?.();panel.remove();updateDockedPanelLayout();syncPanelLayerState();
 }
 function resetFloatingPanelLayouts(){
   try{localStorage.removeItem(WORKSPACE_LAYOUT_KEY);}catch(_){}
-  const panels=[...toolPanelLayer.querySelectorAll('.floating-tool-window')];panels.forEach((panel,i)=>{panel.classList.remove('docked','minimized');panel.removeAttribute('style');restorePanelLayout(panel,panel.dataset.toolRoute,i);});syncPanelLayerState();
+  const panels=[...toolPanelLayer.querySelectorAll('.floating-tool-window')];panels.forEach((panel,i)=>{panel.classList.remove('docked','dock-left','dock-right','dock-top','dock-bottom','minimized');panel.dataset.dockEdge='';panel.removeAttribute('style');restorePanelLayout(panel,panel.dataset.toolRoute,i);});updateDockedPanelLayout();syncPanelLayerState();
 }
 function enableFloatingPanelDrag(panel){
   const route=panel.dataset.toolRoute||'',handle=panel.querySelector('.floating-tool-header');let drag=null;
   const startFront=()=>bringPanelToFront(panel);panel.addEventListener('pointerdown',startFront,{capture:true});
-  handle?.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;if(panel.classList.contains('docked')||window.innerWidth<=900)return;const r=panel.getBoundingClientRect();drag={dx:e.clientX-r.left,dy:e.clientY-r.top};panel.style.right='auto';bringPanelToFront(panel);handle.setPointerCapture?.(e.pointerId);});
+  handle?.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;if((panel.dataset.dockEdge||'')||window.innerWidth<=900)return;const r=panel.getBoundingClientRect();drag={dx:e.clientX-r.left,dy:e.clientY-r.top};panel.style.right='auto';bringPanelToFront(panel);handle.setPointerCapture?.(e.pointerId);});
   handle?.addEventListener('pointermove',e=>{if(!drag)return;const maxX=Math.max(0,window.innerWidth-panel.offsetWidth),maxY=Math.max(72,window.innerHeight-panel.offsetHeight);panel.style.left=Math.max(0,Math.min(maxX,e.clientX-drag.dx))+'px';panel.style.top=Math.max(72,Math.min(maxY,e.clientY-drag.dy))+'px';});
   const stop=()=>{if(drag)savePanelLayout(panel,route);drag=null;};handle?.addEventListener('pointerup',stop);handle?.addEventListener('pointercancel',stop);
   panel.querySelector('[data-tool-close]')?.addEventListener('click',()=>closeToolPanel(route));
   panel.querySelector('[data-tool-minimize]')?.addEventListener('click',()=>{panel.classList.toggle('minimized');bringPanelToFront(panel);savePanelLayout(panel,route);});
-  panel.querySelector('[data-tool-dock]')?.addEventListener('click',()=>{panel.classList.toggle('docked');panel.classList.remove('minimized');if(!panel.classList.contains('docked')&&window.innerWidth>900){const r=panel.getBoundingClientRect();panel.style.right='auto';panel.style.left=Math.max(8,window.innerWidth-r.width-18)+'px';panel.style.top='104px';}bringPanelToFront(panel);savePanelLayout(panel,route);});
+  panel.querySelector('[data-tool-dock]')?.addEventListener('click',()=>{cyclePanelDock(panel);bringPanelToFront(panel);});
   if(typeof ResizeObserver!=='undefined'){let last='';const ro=new ResizeObserver(()=>{const r=panel.getBoundingClientRect(),sig=`${Math.round(r.width)}x${Math.round(r.height)}`;if(sig!==last){last=sig;clearTimeout(panel._layoutTimer);panel._layoutTimer=setTimeout(()=>savePanelLayout(panel,route),140);}});ro.observe(panel);panel._layoutObserver=ro;}
 }
 function refreshToolPanelBody(panel,route){
@@ -232,8 +278,8 @@ async function openToolPanel(route){
   if(panel){panel.classList.remove('minimized');bringPanelToFront(panel);refreshToolPanelBody(panel,route);savePanelLayout(panel,route);rememberPanelOpen(route);return panel;}
   const count=toolPanelLayer.querySelectorAll('.floating-tool-window').length;
   const safeRoute=String(route).replace(/[^a-z0-9_-]/gi,'');const bodyId=`floatingToolBody_${safeRoute}`;
-  toolPanelLayer.insertAdjacentHTML('beforeend',`<section class="floating-tool-window" data-tool-route="${route}"><header class="floating-tool-header"><div><b>${toolTitle(route)}</b><small>工作區保持運作，不重新載入 3D</small></div><div class="floating-tool-actions"><button data-tool-minimize title="最小化">—</button><button data-tool-dock title="靠右/浮動">▣</button><button data-tool-close title="關閉">×</button></div></header><div id="${bodyId}" class="floating-tool-body">${render(route)}</div></section>`);
-  toolPanelLayer.classList.add('open');panel=toolPanelLayer.querySelector(`.floating-tool-window[data-tool-route="${CSS.escape(route)}"]`);restorePanelLayout(panel,route,count);enableFloatingPanelDrag(panel);bringPanelToFront(panel);
+  toolPanelLayer.insertAdjacentHTML('beforeend',`<section class="floating-tool-window" data-tool-route="${route}"><header class="floating-tool-header"><div><b>${toolTitle(route)}</b><small>工作區保持運作，不重新載入 3D</small></div><div class="floating-tool-actions"><button data-tool-minimize title="最小化">—</button><button data-tool-dock title="吸附位置">▣</button><button data-tool-close title="關閉">×</button></div></header><div id="${bodyId}" class="floating-tool-body">${render(route)}</div></section>`);
+  toolPanelLayer.classList.add('open');panel=toolPanelLayer.querySelector(`.floating-tool-window[data-tool-route="${CSS.escape(route)}"]`);restorePanelLayout(panel,route,count);enableFloatingPanelDrag(panel);updateDockedPanelLayout();const dockBtn=panel.querySelector('[data-tool-dock]');if(dockBtn)dockBtn.title='吸附：'+dockLabel(panel.dataset.dockEdge||'');bringPanelToFront(panel);
   const body=panel.querySelector(`#${bodyId}`),prev=root;root=body;bind();root=prev;
   if(route==='diagrams')mountNeuralView();rememberPanelOpen(route);return panel;
 }
@@ -313,10 +359,15 @@ function bindDynamicInspector(){
     sim3d?.applyProjectState?.();
     const slot=document.getElementById('deviceInspectorPanelContent');if(slot)slot.innerHTML=renderDeviceInspector(state.selectedDevice);
   }));
+  const applyTransformFromInspector=async()=>{const id=state.selectedDevice;if(!id)return;const clampPos=v=>Math.max(-100,Math.min(300,Number(v)||0));updateDeviceTransform(id,{x:clampPos(num('propX')),y:clampPos(num('propY')),z:clampPos(num('propZ')),rotationX:num('propRX')*Math.PI/180,rotationY:num('propRY')*Math.PI/180,rotationZ:num('propRZ')*Math.PI/180,floor:val('propFloor',getDeviceTransform(id).floor)});await withSimulator('設備座標即時套用',sim=>sim.applyDeviceTransform(id));};
+  workspaceRoot.querySelectorAll('[data-transform-range]').forEach(range=>range.addEventListener('input',safeHandler('XYZ拉桿',async()=>{const axis=range.dataset.transformRange;const input=document.getElementById(`prop${axis}`);if(input)input.value=Number(range.value).toFixed(2);await applyTransformFromInspector();})));
+  ['X','Y','Z'].forEach(axis=>document.getElementById(`prop${axis}`)?.addEventListener('input',()=>{const r=workspaceRoot.querySelector(`[data-transform-range="${axis}"]`);if(r){const v=Math.max(-100,Math.min(300,Number(document.getElementById(`prop${axis}`)?.value)||0));r.value=String(v);}}));
+  workspaceRoot.querySelectorAll('[data-rotation-preset]').forEach(btn=>btn.addEventListener('click',safeHandler('旋轉快速角度',async()=>{const [axis,degree]=btn.dataset.rotationPreset.split('|');const input=document.getElementById(`propR${axis}`);if(input)input.value=degree;await applyTransformFromInspector();})));
+  document.getElementById('showTransformGizmoSetting')?.addEventListener('change',safeHandler('3D操作線顯示',async e=>{state.editor.showTransformGizmo=!!e.currentTarget.checked;await withSimulator('3D操作線顯示',sim=>sim.setTransformGizmoVisible?.(state.editor.showTransformGizmo));}));
   document.getElementById('applyInspectorProperties')?.addEventListener('click',()=>{
     const id=state.selectedDevice,d=devices.find(x=>x.id===id);if(!d)return;
     d.name=String(val('inspectorName',d.name)).trim()||d.name;
-    updateDeviceTransform(id,{x:num('propX'),y:num('propY'),z:num('propZ'),rotationX:num('propRX')*Math.PI/180,rotationY:num('propRY')*Math.PI/180,rotationZ:num('propRZ')*Math.PI/180,floor:val('propFloor',getDeviceTransform(id).floor)});
+    const clampPos=v=>Math.max(-100,Math.min(300,Number(v)||0));updateDeviceTransform(id,{x:clampPos(num('propX')),y:clampPos(num('propY')),z:clampPos(num('propZ')),rotationX:num('propRX')*Math.PI/180,rotationY:num('propRY')*Math.PI/180,rotationZ:num('propRZ')*Math.PI/180,floor:val('propFloor',getDeviceTransform(id).floor)});
     updateSettings(id,{showLabel:checked('showLabelSetting'),labelOffsetX:num('labelOffsetX'),labelOffsetY:num('labelOffsetY'),labelOffsetZ:num('labelOffsetZ'),positionLocked:checked('lockPositionSetting')});
     withSimulator('設備屬性套用',s=>{s.applyDeviceTransform(id);s.applyDeviceSettings(id);});syncInspector(id,false);
   });
@@ -351,6 +402,10 @@ function bind(){
 
   document.getElementById('toggleModuleSidebar')?.addEventListener('click',()=>{const aside=document.getElementById('moduleLibrarySidebar');showSidebar('module',!!aside?.hidden);});
   document.getElementById('resetToolWindows')?.addEventListener('click',()=>{resetFloatingPanelLayouts();try{localStorage.removeItem(SIDEBAR_LAYOUT_KEY);}catch(_){}applySidebarLayout('module');applySidebarLayout('inspector');});
+  document.getElementById('saveWorkspacePreset')?.addEventListener('click',safeHandler('保存工作區版型',()=>{const name=prompt('工作區版型名稱，例如：接線工作');if(name)captureWorkspacePreset(name);}));
+  document.getElementById('workspacePresetSelect')?.addEventListener('change',safeHandler('套用工作區版型',async e=>{if(e.target.value)await applyWorkspacePreset(e.target.value);}));
+  document.getElementById('deleteWorkspacePreset')?.addEventListener('click',()=>{const sel=document.getElementById('workspacePresetSelect'),name=sel?.value;if(!name)return;if(confirm(`刪除工作區版型「${name}」？`)){const presets=readWorkspacePresets();delete presets[name];writeWorkspacePresets(presets);refreshWorkspacePresetSelect();}});
+  refreshWorkspacePresetSelect(document.getElementById('workspacePresetSelect')?.value||'');
   document.getElementById('toggleInspectorSidebar')?.addEventListener('click',()=>{let aside=document.getElementById('deviceInspectorSidebar');if(!aside&&state.selectedDevice)aside=ensureInspectorShell();if(aside)showSidebar('inspector',!!aside.hidden);});
   root.querySelectorAll('[data-workspace-mode]').forEach(b=>b.addEventListener('click',()=>{const mode=b.dataset.workspaceMode;if(mode==='3d'){state.workspace.mode='3d';closeToolPanel();}else{state.workspace.mode=mode;openToolPanel('sync2d');}}));
   byId('quickScenePreset')?.addEventListener('change',safeHandler('切換場景',async e=>{const p=applyScenePreset(e.target.value);if(!p)return;await withSimulator('切換場景',sim=>sim.applyProjectState());}));
@@ -439,3 +494,5 @@ ensurePersistentWorkspace().then(async()=>{
   if(persisted.length){for(const route of persisted)await openToolPanel(route);return;}
   await go(bootRoute==='simulator'?'simulator':bootRoute);
 });
+
+window.addEventListener('resize',()=>{updateDockedPanelLayout();});

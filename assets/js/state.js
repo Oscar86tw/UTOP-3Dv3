@@ -1,7 +1,7 @@
 export const state = {
   route:'overview',presentation:false,savedAt:new Date(),selectedDevice:null,
   workspace:{mode:'3d',leftOpen:true,rightOpen:false,fullscreen3d:false,inspectorTab:'controls'},
-  editor:{mode:'unified',floorFocus:'1F',snap:true,gridSize:.25},
+  editor:{mode:'unified',floorFocus:'1F',snap:true,gridSize:.25,showTransformGizmo:true},
   simulator:{
     barrier:false,loop:false,signals:true,zones:true,labels:true,follow:false,cameraPreset:0,
     liveCamera:{yaw:.62,pitch:.42,radius:27,target:[0,1,0]},
