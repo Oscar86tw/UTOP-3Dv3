@@ -1,15 +1,25 @@
-# UTOP-3Dv3 V0.1.0 Prototype
+# UTOP-3Dv3 V0.2.0
 
-這是依目前討論內容整理的「可直接開啟/部署」手機優先互動原型。
+## 啟動方式
+本專案是靜態 Web，可部署至 GitHub Pages / Netlify。
+本機測試請使用 HTTP server，不建議直接雙擊 file:// 開啟：
 
-## 使用方式
-1. 直接開啟 `index.html`，或部署到 GitHub Pages / Netlify。
-2. 手機可使用底部選單與觸控按鈕。
-3. 電腦進入「3D模擬」後可使用 W/A/S/D 操作車輛。
-4. 快捷鍵頁可直接按鍵盤設定單鍵或組合鍵。
+```bash
+python -m http.server 8080
+```
+然後開啟 `http://localhost:8080/`。
 
-## 目前定位
-本版本是 UI / 操作 / 架構原型，不是最終 3D Engine。後續會逐步替換成 Three.js/WebGL 真實 3D、設備模組、DI/DO、Wiring、Vehicle Physics、Multi Display Sync 等正式核心。
+## V0.2.0 重點
+- Three.js WebGL 3D 車道模擬
+- W/A/S/D / 方向鍵 / 手機觸控駕駛
+- 地感自動觸發柵欄機
+- ETAG、DI/DO 曲線、感應區
+- Saved Viewpoints / 跟車視角
+- 模組快捷鍵
+- 原 V0.1.0 手機介面、任務、場景、多螢幕、工程與 Debug 保留
 
-## 資料夾規範
-單一資料夾不得超過 90 個檔案；接近上限時應提前拆分成清楚的分類資料夾。
+## 外部依賴
+3D 核心在執行時由 jsDelivr 載入 Three.js 0.180.0。若現場無外網，3D 頁會顯示離線提示；後續正式版可改為本地 vendor 套件。
+
+## 檔案數規範
+任一單一資料夾不得超過 90 個檔案。達到約 80–85 個即應提前拆分。

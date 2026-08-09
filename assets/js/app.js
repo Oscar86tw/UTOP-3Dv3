@@ -1,10 +1,11 @@
 import {categories} from './data.js';
 import {state} from './state.js';
 import {render} from './views.js';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js';
 const root=document.getElementById('viewRoot');const tabs=document.getElementById('mainTabs');const bottom=document.getElementById('bottomNav');
-let capturing=false;
+let capturing=false,sim3d=null;
 function nav(){tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');bottom.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));}
-function go(route){state.route=route;nav();root.innerHTML=render(route);bind();}
+async function go(route){if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;}state.route=route;nav();root.innerHTML=render(route);bind();if(route==='simulator')sim3d=await mountSimulator3D();}
 function bind(){
   root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>alert('已切換視野：'+state.viewpoints[Number(b.dataset.view)])));
   document.getElementById('applyScene')?.addEventListener('click',()=>{state.scene={place:scenePlace.value,time:sceneTime.value,weather:sceneWeather.value,event:sceneEvent.value};sceneSummary.textContent=`目前：${state.scene.place} · ${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`});
@@ -14,15 +15,24 @@ function bind(){
   document.getElementById('validateWire')?.addEventListener('click',()=>{const a=wireFrom.value,b=wireTo.value;wireResult.textContent=a.includes('+12V')&&b.includes('+24V')?'❌ 電壓不相容：12V 不可直接接到24V端子。':a.includes('GND')&&!b.includes('GND')?'⚠️ GND 接到非接地端子，請確認。':'✅ 接線類型相容，可建立連線。'});
   document.getElementById('addSnapshot')?.addEventListener('click',()=>{state.snapshots.push('快照 '+(state.snapshots.length+1));go('project')});
   document.getElementById('playMission')?.addEventListener('click',()=>{const steps=[...document.querySelectorAll('.step')];let i=0;missionState.textContent='任務執行中';const t=setInterval(()=>{steps.forEach((s,n)=>s.classList.toggle('active',n===i));missionState.textContent=steps[i]?.querySelector('b')?.textContent||'完成';i++;if(i>=steps.length){clearInterval(t);setTimeout(()=>{missionState.textContent='✅ 任務完成';steps.forEach(s=>s.classList.remove('active'))},500)}},650)});
-  const car=document.getElementById('car'); if(car){updateCar();root.querySelectorAll('[data-drive]').forEach(b=>b.addEventListener('click',()=>drive(b.dataset.drive)));document.getElementById('toggleSignals')?.addEventListener('click',()=>{state.simulator.signals=!state.simulator.signals;document.getElementById('signalLine').classList.toggle('on',state.simulator.signals)});document.getElementById('resetCar')?.addEventListener('click',()=>{state.simulator.carY=0;state.simulator.carX=0;state.simulator.barrier=false;state.simulator.loop=false;updateCar()});document.getElementById('saveView')?.addEventListener('click',()=>alert('目前視野已記錄（原型示意）'));}
+  root.querySelectorAll('[data-drive]').forEach(b=>{const dir=b.dataset.drive;if(dir==='stop'){b.addEventListener('click',()=>sim3d?.stop());return;}const down=e=>{e.preventDefault();sim3d?.setDrive(dir,true)};const up=e=>{e.preventDefault();sim3d?.setDrive(dir,false)};b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,up));});
+  document.getElementById('toggleSignals')?.addEventListener('click',e=>{const on=sim3d?.toggleSignals();e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線';});
+  document.getElementById('toggleZones')?.addEventListener('click',e=>{const on=sim3d?.toggleZones();e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍';});
+  document.getElementById('followCar')?.addEventListener('click',e=>{state.simulator.follow=!state.simulator.follow;sim3d?.setFollow(state.simulator.follow);e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角';});
+  document.getElementById('next3DView')?.addEventListener('click',()=>sim3d?.nextView());
+  document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());
+  document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
 }
-function drive(dir){if(dir==='forward')state.simulator.carY+=24;if(dir==='back')state.simulator.carY-=24;if(dir==='left')state.simulator.carX-=12;if(dir==='right')state.simulator.carX+=12;if(dir==='stop'){}state.simulator.carY=Math.max(0,Math.min(185,state.simulator.carY));state.simulator.carX=Math.max(-80,Math.min(80,state.simulator.carX));state.simulator.loop=state.simulator.carY>75&&state.simulator.carY<145;state.simulator.barrier=state.simulator.loop;updateCar()}
-function updateCar(){const car=document.getElementById('car');if(!car)return;car.style.transform=`translate(${state.simulator.carX}px,${-state.simulator.carY}px)`;document.getElementById('loopZone')?.classList.toggle('on',state.simulator.loop);document.getElementById('barrierArm')?.classList.toggle('open',state.simulator.barrier);const s=document.getElementById('simStatus');if(s)s.textContent=state.simulator.loop?'LOOP ON · Barrier OPEN':'待命'}
-function safeKey(e){const el=document.activeElement;if(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName))return false;return true}
+function safeKey(){const el=document.activeElement;return !(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName));}
 window.addEventListener('keydown',e=>{
-  if(capturing){e.preventDefault();if(e.key==='Escape'){capturing=false;captureStatus.textContent='已取消。';return}const keys=[];if(e.ctrlKey)keys.push('Ctrl');if(e.altKey)keys.push('Alt');if(e.shiftKey)keys.push('Shift');if(!['Control','Alt','Shift','Meta'].includes(e.key))keys.push(e.key.length===1?e.key.toUpperCase():e.key);const combo=keys.join(' + ');if(!combo)return;const reserved=['F5','F11','F12','Ctrl + R','Ctrl + W','Ctrl + P','Ctrl + F'];if(reserved.includes(combo)){captureStatus.textContent='⚠️ 此按鍵可能與瀏覽器功能衝突，請改用其他按鍵。';capturing=false;return}const conflict=state.hotkeys.find(h=>h.key===combo);if(conflict){captureStatus.textContent=`⚠️ ${combo} 已設定給 ${conflict.target} ${conflict.action}`;capturing=false;return}const a=hotkeyAction.value.split(' ');state.hotkeys.push({key:combo,target:a.slice(0,-1).join(' '),action:a.at(-1)});capturing=false;go('hotkeys');return}
-  if(!safeKey(e))return;if(state.route==='simulator'){const map={w:'forward',s:'back',a:'left',d:'right'};const d=map[e.key.toLowerCase()];if(d){e.preventDefault();drive(d)}}
-  const combo=(e.shiftKey?'Shift + ':'')+(e.key.length===1?e.key.toUpperCase():e.key);if(combo==='G'){state.simulator.barrier=true}else if(combo==='Shift + G'){state.simulator.barrier=false}else if(combo==='L'){state.simulator.loop=!state.simulator.loop}else if(combo==='V'){alert('切換到下一個記錄視野')}
+  if(capturing){e.preventDefault();if(e.key==='Escape'){capturing=false;captureStatus.textContent='已取消。';return}if(['Backspace','Delete'].includes(e.key)){capturing=false;captureStatus.textContent='已清除快捷鍵設定。';return}const keys=[];if(e.ctrlKey)keys.push('Ctrl');if(e.altKey)keys.push('Alt');if(e.shiftKey)keys.push('Shift');if(!['Control','Alt','Shift','Meta'].includes(e.key))keys.push(e.key.length===1?e.key.toUpperCase():e.key);const combo=keys.join(' + ');if(!combo)return;const reserved=['F5','F11','F12','Ctrl + R','Ctrl + W','Ctrl + P','Ctrl + F'];if(reserved.includes(combo)){captureStatus.textContent='⚠️ 此按鍵可能與瀏覽器功能衝突，請改用其他按鍵。';capturing=false;return}const conflict=state.hotkeys.find(h=>h.key===combo);if(conflict){captureStatus.textContent=`⚠️ ${combo} 已設定給 ${conflict.target} ${conflict.action}`;capturing=false;return}const a=hotkeyAction.value.split(' ');state.hotkeys.push({key:combo,target:a.slice(0,-1).join(' '),action:a.at(-1)});capturing=false;go('hotkeys');return}
+  if(!safeKey())return;
+  const combo=(e.shiftKey?'Shift + ':'')+(e.key.length===1?e.key.toUpperCase():e.key);
+  if(combo==='G'){sim3d?.setBarrier(true);state.simulator.barrier=true}
+  else if(combo==='Shift + G'){sim3d?.setBarrier(false);state.simulator.barrier=false}
+  else if(combo==='L'){sim3d?.toggleLoop()}
+  else if(combo==='E'){sim3d?.triggerEtag()}
+  else if(combo==='V'){sim3d?.nextView()}
 });
 
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)go(b.dataset.route)});

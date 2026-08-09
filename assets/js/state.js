@@ -1,6 +1,14 @@
 export const state = {
   route:'overview', presentation:false, savedAt:new Date(),
-  simulator:{carY:0,carX:0,barrier:false,loop:false,signals:false},
+  simulator:{
+    barrier:false,loop:false,signals:true,zones:true,follow:false,
+    cameraPreset:0,
+    viewpoints:[
+      {name:'入口車道全景',yaw:0.62,pitch:0.42,radius:27,target:[0,1,0]},
+      {name:'地感俯視',yaw:0.02,pitch:1.17,radius:22,target:[0,0,1]},
+      {name:'ETAG近景',yaw:-0.86,pitch:0.34,radius:12,target:[-3.8,1.6,5.5]}
+    ]
+  },
   scene:{place:'社區入口',time:'白天',weather:'晴天',event:'正常進場'},
   viewpoints:['入口車道全景','B1 地感俯視','ETAG 近景'],
   hotkeys:[

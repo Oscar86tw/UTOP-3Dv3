@@ -1,8 +1,14 @@
 {
-  "product": "UTOP-3Dv3",
-  "version": "0.1.0-prototype",
-  "releaseDate": "2026-08-09",
-  "type": "mobile-interactive-prototype",
-  "schemaVersion": "3.0-preview",
-  "notes": "First deployable prototype created from planning discussions."
+  "app": "UTOP-3Dv3",
+  "version": "0.2.0",
+  "channel": "prototype-3d-core",
+  "date": "2026-08-09",
+  "schemaVersion": "3.0",
+  "engines": {
+    "3dCore": "0.2.0",
+    "vehicleInput": "0.2.0",
+    "hotkey": "0.1.1",
+    "multiDisplay": "0.1.0"
+  },
+  "notes": "Three.js WebGL 3D core introduced with vehicle, barrier, loop, ETAG, camera viewpoints and signal visualization."
 }
