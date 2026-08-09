@@ -125,3 +125,12 @@ body[data-route="simulator"] .three-stage{height:calc(100vh - 270px);min-height:
 .debug-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.debug-row{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--border);border-radius:12px;padding:11px;background:var(--panel2)}.debug-row>span{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;font-weight:700}.debug-row.ok>span{background:#dcfce7;color:#166534}.debug-row.bad>span{background:#fee2e2;color:#991b1b}.debug-row b,.debug-row small{display:block}.debug-row small{color:var(--muted);margin-top:3px}
 @media(max-width:800px){.scene-preset-grid,.road-tool-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.debug-grid{grid-template-columns:1fr}.neural-canvas{height:420px}}
 @media(max-width:480px){.scene-preset-grid,.road-tool-grid{grid-template-columns:1fr}.neural-canvas{height:360px}}
+
+/* V1.3.0 - 3D selected-device direct control */
+.quick-3d-card{margin:8px 10px 10px;border:1px solid var(--line);background:rgba(255,255,255,.94);border-radius:16px;padding:10px;box-shadow:0 8px 22px rgba(0,0,0,.08)}
+.quick-3d-head{display:flex;align-items:center;gap:10px;min-width:0}
+.quick-3d-head img{width:46px;height:46px;object-fit:contain;border-radius:10px;background:#f6f3ec;border:1px solid var(--line);padding:4px}
+.quick-3d-head>div{display:grid;gap:2px;min-width:0;flex:1}.quick-3d-head b,.quick-3d-head small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.quick-3d-head small{color:var(--muted)}
+.quick-3d-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}.quick-3d-actions button{min-width:86px;display:grid;gap:2px}.quick-3d-actions small{font-size:10px;color:var(--muted)}
+.workspace-fullscreen .quick-3d-card{max-width:920px;margin-left:auto;margin-right:auto}
+@media(max-width:720px){.quick-3d-head{align-items:flex-start}.quick-3d-head img{width:42px;height:42px}.quick-3d-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.quick-3d-actions button{min-width:0;width:100%}}

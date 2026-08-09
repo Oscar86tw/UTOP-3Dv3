@@ -1,14 +1,12 @@
-# UTOP-3Dv3 V1.2.1 Real Device Visual Hotfix
+# UTOP-3Dv3 V1.3.0 Real Device Model & Direct Control
 
-本版專門修正 3D 模組外觀。
+本版把 29 種模組的正式 3D 外觀拆成獨立設備建模核心，不再使用統一 Generic 方塊。
 
-## 修正重點
-- 不再允許所有設備在 Local 3D 備援核心裡顯示成統一方塊。
-- Local 3D 會優先直接載入每個模組自己的本地 SVG 圖片；圖片尚未載入時，也會依設備類型畫不同輪廓。
-- 正式 Three.js 核心持續使用各類設備專屬 3D 幾何，而不是共用 BoxGeometry。
-- SOYAL AR-661UG UHF 讀頭改為 228 × 228 × 52 mm 比例的扁平方形天線面板。
-- Garrison LK-1045 紅綠燈倒數顯示器改為 487 × 270 × 32 mm 比例的薄型面板。
-- 網路攝影機維持半球型 3D 外觀。
-
-## 原則
-模組庫圖片、設備名稱、實際設備比例與 3D 外觀必須一致；若沒有專屬模型，不得直接退回統一正方形方塊。
+## 重點
+- 29 種模組都有自己的 3D 幾何外觀。
+- 新增 `device-model-factory.js`，設備模型與 3D 場景核心分離。
+- UHF、紅外線、LPR、攝影機、控制器、PoE、Relay、Timer、燈箱、鐵捲門等皆使用不同結構。
+- 未定義的新類型只顯示特殊多面體提示，不會用正式方塊假裝設備。
+- 點 3D 設備後，3D 下方直接顯示該設備自己的快速控制列。
+- 快速控制與右側設備設定、Runtime、快捷鍵使用同一份資料。
+- 保留本地 Three.js r180、Connection、Signal Trace、Skill Tree、道路標線、場景庫與 Local 3D 備援。

@@ -4,7 +4,8 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.2.1';
+import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.3.0';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.3.0';
 
 let active=null;
 const THREE_SOURCES=[
@@ -126,69 +127,7 @@ function createSimulator(THREE,host,callbacks){
   function markSelectable(root,id){root.userData.deviceId=id;root.traverse(n=>{n.userData.deviceId=id;});selectables.push(root);deviceRoots[id]=root;return root;}
   function basicPole(colorMat){const pole=new THREE.Mesh(new THREE.BoxGeometry(.18,3,.18),mats.dark);pole.position.y=1.5;const head=new THREE.Mesh(new THREE.BoxGeometry(.85,.5,.65),colorMat||mats.blue);head.position.set(0,3,.05);const g=new THREE.Group();g.add(pole,head);return g;}
   function createDeviceRoot(device){
-    const type=(device.type||'').toLowerCase();
-    const root=new THREE.Group();
-    const addBox=(w,h,d,material,x=0,y=h/2,z=0)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;root.add(m);return m;};
-    const addPole=(h=2.5,x=0,z=0)=>addBox(.12,h,.12,mats.dark,x,h/2,z);
-    if(type==='barrier'){
-      const cabinet=addBox(.34,1.03,.28,mats.orange,0,.515,0);root.userData.body=cabinet;
-      const door=addBox(.25,.55,.015,mats.dark,0,.46,.148);root.userData.serviceDoor=door;
-      const pivot=new THREE.Group();pivot.position.set(-.14,.88,0);const arm=new THREE.Mesh(new THREE.BoxGeometry(2.5,.10,.10),mats.white);arm.position.x=-1.23;arm.castShadow=true;pivot.add(arm);root.add(pivot);root.userData.barrierPivot=pivot;root.userData.barrierArm=arm;
-    }else if(type==='uhf'){
-      addPole(2.35);const reader=addBox(.228,.228,.052,mats.white,0,2.30,.036);const face=addBox(.190,.190,.008,mats.orange,0,2.30,.066);root.userData.reader=reader;root.userData.readerFace=face;
-      const zone=new THREE.Mesh(new THREE.ConeGeometry(2.5,5.5,28,1,true),new THREE.MeshBasicMaterial({color:0xffa51d,transparent:true,opacity:.13,side:THREE.DoubleSide,depthWrite:false}));zone.rotation.x=Math.PI/2;zone.position.set(0,2.2,-2.7);root.add(zone);root.userData.zone=zone;
-    }else if(type==='loop'){
-      const zoneMat=new THREE.MeshBasicMaterial({color:0xf3c53f,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false});const zone=new THREE.Mesh(new THREE.BoxGeometry(2,.035,1),zoneMat);zone.position.y=.08;root.add(zone);const edges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2,.04,1)),new THREE.LineBasicMaterial({color:0xffcf39}));edges.position.y=.08;root.add(edges);root.userData.zone=zone;root.userData.zoneMat=zoneMat;root.userData.zoneEdges=edges;
-    }else if(type==='loopdetector'){
-      const body=addBox(.65,.85,.35,mats.dark);const lamp=addBox(.10,.10,.02,mats.green,0,.66,.19);root.userData.statusLamp=lamp;
-    }else if(type==='infrared'){
-      const tx=addBox(.12,.72,.12,mats.dark,-1.1,.36,0),rx=addBox(.12,.72,.12,mats.dark,1.1,.36,0);const beam=new THREE.Mesh(new THREE.CylinderGeometry(.012,.012,2.2,10),new THREE.MeshBasicMaterial({color:0xff3b30,transparent:true,opacity:.48}));beam.rotation.z=Math.PI/2;beam.position.y=.42;root.add(beam);root.userData.beam=beam;root.userData.tx=tx;root.userData.rx=rx;
-    }else if(type==='radar'){
-      addPole(1.8);const panel=addBox(.34,.24,.10,mats.blue,0,1.72,.04);root.userData.radarPanel=panel;
-    }else if(type==='lpr'){
-      addPole(2.2);const cameraBox=addBox(.55,.25,.32,mats.blue,0,2.12,0);const lens=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.12,18),mats.dark);lens.rotation.x=Math.PI/2;lens.position.set(0,2.12,.20);root.add(lens);root.userData.cameraBody=cameraBox;
-    }else if(type==='cardreader'){
-      addBox(.22,1.05,.22,mats.dark);const reader=addBox(.17,.26,.05,mats.gray,0,.82,.135);const lamp=addBox(.05,.04,.015,mats.green,0,.90,.17);root.userData.statusLamp=lamp;root.userData.reader=reader;
-    }else if(type==='intercom'){
-      addBox(.28,1.15,.28,mats.dark);const panel=addBox(.22,.38,.05,mats.gray,0,.84,.17);const call=addBox(.05,.05,.015,mats.red,0,.75,.205);root.userData.statusLamp=call;root.userData.panel=panel;
-    }else if(type==='beacon'){
-      addPole(1.2);const base=new THREE.Mesh(new THREE.CylinderGeometry(.14,.16,.10,20),mats.dark);base.position.y=1.20;root.add(base);const lamp=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,.26,20),mats.orange.clone());lamp.position.y=1.38;root.add(lamp);root.userData.beaconLamp=lamp;
-    }else if(type==='estop'){
-      addBox(.22,.55,.22,mats.gray);const mushroom=new THREE.Mesh(new THREE.CylinderGeometry(.11,.15,.12,20),mats.red);mushroom.position.y=.62;root.add(mushroom);root.userData.estop=mushroom;
-    }else if(type==='laneindicator'){
-      addPole(2.0);const panel=addBox(1.1,.46,.12,mats.dark,0,1.92,0);const light=addBox(.72,.10,.02,mats.green,0,1.92,.071);root.userData.indicatorLight=light;root.userData.panel=panel;
-    }else if(type==='parkingdisplay'){
-      addPole(2.2);const panel=addBox(1.45,.72,.14,mats.dark,0,2.08,0);const display=addBox(.96,.32,.02,mats.green,0,2.08,.081);root.userData.displayPanel=display;root.userData.panel=panel;
-    }else if(type==='bollard'){
-      const cyl=new THREE.Mesh(new THREE.CylinderGeometry(.11,.11,.6,22),mats.gray);cyl.position.y=.30;cyl.castShadow=true;root.add(cyl);root.userData.bollard=cyl;
-    }else if(type==='heightbar'){
-      addPole(2.4,-1.7,0);addPole(2.4,1.7,0);const bar=addBox(3.55,.16,.16,mats.orange,0,2.30,0);root.userData.heightBar=bar;
-    }else if(type==='accesscontroller'){
-      const body=addBox(1.10,.70,.15,mats.dark,0,.35,0);const door=addBox(.96,.58,.02,mats.gray,0,.35,.086);const lamp=addBox(.10,.04,.015,mats.green,.30,.56,.10);root.userData.statusLamp=lamp;root.userData.body=body;root.userData.panel=door;
-    }else if(type==='ipcamera'){
-      addPole(2.5);const base=new THREE.Mesh(new THREE.CylinderGeometry(.22,.22,.10,24),mats.white);base.position.y=2.45;root.add(base);const dome=new THREE.Mesh(new THREE.SphereGeometry(.20,24,16,0,Math.PI*2,0,Math.PI/2),mats.dark);dome.rotation.x=Math.PI;dome.position.y=2.43;root.add(dome);root.userData.cameraBody=dome;
-    }else if(type==='poeswitch'){
-      const body=addBox(1.30,.32,.85,mats.dark);for(let i=0;i<8;i++){const port=addBox(.09,.07,.02,mats.green,-.42+i*.12,.18,.436);port.castShadow=false;}root.userData.body=body;
-    }else if(type==='relay'){
-      const body=addBox(.34,.45,.28,mats.gray);const light=addBox(.08,.06,.02,mats.green,0,.36,.151);root.userData.statusLamp=light;
-    }else if(type==='powersupply'){
-      const body=addBox(.85,.32,.52,mats.gray);for(let i=0;i<6;i++)addBox(.06,.05,.02,mats.dark,-.25+i*.10,.19,.271);root.userData.body=body;
-    }else if(['delaytimer','poweroffdelay','powerondelay'].includes(type)){
-      const body=addBox(.42,.62,.38,mats.dark);const dial=new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.025,20),mats.orange);dial.rotation.x=Math.PI/2;dial.position.set(0,.38,.205);root.add(dial);const lamp=addBox(.06,.04,.02,mats.green,0,.51,.205);root.userData.statusLamp=lamp;
-    }else if(type==='signal2way'||type==='signal3way'){
-      const body=addBox(.90,.65,.28,mats.dark);const count=type==='signal3way'?3:2;for(let i=0;i<count;i++){const lamp=new THREE.Mesh(new THREE.SphereGeometry(.055,14,10),i===0?mats.green:mats.red);lamp.position.set((i-(count-1)/2)*.18,.44,.16);root.add(lamp);}root.userData.body=body;
-    }else if(type==='timer'){
-      const body=addBox(.75,.55,.22,mats.dark);const screen=addBox(.48,.24,.02,mats.red,0,.32,.121);root.userData.displayPanel=screen;
-    }else if(type==='ledpanel'){
-      addPole(2.0);const panel=addBox(.487,.270,.032,mats.dark,0,2.00,0);const red=new THREE.Mesh(new THREE.SphereGeometry(.040,18,12),mats.red.clone());red.position.set(-.165,2.045,.021);const green=new THREE.Mesh(new THREE.SphereGeometry(.040,18,12),mats.green.clone());green.position.set(-.165,1.955,.021);root.add(red,green);const display=addBox(.210,.150,.010,mats.green,.095,2.00,.021);root.userData.trafficRed=red;root.userData.trafficGreen=green;root.userData.displayPanel=display;root.userData.body=panel;
-    }else if(type==='traffic'){
-      addPole(2.2);const box=addBox(.48,.82,.30,mats.dark,0,1.95,0);const red=new THREE.Mesh(new THREE.SphereGeometry(.11,18,12),mats.red.clone());red.position.set(0,2.16,.17);const green=new THREE.Mesh(new THREE.SphereGeometry(.11,18,12),mats.green.clone());green.position.set(0,1.78,.17);root.add(red,green);root.userData.trafficRed=red;root.userData.trafficGreen=green;root.userData.box=box;
-    }else if(type==='shutter'){
-      const left=addBox(.16,2.7,.18,mats.dark,-1.45,1.35,0),right=addBox(.16,2.7,.18,mats.dark,1.45,1.35,0),top=addBox(3.05,.18,.18,mats.dark,0,2.64,0);const door=addBox(2.75,2.45,.08,mats.gray,0,1.26,.02);root.userData.shutterDoor=door;root.userData.frame=[left,right,top];
-    }else{
-      const body=addBox(.7,.7,.7,mats.blue);root.userData.body=body;
-    }
-    root.userData.layer='devices';root.userData.type=type;
+    const root=createRealisticDeviceModel(THREE,mats,device);
     return markSelectable(root,device.id);
   }
   function ensureDevices(){devices.forEach(d=>{if(!deviceRoots[d.id])createDeviceRoot(d);syncTransform(d.id);applySettings(d.id);});Object.keys(deviceRoots).forEach(id=>{if(!devices.find(d=>d.id===id)){const root=deviceRoots[id];root.parent?.remove(root);delete deviceRoots[id];}});refreshSignals();}
@@ -322,5 +261,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.2.1 Real Device Visual 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.3.0 Real Device Model & Direct Control 已啟動');return controllerApi;
 }

@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector} from './views.js?v=1.2.1';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.2.1';
+import {render,renderDeviceInspector,renderQuick3DControls} from './views.js?v=1.3.0';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.3.0';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -40,7 +40,9 @@ function ensureInspectorShell(){
 function syncInspector(id,open=true){
   const d=devices.find(x=>x.id===id);if(!d)return;state.selectedDevice=id;selectDevice(id);
   if(open)ensureInspectorShell();
-  const slot=document.getElementById('deviceInspectorPanelContent');if(slot){slot.innerHTML=renderDeviceInspector(id);bindDynamicInspector();}
+  const slot=document.getElementById('deviceInspectorPanelContent');if(slot)slot.innerHTML=renderDeviceInspector(id);
+  const quick=document.getElementById('quick3DControlSlot');if(quick)quick.innerHTML=renderQuick3DControls(id);
+  bindDynamicInspector();
   const badge=root.querySelector('.selected-badge');if(badge)badge.textContent=d.name;
   const sel=document.getElementById('selectedState');if(sel)sel.textContent=d.name;
 }
@@ -67,6 +69,7 @@ function bindDynamicInspector(){
   document.getElementById('applyModuleSettings')?.addEventListener('click',()=>{
     const id=state.selectedDevice,patch={};root.querySelectorAll('[data-setting-param]').forEach(el=>patch[el.dataset.settingParam]=Number(el.value));updateSettings(id,patch);sim3d?.applyDeviceSettings(id);syncInspector(id,false);
   });
+  root.querySelectorAll('[data-open-selected-inspector]').forEach(b=>b.addEventListener('click',()=>{state.workspace.inspectorTab='controls';syncInspector(b.dataset.openSelectedInspector,true);}));
   root.querySelectorAll('[data-device-action]').forEach(b=>b.addEventListener('click',()=>{const [id,action]=b.dataset.deviceAction.split('|');sim3d?.executeDeviceAction(id,action);setTimeout(()=>syncInspector(id,false),80);}));
 }
 function bind(){
