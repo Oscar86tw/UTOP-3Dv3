@@ -1,9 +1,10 @@
 {
   "name":"UTOP-3Dv3",
-  "version":"1.2.0",
+  "version":"1.2.1",
   "schema":"4.2",
-  "title":"Scene Road Neural Debug",
+  "title":"Real Device Visual Hotfix",
   "updated_at":"2026-08-09",
   "three":"local r180",
-  "reference":"UTOP V5.1.3.27"
+  "reference":"UTOP V5.1.3.27",
+  "visual_rule":"module image / real equipment proportions / 3D model must stay consistent"
 }

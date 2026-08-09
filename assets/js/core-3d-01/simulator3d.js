@@ -4,7 +4,7 @@ import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} fro
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.2.0';
+import {createLocal3D} from '../core-local3d-01/local3d.js?v=1.2.1';
 
 let active=null;
 const THREE_SOURCES=[
@@ -135,7 +135,7 @@ function createSimulator(THREE,host,callbacks){
       const door=addBox(.25,.55,.015,mats.dark,0,.46,.148);root.userData.serviceDoor=door;
       const pivot=new THREE.Group();pivot.position.set(-.14,.88,0);const arm=new THREE.Mesh(new THREE.BoxGeometry(2.5,.10,.10),mats.white);arm.position.x=-1.23;arm.castShadow=true;pivot.add(arm);root.add(pivot);root.userData.barrierPivot=pivot;root.userData.barrierArm=arm;
     }else if(type==='uhf'){
-      addPole(2.35);const reader=addBox(.23,.23,.06,mats.orange,0,2.30,.04);root.userData.reader=reader;
+      addPole(2.35);const reader=addBox(.228,.228,.052,mats.white,0,2.30,.036);const face=addBox(.190,.190,.008,mats.orange,0,2.30,.066);root.userData.reader=reader;root.userData.readerFace=face;
       const zone=new THREE.Mesh(new THREE.ConeGeometry(2.5,5.5,28,1,true),new THREE.MeshBasicMaterial({color:0xffa51d,transparent:true,opacity:.13,side:THREE.DoubleSide,depthWrite:false}));zone.rotation.x=Math.PI/2;zone.position.set(0,2.2,-2.7);root.add(zone);root.userData.zone=zone;
     }else if(type==='loop'){
       const zoneMat=new THREE.MeshBasicMaterial({color:0xf3c53f,transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false});const zone=new THREE.Mesh(new THREE.BoxGeometry(2,.035,1),zoneMat);zone.position.y=.08;root.add(zone);const edges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2,.04,1)),new THREE.LineBasicMaterial({color:0xffcf39}));edges.position.y=.08;root.add(edges);root.userData.zone=zone;root.userData.zoneMat=zoneMat;root.userData.zoneEdges=edges;
@@ -180,7 +180,7 @@ function createSimulator(THREE,host,callbacks){
     }else if(type==='timer'){
       const body=addBox(.75,.55,.22,mats.dark);const screen=addBox(.48,.24,.02,mats.red,0,.32,.121);root.userData.displayPanel=screen;
     }else if(type==='ledpanel'){
-      addPole(2.0);const panel=addBox(1.25,.68,.13,mats.dark,0,1.90,0);const red=new THREE.Mesh(new THREE.SphereGeometry(.09,18,12),mats.red.clone());red.position.set(-.34,2.00,.08);const green=new THREE.Mesh(new THREE.SphereGeometry(.09,18,12),mats.green.clone());green.position.set(-.34,1.78,.08);root.add(red,green);const display=addBox(.55,.30,.02,mats.green,.24,1.90,.076);root.userData.trafficRed=red;root.userData.trafficGreen=green;root.userData.displayPanel=display;
+      addPole(2.0);const panel=addBox(.487,.270,.032,mats.dark,0,2.00,0);const red=new THREE.Mesh(new THREE.SphereGeometry(.040,18,12),mats.red.clone());red.position.set(-.165,2.045,.021);const green=new THREE.Mesh(new THREE.SphereGeometry(.040,18,12),mats.green.clone());green.position.set(-.165,1.955,.021);root.add(red,green);const display=addBox(.210,.150,.010,mats.green,.095,2.00,.021);root.userData.trafficRed=red;root.userData.trafficGreen=green;root.userData.displayPanel=display;root.userData.body=panel;
     }else if(type==='traffic'){
       addPole(2.2);const box=addBox(.48,.82,.30,mats.dark,0,1.95,0);const red=new THREE.Mesh(new THREE.SphereGeometry(.11,18,12),mats.red.clone());red.position.set(0,2.16,.17);const green=new THREE.Mesh(new THREE.SphereGeometry(.11,18,12),mats.green.clone());green.position.set(0,1.78,.17);root.add(red,green);root.userData.trafficRed=red;root.userData.trafficGreen=green;root.userData.box=box;
     }else if(type==='shutter'){
@@ -322,5 +322,5 @@ function createSimulator(THREE,host,callbacks){
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.2.0 Scene / Road / Neural 已啟動');return controllerApi;
+    const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V1.2.1 Real Device Visual 已啟動');return controllerApi;
 }

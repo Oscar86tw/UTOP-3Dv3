@@ -35,7 +35,7 @@ export function removeModule(id){
   state.connections=state.connections.filter(c=>c.fromDevice!==id&&c.toDevice!==id);
   if(state.selectedDevice===id)state.selectedDevice=devices[0]?.id||null;return true;
 }
-export function getSettings(id){const dev=devices.find(d=>d.id===id);if(!dev)return {};return state.deviceSettings[id]||(state.deviceSettings[id]=defaultSettings(dev.type));}
+export function getSettings(id){const dev=devices.find(d=>d.id===id);if(!dev)return {};const defaults=defaultSettings(dev.type);const current=state.deviceSettings[id]||(state.deviceSettings[id]={});for(const [k,v] of Object.entries(defaults))if(current[k]===undefined)current[k]=v;return current;}
 export function updateSettings(id,patch){Object.assign(getSettings(id),patch);return getSettings(id);}
 export function getRuntime(id){return state.deviceRuntime[id]||(state.deviceRuntime[id]={status:'READY',lastAction:'',active:false});}
 export function updateRuntime(id,patch){Object.assign(getRuntime(id),patch);return getRuntime(id);}

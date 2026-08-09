@@ -1,13 +1,9 @@
-# V1.2.0
+# V1.2.1
 
-## 新增
-- 場景庫 Situation Presets，場景可直接套用到 3D
-- 道路標線核心與 3D 幾何顯示
-- 3D針球狀接線視圖，由現有 Connection 自動產生
-- Debug Center，可檢查設備、座標、設定、端子連線、快捷鍵衝突、本地 Three.js
-
-## 延續
-- 本地 Three.js r180
-- V5 Workspace 操作方式
-- 模組圖片、控制、DI/DO、獨立快捷鍵
-- Connection / Signal Trace / Skill Tree
+## Real Device Visual Hotfix
+- 修正 Local 3D 備援核心把所有模組畫成圓角方塊的問題。
+- Local 3D 改成使用模組自己的 SVG 圖片與設備輪廓。
+- Three.js UHF 讀頭改成 SOYAL AR-661UG 實際比例。
+- Three.js 紅綠燈倒數面板改成 Garrison LK-1045 實際比例。
+- module-manager 自動補齊新增的實體尺寸參數，舊專案資料不需要重建。
+- 更新快取版本到 v1.2.1。

@@ -2,6 +2,7 @@ import {state} from '../state.js';
 import {devices} from '../data.js';
 import {getDeviceTransform,updateDeviceTransform,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getRuntime,updateRuntime,controlsFor} from '../core-module-01/module-manager.js';
+import {definitionForType} from '../core-module-01/module-definitions.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
 
 function labelFor(d){return d?.name||d?.id||'';}
@@ -15,6 +16,48 @@ function colorFor(type=''){
   if(t.includes('traffic')||t.includes('indicator'))return '#16a34a';
   if(t.includes('shutter'))return '#64748b';
   return '#7c3aed';
+}
+
+const moduleImageCache=new Map();
+function imageForDevice(d){
+  const def=definitionForType(d?.type||'');
+  const src=def?.image;
+  if(!src)return null;
+  if(moduleImageCache.has(src))return moduleImageCache.get(src);
+  const img=new Image();img.decoding='async';img.src=src;moduleImageCache.set(src,img);return img;
+}
+function silhouetteSize(d,dpr=1){
+  const t=(d?.type||'').toLowerCase();
+  if(t==='barrier')return {w:62*dpr,h:52*dpr};
+  if(t==='loop')return {w:70*dpr,h:35*dpr};
+  if(t==='heightbar'||t==='shutter')return {w:68*dpr,h:58*dpr};
+  if(t==='traffic'||t==='ledpanel'||t==='laneindicator'||t==='parkingdisplay')return {w:54*dpr,h:50*dpr};
+  if(t==='uhf'||t==='radar'||t==='lpr'||t==='ipcamera')return {w:46*dpr,h:52*dpr};
+  if(t==='infrared')return {w:62*dpr,h:44*dpr};
+  return {w:44*dpr,h:48*dpr};
+}
+function drawFallbackSilhouette(ctx,d,p,onTrace,selected,dpr){
+  const t=(d?.type||'').toLowerCase(),s=silhouetteSize(d,dpr);ctx.save();ctx.globalAlpha=onTrace?1:.18;ctx.strokeStyle=selected?'#111827':'#f8fafc';ctx.fillStyle=colorFor(t);ctx.lineWidth=(selected?4:2)*dpr;
+  if(t==='barrier'){
+    ctx.fillRect(p.x-22*dpr,p.y-10*dpr,14*dpr,34*dpr);ctx.strokeRect(p.x-22*dpr,p.y-10*dpr,14*dpr,34*dpr);ctx.fillRect(p.x-8*dpr,p.y-3*dpr,50*dpr,6*dpr);ctx.strokeRect(p.x-8*dpr,p.y-3*dpr,50*dpr,6*dpr);
+  }else if(t==='uhf'){
+    ctx.fillRect(p.x-15*dpr,p.y-28*dpr,30*dpr,30*dpr);ctx.strokeRect(p.x-15*dpr,p.y-28*dpr,30*dpr,30*dpr);ctx.fillRect(p.x-2*dpr,p.y+2*dpr,4*dpr,28*dpr);
+  }else if(t==='ipcamera'||t==='lpr'){
+    ctx.beginPath();ctx.arc(p.x,p.y-12*dpr,15*dpr,Math.PI,0);ctx.lineTo(p.x+15*dpr,p.y-4*dpr);ctx.lineTo(p.x-15*dpr,p.y-4*dpr);ctx.closePath();ctx.fill();ctx.stroke();ctx.fillRect(p.x-2*dpr,p.y-4*dpr,4*dpr,28*dpr);
+  }else if(t==='loop'){
+    ctx.strokeStyle='#facc15';ctx.lineWidth=4*dpr;ctx.strokeRect(p.x-30*dpr,p.y-14*dpr,60*dpr,28*dpr);
+  }else if(t==='infrared'){
+    ctx.fillRect(p.x-28*dpr,p.y-28*dpr,5*dpr,36*dpr);ctx.fillRect(p.x+23*dpr,p.y-28*dpr,5*dpr,36*dpr);ctx.strokeStyle='#ef4444';ctx.lineWidth=2*dpr;ctx.beginPath();ctx.moveTo(p.x-23*dpr,p.y-14*dpr);ctx.lineTo(p.x+23*dpr,p.y-14*dpr);ctx.stroke();
+  }else if(t==='traffic'||t==='ledpanel'){
+    ctx.fillRect(p.x-19*dpr,p.y-30*dpr,38*dpr,24*dpr);ctx.strokeRect(p.x-19*dpr,p.y-30*dpr,38*dpr,24*dpr);ctx.fillRect(p.x-2*dpr,p.y-6*dpr,4*dpr,30*dpr);
+  }else if(t==='shutter'){
+    ctx.strokeRect(p.x-28*dpr,p.y-30*dpr,56*dpr,48*dpr);for(let y=-24;y<14;y+=7){ctx.beginPath();ctx.moveTo(p.x-25*dpr,p.y+y*dpr);ctx.lineTo(p.x+25*dpr,p.y+y*dpr);ctx.stroke();}
+  }else if(t==='heightbar'){
+    ctx.fillRect(p.x-27*dpr,p.y-25*dpr,4*dpr,42*dpr);ctx.fillRect(p.x+23*dpr,p.y-25*dpr,4*dpr,42*dpr);ctx.fillRect(p.x-27*dpr,p.y-27*dpr,54*dpr,5*dpr);
+  }else{
+    ctx.beginPath();ctx.roundRect?.(p.x-s.w/2,p.y-s.h*.62,s.w,s.h,6*dpr);if(ctx.roundRect){ctx.fill();ctx.stroke();}else{ctx.fillRect(p.x-s.w/2,p.y-s.h*.62,s.w,s.h);ctx.strokeRect(p.x-s.w/2,p.y-s.h*.62,s.w,s.h);}
+  }
+  ctx.restore();
 }
 export function createLocal3D(host,callbacks={}){
   host.innerHTML='';
@@ -36,7 +79,7 @@ export function createLocal3D(host,callbacks={}){
     (state.roadMarkings||[]).filter(m=>m.visible!==false).forEach(m=>{const p=project(Number(m.x)||0,.04,Number(m.z)||0);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(-(Number(m.rotation)||0)*Math.PI/180);ctx.strokeStyle=String(m.kind).includes('double')||String(m.kind).includes('hatch')?'#f4c542':'#ffffff';ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=Math.max(2,(Number(m.width)||.1)*14)*(devicePixelRatio||1);const len=Math.max(8,(Number(m.length)||1)*18)*(devicePixelRatio||1);if(m.kind==='zebra'){for(let i=-3;i<=3;i++)ctx.fillRect(-30*(devicePixelRatio||1),i*7*(devicePixelRatio||1),60*(devicePixelRatio||1),3*(devicePixelRatio||1));}else if(m.kind==='dash'){ctx.setLineDash([10,10]);ctx.beginPath();ctx.moveTo(0,-len/2);ctx.lineTo(0,len/2);ctx.stroke();ctx.setLineDash([]);}else{ctx.beginPath();ctx.moveTo(0,-len/2);ctx.lineTo(0,len/2);ctx.stroke();}ctx.restore();});
   }
   function drawConnection(c,trace){const a=getDeviceTransform(c.fromDevice),b=getDeviceTransform(c.toDevice);if(!a||!b)return;const p=project(a.x,a.y+1,a.z),q=project(b.x,b.y+1,b.z);const active=!state.signalTrace?.enabled||trace.connections.includes(c.id);ctx.strokeStyle=active?(c.type==='DI'?'#38bdf8':c.type==='DO'?'#fb923c':'#a78bfa'):'rgba(100,116,139,.14)';ctx.lineWidth=(active?3:1)*(devicePixelRatio||1);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.quadraticCurveTo((p.x+q.x)/2,(p.y+q.y)/2-45*(devicePixelRatio||1),q.x,q.y);ctx.stroke();}
-  function drawDevice(d,trace){const t=getDeviceTransform(d.id);if(!t)return;const p=project(t.x,t.y,t.z);const onTrace=!state.signalTrace?.enabled||trace.devices.includes(d.id);ctx.globalAlpha=onTrace?1:.18;ctx.fillStyle=colorFor(d.type);ctx.strokeStyle=d.id===selected?'#111827':'#ffffff';ctx.lineWidth=(d.id===selected?4:2)*(devicePixelRatio||1);const size=(d.type.toLowerCase().includes('loop')?20:12)*(devicePixelRatio||1);ctx.beginPath();if(typeof ctx.roundRect==='function'){ctx.roundRect(p.x-size,p.y-size*1.2,size*2,size*2.4,5*(devicePixelRatio||1));ctx.fill();ctx.stroke();}else{ctx.fillRect(p.x-size,p.y-size*1.2,size*2,size*2.4);ctx.strokeRect(p.x-size,p.y-size*1.2,size*2,size*2.4);}ctx.globalAlpha=1;ctx.fillStyle='#111827';ctx.font=`${12*(devicePixelRatio||1)}px sans-serif`;ctx.textAlign='center';ctx.fillText(labelFor(d),p.x,p.y-size*1.6);const rt=getRuntime(d.id);ctx.font=`${10*(devicePixelRatio||1)}px sans-serif`;ctx.fillText(rt?.status||d.state||'',p.x,p.y+size*1.8);}
+  function drawDevice(d,trace){const t=getDeviceTransform(d.id);if(!t)return;const p=project(t.x,t.y,t.z),dpr=devicePixelRatio||1;const onTrace=!state.signalTrace?.enabled||trace.devices.includes(d.id);const img=imageForDevice(d);const s=silhouetteSize(d,dpr);if(img&&img.complete&&img.naturalWidth>0){ctx.save();ctx.globalAlpha=onTrace?1:.18;ctx.shadowColor='rgba(15,23,42,.22)';ctx.shadowBlur=6*dpr;ctx.shadowOffsetY=4*dpr;const ratio=Math.min(s.w/img.naturalWidth,s.h/img.naturalHeight);const w=img.naturalWidth*ratio,h=img.naturalHeight*ratio;ctx.drawImage(img,p.x-w/2,p.y-h*.72,w,h);ctx.shadowColor='transparent';if(d.id===selected){ctx.strokeStyle='#111827';ctx.lineWidth=3*dpr;ctx.strokeRect(p.x-w/2-3*dpr,p.y-h*.72-3*dpr,w+6*dpr,h+6*dpr);}ctx.restore();}else drawFallbackSilhouette(ctx,d,p,onTrace,d.id===selected,dpr);ctx.globalAlpha=1;ctx.fillStyle='#111827';ctx.font=`${12*dpr}px sans-serif`;ctx.textAlign='center';ctx.fillText(labelFor(d),p.x,p.y-s.h*.78);const rt=getRuntime(d.id);ctx.font=`${10*dpr}px sans-serif`;ctx.fillText(rt?.status||d.state||'',p.x,p.y+s.h*.42);}
   function drawCar(){const p=project(car.x,.2,car.z);ctx.save();ctx.translate(p.x,p.y);ctx.rotate(-car.a);ctx.fillStyle='#0f766e';ctx.fillRect(-10*(devicePixelRatio||1),-18*(devicePixelRatio||1),20*(devicePixelRatio||1),36*(devicePixelRatio||1));ctx.fillStyle='#bae6fd';ctx.fillRect(-7*(devicePixelRatio||1),-10*(devicePixelRatio||1),14*(devicePixelRatio||1),11*(devicePixelRatio||1));ctx.restore();}
   function frame(){
     const f=keys.has('KeyW')||keys.has('ArrowUp'),b=keys.has('KeyS')||keys.has('ArrowDown'),l=keys.has('KeyA')||keys.has('ArrowLeft'),r=keys.has('KeyD')||keys.has('ArrowRight');const acc=(f?1:0)-(b?1:0);car.s=(car.s+acc*.08)*.94;car.s=Math.max(-1.2,Math.min(2,car.s));if(Math.abs(car.s)>.02)car.a+=((l?1:0)-(r?1:0))*.035*(car.s>=0?1:-1);car.x+=Math.sin(car.a)*car.s*.08;car.z-=Math.cos(car.a)*car.s*.08;
