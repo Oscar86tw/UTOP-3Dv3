@@ -1,162 +1,75 @@
 import {state} from '../state.js';
+import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} from '../core-project-01/project-controls.js';
+import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 
 let active=null;
 const THREE_URL='https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.min.js';
-
 function setText(id,text){const el=document.getElementById(id);if(el)el.textContent=text;}
 function showToast(text){const el=document.getElementById('simToast');if(!el)return;el.textContent=text;el.classList.add('show');clearTimeout(showToast.t);showToast.t=setTimeout(()=>el.classList.remove('show'),1500);}
-
-export function unmountSimulator3D(){
-  if(!active)return;
-  active.destroy();
-  active=null;
+export function unmountSimulator3D(){if(!active)return;active.destroy();active=null;}
+export async function mountSimulator3D(callbacks={}){
+  unmountSimulator3D();const host=document.getElementById('threeStage');if(!host)return null;setText('threeLoading','正在載入 Three.js 3D Editor…');
+  try{const THREE=await import(THREE_URL);if(!document.getElementById('threeStage'))return null;active=createSimulator(THREE,host,callbacks);return active;}
+  catch(err){console.error(err);host.innerHTML='<div class="three-error"><b>3D 核心載入失敗</b><br>請確認網路可連到 jsDelivr CDN。其他 UTOP 功能仍可使用。</div>';setText('simStatus','3D OFFLINE');return null;}
 }
-
-export async function mountSimulator3D(){
-  unmountSimulator3D();
-  const host=document.getElementById('threeStage');
-  if(!host)return null;
-  setText('threeLoading','正在載入 Three.js 3D 核心…');
-  try{
-    const THREE=await import(THREE_URL);
-    if(!document.getElementById('threeStage'))return null;
-    active=createSimulator(THREE,host);
-    return active;
-  }catch(err){
-    console.error(err);
-    host.innerHTML='<div class="three-error"><b>3D 核心載入失敗</b><br>請確認目前網路可連到 jsDelivr CDN。其他 UTOP 功能仍可使用。</div>';
-    setText('simStatus','3D OFFLINE');
-    return null;
-  }
-}
-
-function createSimulator(THREE,host){
+function createSimulator(THREE,host,callbacks){
   host.innerHTML='';
-  const scene=new THREE.Scene();
-  scene.background=new THREE.Color(0xbdd7e5);
-  scene.fog=new THREE.Fog(0xbdd7e5,35,80);
-
-  const camera=new THREE.PerspectiveCamera(55,1,0.1,150);
-  const renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-  renderer.shadowMap.enabled=true;
-  renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-  renderer.outputColorSpace=THREE.SRGBColorSpace;
-  host.appendChild(renderer.domElement);
-
-  scene.add(new THREE.HemisphereLight(0xffffff,0x506060,1.8));
-  const sun=new THREE.DirectionalLight(0xffffff,2.6);sun.position.set(10,18,12);sun.castShadow=true;scene.add(sun);
-
-  const mat={
-    ground:new THREE.MeshStandardMaterial({color:0x9db27f,roughness:1}),
-    road:new THREE.MeshStandardMaterial({color:0x42464a,roughness:.92}),
-    white:new THREE.MeshStandardMaterial({color:0xf1f1e8,roughness:.75}),
-    orange:new THREE.MeshStandardMaterial({color:0xf59e0b,roughness:.55,metalness:.12}),
-    red:new THREE.MeshStandardMaterial({color:0xc84e45,roughness:.6}),
-    blue:new THREE.MeshStandardMaterial({color:0x476f91,roughness:.5,metalness:.1}),
-    dark:new THREE.MeshStandardMaterial({color:0x23292e,roughness:.85}),
-    building:new THREE.MeshStandardMaterial({color:0xe8dfcf,roughness:.9})
-  };
-
-  const ground=new THREE.Mesh(new THREE.BoxGeometry(30,.35,48),mat.ground);ground.position.y=-.28;ground.receiveShadow=true;scene.add(ground);
-  const road=new THREE.Mesh(new THREE.BoxGeometry(8,.18,42),mat.road);road.position.y=0;road.receiveShadow=true;scene.add(road);
-  for(let z=-18;z<=18;z+=4){const d=new THREE.Mesh(new THREE.BoxGeometry(.13,.03,2),mat.white);d.position.set(0,.12,z);scene.add(d);}
-
-  const guard=new THREE.Mesh(new THREE.BoxGeometry(4,3.1,4),mat.building);guard.position.set(-6,1.55,-1);guard.castShadow=true;guard.receiveShadow=true;scene.add(guard);
-  const roof=new THREE.Mesh(new THREE.BoxGeometry(4.4,.25,4.4),mat.dark);roof.position.set(-6,3.22,-1);scene.add(roof);
-
-  const loopMat=new THREE.MeshBasicMaterial({color:0xf3c53f,transparent:true,opacity:.2,side:THREE.DoubleSide,depthWrite:false});
-  const loopZone=new THREE.Mesh(new THREE.BoxGeometry(5.6,.05,3.4),loopMat);loopZone.position.set(0,.14,2.2);scene.add(loopZone);
-  const loopEdges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(5.6,.08,3.4)),new THREE.LineBasicMaterial({color:0xffcf39}));loopEdges.position.copy(loopZone.position);scene.add(loopEdges);
-
-  const etag=new THREE.Group();
-  const etagPole=new THREE.Mesh(new THREE.BoxGeometry(.24,3,.24),mat.dark);etagPole.position.y=1.5;
-  const etagReader=new THREE.Mesh(new THREE.BoxGeometry(1.05,.72,.25),mat.orange);etagReader.position.set(0,2.65,.05);
-  etag.add(etagPole,etagReader);etag.position.set(-4.6,0,7.2);scene.add(etag);
-  const etagZone=new THREE.Mesh(new THREE.ConeGeometry(3.8,7,32,1,true),new THREE.MeshBasicMaterial({color:0xffa51d,transparent:true,opacity:.13,side:THREE.DoubleSide,depthWrite:false}));etagZone.rotation.x=Math.PI/2;etagZone.position.set(-4.6,2.25,3.7);scene.add(etagZone);
-
-  const barrier=new THREE.Group();
-  const cabinet=new THREE.Mesh(new THREE.BoxGeometry(1.05,2.05,1.05),mat.orange);cabinet.position.set(3.8,1.04,-4.6);cabinet.castShadow=true;barrier.add(cabinet);
-  const pivot=new THREE.Group();pivot.position.set(3.32,1.82,-4.6);
-  const arm=new THREE.Mesh(new THREE.BoxGeometry(5.8,.18,.18),mat.white);arm.position.x=-2.88;arm.castShadow=true;pivot.add(arm);barrier.add(pivot);scene.add(barrier);
-
-  const controller=new THREE.Mesh(new THREE.BoxGeometry(1.3,1.5,.8),mat.dark);controller.position.set(-4.9,.75,-4.2);controller.castShadow=true;scene.add(controller);
-
-  const car=new THREE.Group();
-  const carBody=new THREE.Mesh(new THREE.BoxGeometry(2.05,.7,4.15),mat.blue);carBody.position.y=.72;carBody.castShadow=true;
-  const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.6,.62,1.9),mat.dark);cabin.position.set(0,1.3,-.2);cabin.castShadow=true;car.add(carBody,cabin);
-  const wheelMat=new THREE.MeshStandardMaterial({color:0x171717,roughness:1});
-  [[-.98,.4,-1.32],[.98,.4,-1.32],[-.98,.4,1.32],[.98,.4,1.32]].forEach(p=>{const w=new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,.3,18),wheelMat);w.rotation.z=Math.PI/2;w.position.set(...p);car.add(w);});
-  car.position.set(0,0,15);car.rotation.y=Math.PI;scene.add(car);
-
-  const signalGroup=new THREE.Group();
-  function curvedLine(a,b,color){const mid=new THREE.Vector3((a.x+b.x)/2,3.2,(a.z+b.z)/2);const c=new THREE.QuadraticBezierCurve3(a,mid,b);return new THREE.Line(new THREE.BufferGeometry().setFromPoints(c.getPoints(36)),new THREE.LineBasicMaterial({color,transparent:true,opacity:.9}));}
-  signalGroup.add(curvedLine(new THREE.Vector3(0,.5,2.2),new THREE.Vector3(-4.9,1.6,-4.2),0x52b7ff));
-  signalGroup.add(curvedLine(new THREE.Vector3(-4.9,1.6,-4.2),new THREE.Vector3(3.8,2.2,-4.6),0xff8c25));scene.add(signalGroup);
-
-  const keys=new Set();
-  let speed=0,steer=0,loopOn=false,barrierOpen=!!state.simulator.barrier;
-  let yaw=.62,pitch=.42,radius=27,target=new THREE.Vector3(0,1,0),drag=false,lastX=0,lastY=0,follow=!!state.simulator.follow;
-  let etagFlash=0;
-
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0xbdd7e5);scene.fog=new THREE.Fog(0xbdd7e5,45,95);
+  const camera=new THREE.PerspectiveCamera(55,1,.1,220);
+  const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;host.appendChild(renderer.domElement);
+  const hemi=new THREE.HemisphereLight(0xffffff,0x4d5962,1.8);scene.add(hemi);const sun=new THREE.DirectionalLight(0xffffff,2.6);sun.position.set(12,22,14);sun.castShadow=true;scene.add(sun);
+  const mat={ground:new THREE.MeshStandardMaterial({color:0x9caf84,roughness:1}),road:new THREE.MeshStandardMaterial({color:0x42464a,roughness:.92}),white:new THREE.MeshStandardMaterial({color:0xf1f1e8,roughness:.75}),orange:new THREE.MeshStandardMaterial({color:0xf59e0b,roughness:.55,metalness:.12}),blue:new THREE.MeshStandardMaterial({color:0x476f91,roughness:.5,metalness:.1}),dark:new THREE.MeshStandardMaterial({color:0x23292e,roughness:.85}),building:new THREE.MeshStandardMaterial({color:0xe8dfcf,roughness:.9}),floor:new THREE.MeshStandardMaterial({color:0xb7b7b0,roughness:1,transparent:true,opacity:.58}),ramp:new THREE.MeshStandardMaterial({color:0x565a5e,roughness:.95})};
+  const floorGroups={},selectables=[],deviceRoots={};
+  function floorGroup(id){if(floorGroups[id])return floorGroups[id];const g=new THREE.Group();g.name='FLOOR_'+id;g.position.y=floorElevation(id);scene.add(g);floorGroups[id]=g;return g;}
+  function addFloorSlab(id,w=26,d=44){const g=floorGroup(id);const slab=new THREE.Mesh(new THREE.BoxGeometry(w,.24,d),mat.floor.clone());slab.position.y=-.18;slab.receiveShadow=true;slab.userData.layer='road';g.add(slab);return slab;}
+  addFloorSlab('1F',30,48);addFloorSlab('B1',28,46);addFloorSlab('B2',28,46);
+  const roadObjects=[];
+  ['1F','B1','B2'].forEach(id=>{const g=floorGroup(id);const road=new THREE.Mesh(new THREE.BoxGeometry(8,.14,38),mat.road);road.position.y=.02;road.receiveShadow=true;road.userData.layer='road';g.add(road);roadObjects.push(road);for(let z=-16;z<=16;z+=4){const d=new THREE.Mesh(new THREE.BoxGeometry(.13,.03,2),mat.white);d.position.set(0,.11,z);d.userData.layer='road';g.add(d);roadObjects.push(d);}});
+  function rampBetween(fromId,toId,z=20){const from=floorElevation(fromId),to=floorElevation(toId),rise=to-from,len=13;const angle=Math.asin(Math.min(.99,Math.abs(rise)/len));const mid=(from+to)/2;const ramp=new THREE.Mesh(new THREE.BoxGeometry(8,.22,len),mat.ramp);ramp.position.set(0,mid,z);ramp.rotation.x=(rise<0?angle:-angle);ramp.receiveShadow=true;ramp.userData.layer='road';scene.add(ramp);roadObjects.push(ramp);return ramp;}
+  rampBetween('1F','B1',20);rampBetween('B1','B2',6);
+  const guard=new THREE.Group();const guardBody=new THREE.Mesh(new THREE.BoxGeometry(4,3.1,4),mat.building);guardBody.position.y=1.55;guardBody.castShadow=true;guardBody.receiveShadow=true;const roof=new THREE.Mesh(new THREE.BoxGeometry(4.4,.25,4.4),mat.dark);roof.position.y=3.22;guard.add(guardBody,roof);guard.position.set(-6,0,-1);guard.userData.layer='building';floorGroup('1F').add(guard);
+  function markSelectable(root,id){root.userData.deviceId=id;root.traverse(n=>{n.userData.deviceId=id;});selectables.push(root);deviceRoots[id]=root;return root;}
+  const barrier=markSelectable(new THREE.Group(),'DEV-001');const cabinet=new THREE.Mesh(new THREE.BoxGeometry(1.05,2.05,1.05),mat.orange);cabinet.position.y=1.04;cabinet.castShadow=true;barrier.add(cabinet);const pivot=new THREE.Group();pivot.position.set(-.48,1.82,0);const arm=new THREE.Mesh(new THREE.BoxGeometry(5.8,.18,.18),mat.white);arm.position.x=-2.88;arm.castShadow=true;pivot.add(arm);barrier.add(pivot);
+  const etag=markSelectable(new THREE.Group(),'DEV-002');const etagPole=new THREE.Mesh(new THREE.BoxGeometry(.24,3,.24),mat.dark);etagPole.position.y=1.5;const etagReader=new THREE.Mesh(new THREE.BoxGeometry(1.05,.72,.25),mat.orange);etagReader.position.set(0,2.65,.05);etag.add(etagPole,etagReader);
+  const loopRoot=markSelectable(new THREE.Group(),'DEV-003');const loopMat=new THREE.MeshBasicMaterial({color:0xf3c53f,transparent:true,opacity:.2,side:THREE.DoubleSide,depthWrite:false});const loopZone=new THREE.Mesh(new THREE.BoxGeometry(5.6,.05,3.4),loopMat);loopZone.position.y=.14;const loopEdges=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(5.6,.08,3.4)),new THREE.LineBasicMaterial({color:0xffcf39}));loopEdges.position.y=.14;loopRoot.add(loopZone,loopEdges);
+  const controller=markSelectable(new THREE.Group(),'DEV-004');const controllerBody=new THREE.Mesh(new THREE.BoxGeometry(1.3,1.5,.8),mat.dark);controllerBody.position.y=.75;controllerBody.castShadow=true;controller.add(controllerBody);
+  const cameraRoot=markSelectable(new THREE.Group(),'DEV-005');const camPole=new THREE.Mesh(new THREE.BoxGeometry(.18,3,.18),mat.dark);camPole.position.y=1.5;const camBody=new THREE.Mesh(new THREE.BoxGeometry(.85,.5,.65),mat.blue);camBody.position.set(0,3,.05);cameraRoot.add(camPole,camBody);
+  [barrier,etag,loopRoot,controller,cameraRoot].forEach(o=>o.userData.layer='devices');
+  const etagZone=new THREE.Mesh(new THREE.ConeGeometry(3.8,7,32,1,true),new THREE.MeshBasicMaterial({color:0xffa51d,transparent:true,opacity:.13,side:THREE.DoubleSide,depthWrite:false}));etagZone.rotation.x=Math.PI/2;etagZone.position.set(0,2.25,-3.5);etag.add(etagZone);
+  const car=new THREE.Group();const carBody=new THREE.Mesh(new THREE.BoxGeometry(2.05,.7,4.15),mat.blue);carBody.position.y=.72;carBody.castShadow=true;const cabin=new THREE.Mesh(new THREE.BoxGeometry(1.6,.62,1.9),mat.dark);cabin.position.set(0,1.3,-.2);car.add(carBody,cabin);car.position.set(0,0,15);car.rotation.y=Math.PI;floorGroup('1F').add(car);car.userData.layer='vehicle';
+  function addRootToFloor(id){const root=deviceRoots[id],t=getDeviceTransform(id);const fg=floorGroup(t.floor);if(root.parent!==fg)fg.add(root);root.position.set(t.x,t.y,t.z);root.rotation.y=t.rotationY||0;}
+  Object.keys(deviceRoots).forEach(addRootToFloor);
+  const signalGroup=new THREE.Group();function curvedLine(a,b,color){const mid=new THREE.Vector3((a.x+b.x)/2,3.2,(a.z+b.z)/2);const c=new THREE.QuadraticBezierCurve3(a,mid,b);return new THREE.Line(new THREE.BufferGeometry().setFromPoints(c.getPoints(36)),new THREE.LineBasicMaterial({color,transparent:true,opacity:.9}));}signalGroup.add(curvedLine(new THREE.Vector3(0,.5,2.2),new THREE.Vector3(-4.9,1.6,-4.2),0x52b7ff));signalGroup.add(curvedLine(new THREE.Vector3(-4.9,1.6,-4.2),new THREE.Vector3(3.8,2.2,-4.6),0xff8c25));floorGroup('1F').add(signalGroup);signalGroup.userData.layer='signals';
+  const selectionBox=new THREE.Box3(),selectionHelper=new THREE.Box3Helper(selectionBox,0xffa500);selectionHelper.visible=false;scene.add(selectionHelper);
+  const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2(),dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0),dragOffset=new THREE.Vector3(),hitPoint=new THREE.Vector3();
+  let selectedId=state.selectedDevice||'DEV-001',editorMode=state.editor.mode||'select',snap=!!state.editor.snap,draggingDevice=false,orbiting=false,lastX=0,lastY=0,rotateStart=0,rotateBase=0;
+  function selectById(id){if(!deviceRoots[id])return;selectedId=id;selectDevice(id);selectionBox.setFromObject(deviceRoots[id]);selectionHelper.visible=true;callbacks.onSelection?.(id);setText('selectedState',id);showToast('選取 '+id);}
+  selectById(selectedId);
+  function snapVal(v){const size=state.editor.gridSize||.25;return snap?Math.round(v/size)*size:v;}
+  function pointerToNdc(e){const r=renderer.domElement.getBoundingClientRect();pointer.x=((e.clientX-r.left)/r.width)*2-1;pointer.y=-((e.clientY-r.top)/r.height)*2+1;raycaster.setFromCamera(pointer,camera);}
+  function hitDevice(e){pointerToNdc(e);const hits=raycaster.intersectObjects(selectables,true);if(!hits.length)return null;let o=hits[0].object;while(o&&!o.userData.deviceId)o=o.parent;return o?.userData.deviceId||hits[0].object.userData.deviceId||null;}
+  function updateSelection(){if(!selectedId||!deviceRoots[selectedId]){selectionHelper.visible=false;return;}selectionBox.setFromObject(deviceRoots[selectedId]);selectionHelper.box.copy(selectionBox);selectionHelper.visible=true;}
+  function syncTransform(id){const root=deviceRoots[id];if(!root)return;const t=getDeviceTransform(id);const fg=floorGroup(t.floor);if(root.parent!==fg)fg.add(root);root.position.set(t.x,t.y,t.z);root.rotation.y=t.rotationY||0;updateSelection();callbacks.onTransform?.(id);}
+  function moveRootFromWorld(root,world){const parent=root.parent;const local=parent.worldToLocal(world.clone());root.position.x=snapVal(local.x);root.position.z=snapVal(local.z);const t=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{x:root.position.x,z:root.position.z,y:root.position.y,rotationY:root.rotation.y,floor:t.floor});updateSelection();callbacks.onTransform?.(selectedId);}
+  function pd(e){const id=hitDevice(e);if(id){selectById(id);const root=deviceRoots[id];if(editorMode==='move'){draggingDevice=true;const worldY=floorElevation(getDeviceTransform(id).floor)+root.position.y;dragPlane.set(new THREE.Vector3(0,1,0),-worldY);pointerToNdc(e);if(raycaster.ray.intersectPlane(dragPlane,hitPoint)){const rootWorld=new THREE.Vector3();root.getWorldPosition(rootWorld);dragOffset.copy(rootWorld).sub(hitPoint);}renderer.domElement.setPointerCapture?.(e.pointerId);return;}if(editorMode==='rotate'){draggingDevice=true;rotateStart=e.clientX;rotateBase=root.rotation.y;renderer.domElement.setPointerCapture?.(e.pointerId);return;}}
+    if(editorMode==='select'||!id){orbiting=true;lastX=e.clientX;lastY=e.clientY;renderer.domElement.setPointerCapture?.(e.pointerId);}
+  }
+  function pm(e){if(draggingDevice&&selectedId){const root=deviceRoots[selectedId];if(editorMode==='move'){pointerToNdc(e);if(raycaster.ray.intersectPlane(dragPlane,hitPoint))moveRootFromWorld(root,hitPoint.add(dragOffset));}else if(editorMode==='rotate'){root.rotation.y=rotateBase+(e.clientX-rotateStart)*.012;const t=getDeviceTransform(selectedId);updateDeviceTransform(selectedId,{rotationY:root.rotation.y,x:root.position.x,y:root.position.y,z:root.position.z,floor:t.floor});updateSelection();callbacks.onTransform?.(selectedId);}return;}if(orbiting&&!state.simulator.follow){const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;yaw-=dx*.008;pitch=Math.max(.12,Math.min(1.35,pitch+dy*.006));}}
+  function pu(){draggingDevice=false;orbiting=false;}
+  renderer.domElement.addEventListener('pointerdown',pd);renderer.domElement.addEventListener('pointermove',pm);renderer.domElement.addEventListener('pointerup',pu);renderer.domElement.addEventListener('pointercancel',pu);
+  renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(7,Math.min(60,radius+e.deltaY*.025));},{passive:false});
+  let pinchDist=0;renderer.domElement.addEventListener('touchstart',e=>{if(e.touches.length===2)pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});renderer.domElement.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(pinchDist)radius=Math.max(7,Math.min(60,radius-(d-pinchDist)*.03));pinchDist=d;}},{passive:true});
+  const keys=new Set();let speed=0,steer=0,loopOn=false,barrierOpen=!!state.simulator.barrier;let yaw=.62,pitch=.42,radius=27,target=new THREE.Vector3(0,1,0),follow=!!state.simulator.follow,etagFlash=0;
+  function onKeyDown(e){const el=document.activeElement;if(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName))return;if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}}
+  function onKeyUp(e){keys.delete(e.code);}window.addEventListener('keydown',onKeyDown,{passive:false});window.addEventListener('keyup',onKeyUp);
+  function applyMaterialOpacity(obj,opacity){obj.traverse?.(n=>{if(!n.material)return;const apply=m=>{if(m.userData._utopBaseOpacity===undefined)m.userData._utopBaseOpacity=m.opacity??1;const base=m.userData._utopBaseOpacity;m.transparent=opacity<1||base<1;m.opacity=base*opacity;m.needsUpdate=true;};Array.isArray(n.material)?n.material.forEach(apply):apply(n.material);});}
+  function applyProjectState(){const profile=getSceneProfile();scene.background.setHex(profile.sky);scene.fog.color.setHex(profile.fog);hemi.intensity=profile.ambient;sun.intensity=profile.sun;mat.road.color.setHex(profile.road);state.floors.forEach(f=>{const fg=floorGroups[f.id];if(!fg)return;fg.visible=floorVisible(f.id);applyMaterialOpacity(fg,f.opacity)});Object.values(deviceRoots).forEach(root=>{root.visible=groupVisible('devices');applyMaterialOpacity(root,groupOpacity('devices'));});car.visible=groupVisible('vehicle');signalGroup.visible=groupVisible('signals')&&state.simulator.signals;etagZone.visible=groupVisible('signals')&&state.simulator.zones;loopZone.visible=groupVisible('signals')&&state.simulator.zones;loopEdges.visible=groupVisible('signals')&&state.simulator.zones;roadObjects.forEach(o=>o.visible=groupVisible('road'));guard.visible=groupVisible('building');showToast(`${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`);}
+  function focusFloor(id){const f=state.floors.find(x=>x.id===id);if(!f)return;setFloorFocus(id);follow=false;target.set(0,f.elevation+1,0);yaw=.58;pitch=.42;radius=29;showToast('聚焦 '+f.name);}
   const controllerApi={
-    setBarrier(open){barrierOpen=!!open;state.simulator.barrier=barrierOpen;showToast(open?'Barrier OPEN':'Barrier CLOSE');},
-    toggleLoop(){loopOn=!loopOn;state.simulator.loop=loopOn;showToast('Loop '+(loopOn?'ON':'OFF'));},
-    triggerEtag(){etagFlash=1;showToast('ETAG DETECTED');setText('etagState','DETECTED');setTimeout(()=>setText('etagState','READY'),1200);},
-    toggleSignals(){state.simulator.signals=!state.simulator.signals;signalGroup.visible=state.simulator.signals;return state.simulator.signals;},
-    toggleZones(){state.simulator.zones=!state.simulator.zones;etagZone.visible=state.simulator.zones;loopZone.visible=state.simulator.zones;loopEdges.visible=state.simulator.zones;return state.simulator.zones;},
-    resetCar(){car.position.set(0,0,15);car.rotation.y=Math.PI;speed=0;keys.clear();showToast('車輛已重設');},
-    setDrive(dir,on=true){const code={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'}[dir];if(!code)return;if(on)keys.add(code);else keys.delete(code);},
-    stop(){keys.clear();speed=0;},
-    setFollow(v){follow=!!v;state.simulator.follow=follow;},
-    saveView(){const v={name:'視野 '+(state.simulator.viewpoints.length+1),yaw,pitch,radius,target:[target.x,target.y,target.z]};state.simulator.viewpoints.push(v);state.viewpoints.push(v.name);showToast('已儲存目前視野');return v;},
-    nextView(){state.simulator.cameraPreset=(state.simulator.cameraPreset+1)%state.simulator.viewpoints.length;this.gotoView(state.simulator.cameraPreset);},
-    gotoView(i){const v=state.simulator.viewpoints[i];if(!v)return;follow=false;yaw=v.yaw;pitch=v.pitch;radius=v.radius;target.set(...v.target);state.simulator.cameraPreset=i;showToast(v.name);},
+    setBarrier(open){barrierOpen=!!open;state.simulator.barrier=barrierOpen;showToast(open?'Barrier OPEN':'Barrier CLOSE');},toggleLoop(){loopOn=!loopOn;state.simulator.loop=loopOn;showToast('Loop '+(loopOn?'ON':'OFF'));},triggerEtag(){etagFlash=1;showToast('ETAG DETECTED');setText('etagState','DETECTED');setTimeout(()=>setText('etagState','READY'),1200);},toggleSignals(){state.simulator.signals=!state.simulator.signals;signalGroup.visible=state.simulator.signals;return state.simulator.signals;},toggleZones(){state.simulator.zones=!state.simulator.zones;etagZone.visible=state.simulator.zones;loopZone.visible=state.simulator.zones;loopEdges.visible=state.simulator.zones;return state.simulator.zones;},resetCar(){car.position.set(0,0,15);car.rotation.y=Math.PI;speed=0;keys.clear();showToast('車輛已重設');},setDrive(dir,on=true){const code={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'}[dir];if(!code)return;if(on)keys.add(code);else keys.delete(code);},stop(){keys.clear();speed=0;},setFollow(v){follow=!!v;state.simulator.follow=follow;},saveView(){const floor=state.editor.floorFocus||'1F',v={name:'視野 '+(state.simulator.viewpoints.length+1),yaw,pitch,radius,target:[target.x,target.y,target.z],floor};addViewpoint(v);showToast('已儲存目前視野');return v;},nextView(){state.simulator.cameraPreset=(state.simulator.cameraPreset+1)%state.simulator.viewpoints.length;this.gotoView(state.simulator.cameraPreset);},gotoView(i){const v=state.simulator.viewpoints[i];if(!v)return;follow=false;yaw=v.yaw;pitch=v.pitch;radius=v.radius;target.set(...v.target);state.simulator.cameraPreset=i;if(v.floor)setFloorFocus(v.floor);showToast(v.name);},applyProjectState,focusFloor,setEditorMode(mode){editorMode=mode;saveEditorMode(mode);showToast('3D工具：'+mode);},setSnap(v){snap=!!v;state.editor.snap=snap;},applyDeviceTransform(id){syncTransform(id);},selectDevice(id){selectById(id);},
     destroy(){cancelAnimationFrame(raf);resizeObserver.disconnect();window.removeEventListener('keydown',onKeyDown);window.removeEventListener('keyup',onKeyUp);renderer.domElement.removeEventListener('pointerdown',pd);renderer.domElement.removeEventListener('pointermove',pm);renderer.domElement.removeEventListener('pointerup',pu);renderer.dispose();host.innerHTML='';}
   };
-
-  signalGroup.visible=state.simulator.signals;etagZone.visible=state.simulator.zones;loopZone.visible=state.simulator.zones;loopEdges.visible=state.simulator.zones;
-
-  function onKeyDown(e){
-    const el=document.activeElement;if(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName))return;
-    if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)){e.preventDefault();keys.add(e.code);}
-  }
-  function onKeyUp(e){keys.delete(e.code);}
-  window.addEventListener('keydown',onKeyDown,{passive:false});window.addEventListener('keyup',onKeyUp);
-
-  function pd(e){drag=true;lastX=e.clientX;lastY=e.clientY;renderer.domElement.setPointerCapture?.(e.pointerId);}
-  function pm(e){if(!drag||follow)return;const dx=e.clientX-lastX,dy=e.clientY-lastY;lastX=e.clientX;lastY=e.clientY;yaw-=dx*.008;pitch=Math.max(.12,Math.min(1.35,pitch+dy*.006));}
-  function pu(){drag=false;}
-  renderer.domElement.addEventListener('pointerdown',pd);renderer.domElement.addEventListener('pointermove',pm);renderer.domElement.addEventListener('pointerup',pu);renderer.domElement.addEventListener('pointercancel',pu);
-  renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();radius=Math.max(7,Math.min(48,radius+e.deltaY*.025));},{passive:false});
-
-  let pinchDist=0;
-  renderer.domElement.addEventListener('touchstart',e=>{if(e.touches.length===2)pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);},{passive:true});
-  renderer.domElement.addEventListener('touchmove',e=>{if(e.touches.length===2){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);if(pinchDist)radius=Math.max(7,Math.min(48,radius-(d-pinchDist)*.03));pinchDist=d;}},{passive:true});
-
-  function resize(){const r=host.getBoundingClientRect();const w=Math.max(1,r.width),h=Math.max(1,r.height);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
-  const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(host);resize();
-
-  let last=performance.now(),raf=0;
-  function frame(now){
-    const dt=Math.min(.04,(now-last)/1000);last=now;
-    const forward=keys.has('KeyW')||keys.has('ArrowUp'),back=keys.has('KeyS')||keys.has('ArrowDown');
-    const left=keys.has('KeyA')||keys.has('ArrowLeft'),right=keys.has('KeyD')||keys.has('ArrowRight');
-    const accel=(forward?1:0)-(back?1:0);speed+=accel*8*dt;speed*=Math.pow(.88,dt*60);speed=Math.max(-3.4,Math.min(6.2,speed));
-    steer=((left?1:0)-(right?1:0))*.95;
-    if(Math.abs(speed)>.05){car.rotation.y+=steer*dt*(speed>=0?1:-1);const dir=new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);car.position.addScaledVector(dir,speed*dt);car.position.x=Math.max(-3.1,Math.min(3.1,car.position.x));car.position.z=Math.max(-19,Math.min(19,car.position.z));}
-    const detected=Math.abs(car.position.x)<3.15&&car.position.z>0.2&&car.position.z<4.2;
-    if(detected!==loopOn){loopOn=detected;state.simulator.loop=loopOn;if(loopOn){barrierOpen=true;state.simulator.barrier=true;showToast('LOOP ON → DI1 → Relay → DO1');}else{showToast('LOOP OFF');}}
-    const barrierTarget=barrierOpen?-Math.PI/2:0;pivot.rotation.z+=(barrierTarget-pivot.rotation.z)*.08;
-    loopMat.opacity=loopOn?.55:.2;
-    signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);
-    if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagReader.scale.setScalar(1+etagFlash*.18);}else etagReader.scale.setScalar(1);
-    setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'待命');
-    setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');
-    if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(car.position.clone().add(behind),.12);camera.lookAt(car.position.x,1,car.position.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}
-    renderer.render(scene,camera);raf=requestAnimationFrame(frame);
-  }
-  raf=requestAnimationFrame(frame);
-  setText('simStatus','3D READY');showToast('Three.js 3D 核心已啟動');
-  return controllerApi;
+  applyProjectState();Object.keys(deviceRoots).forEach(syncTransform);focusFloor(state.editor.floorFocus||'1F');selectById(selectedId);
+  function resize(){const r=host.getBoundingClientRect(),w=Math.max(1,r.width),h=Math.max(1,r.height);renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(host);resize();
+  let last=performance.now(),raf=0;function frame(now){const dt=Math.min(.04,(now-last)/1000);last=now;const forward=keys.has('KeyW')||keys.has('ArrowUp'),back=keys.has('KeyS')||keys.has('ArrowDown'),left=keys.has('KeyA')||keys.has('ArrowLeft'),right=keys.has('KeyD')||keys.has('ArrowRight');const accel=(forward?1:0)-(back?1:0);speed+=accel*8*dt;speed*=Math.pow(.88,dt*60);speed=Math.max(-3.4,Math.min(6.2,speed));steer=((left?1:0)-(right?1:0))*.95;if(Math.abs(speed)>.05){car.rotation.y+=steer*dt*(speed>=0?1:-1);const dir=new THREE.Vector3(0,0,-1).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);car.position.addScaledVector(dir,speed*dt);car.position.x=Math.max(-3.1,Math.min(3.1,car.position.x));car.position.z=Math.max(-19,Math.min(19,car.position.z));}const loopT=getDeviceTransform('DEV-003');const carWorld=new THREE.Vector3();car.getWorldPosition(carWorld);const loopWorld=new THREE.Vector3();loopRoot.getWorldPosition(loopWorld);const detected=Math.abs(carWorld.x-loopWorld.x)<3.15&&Math.abs(carWorld.z-loopWorld.z)<2.1;if(detected!==loopOn){loopOn=detected;state.simulator.loop=loopOn;if(loopOn){barrierOpen=true;state.simulator.barrier=true;showToast('LOOP ON → DI1 → Relay → DO1');}else showToast('LOOP OFF');}pivot.rotation.z+=((barrierOpen?-Math.PI/2:0)-pivot.rotation.z)*.08;loopMat.opacity=loopOn?.55:.2;signalGroup.children.forEach(l=>l.material.opacity=loopOn?1:.35);if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagReader.scale.setScalar(1+etagFlash*.18);}else etagReader.scale.setScalar(1);setText('simStatus',loopOn?'LOOP ON · Barrier OPEN':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopOn?'ON':'OFF');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');if(follow){const behind=new THREE.Vector3(0,4.2,7).applyAxisAngle(new THREE.Vector3(0,1,0),car.rotation.y);camera.position.lerp(carWorld.clone().add(behind),.12);camera.lookAt(carWorld.x,carWorld.y+1,carWorld.z);}else{camera.position.set(target.x+radius*Math.cos(pitch)*Math.sin(yaw),target.y+radius*Math.sin(pitch),target.z+radius*Math.cos(pitch)*Math.cos(yaw));camera.lookAt(target);}updateSelection();renderer.render(scene,camera);raf=requestAnimationFrame(frame);}raf=requestAnimationFrame(frame);setText('simStatus','3D EDIT READY');showToast('V0.4 3D Editor 已啟動');return controllerApi;
 }

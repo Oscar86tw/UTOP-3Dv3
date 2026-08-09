@@ -1,40 +1,64 @@
-import {categories} from './data.js';
+import {categories,devices} from './data.js';
 import {state} from './state.js';
 import {render} from './views.js';
 import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js';
-const root=document.getElementById('viewRoot');const tabs=document.getElementById('mainTabs');const bottom=document.getElementById('bottomNav');
+import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,hotkeyConflict,isReservedHotkey} from './core-project-01/project-controls.js';
+import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode} from './core-editor-01/editor-commands.js';
+const root=document.getElementById('viewRoot'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let capturing=false,sim3d=null;
 function nav(){tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');bottom.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b.dataset.route===state.route));}
-async function go(route){if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;}state.route=route;nav();root.innerHTML=render(route);bind();if(route==='simulator')sim3d=await mountSimulator3D();}
+async function go(route){if(state.route==='simulator'&&route!=='simulator'){unmountSimulator3D();sim3d=null;}state.route=route;nav();root.innerHTML=render(route);bind();if(route==='simulator'){sim3d=await mountSimulator3D({onSelection:syncPropertyPanel,onTransform:syncPropertyPanel});}}
+function syncPropertyPanel(id){
+  const d=devices.find(x=>x.id===id);if(!d)return;state.selectedDevice=id;const t=getDeviceTransform(id);
+  const name=document.getElementById('propertyDeviceName'),badge=document.getElementById('deviceIdBadge'),sel=document.getElementById('selectedState');
+  if(name)name.textContent=d.name;if(badge)badge.textContent=d.id;if(sel)sel.textContent=d.name;
+  const map={propX:t.x,propY:t.y,propZ:t.z,propRot:Math.round((t.rotationY||0)*180/Math.PI),propFloor:t.floor};
+  Object.entries(map).forEach(([k,v])=>{const el=document.getElementById(k);if(el)el.value=v});
+}
 function bind(){
-  root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>alert('已切換視野：'+state.viewpoints[Number(b.dataset.view)])));
-  document.getElementById('applyScene')?.addEventListener('click',()=>{state.scene={place:scenePlace.value,time:sceneTime.value,weather:sceneWeather.value,event:sceneEvent.value};sceneSummary.textContent=`目前：${state.scene.place} · ${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`});
-  document.getElementById('addView')?.addEventListener('click',()=>{state.viewpoints.push('新視野 '+(state.viewpoints.length+1));go('scene')});
+  root.querySelectorAll('[data-view]').forEach(b=>b.addEventListener('click',()=>{state.simulator.cameraPreset=Number(b.dataset.view);go('simulator').then(()=>sim3d?.gotoView(Number(b.dataset.view)))}));
+  root.querySelectorAll('[data-rename-view]').forEach(b=>b.addEventListener('click',()=>{const i=Number(b.dataset.renameView);const name=prompt('新的視野名稱',state.simulator.viewpoints[i]?.name||'');if(name?.trim()){renameViewpoint(i,name.trim());go('scene')}}));
+  root.querySelectorAll('[data-delete-view]').forEach(b=>b.addEventListener('click',()=>{deleteViewpoint(Number(b.dataset.deleteView));go('scene')}));
+  document.getElementById('applyScene')?.addEventListener('click',()=>{state.scene={place:scenePlace.value,time:sceneTime.value,weather:sceneWeather.value,event:sceneEvent.value};sceneSummary.textContent=`目前：${state.scene.place} · ${state.scene.time} · ${state.scene.weather} · ${state.scene.event}`;});
+  root.querySelectorAll('[data-floor]').forEach(b=>b.addEventListener('click',()=>{toggleFloor(b.dataset.floor);go('layers')}));
+  root.querySelectorAll('[data-floor-focus]').forEach(b=>b.addEventListener('click',()=>{setFloorFocus(b.dataset.floorFocus);go('simulator').then(()=>sim3d?.focusFloor(b.dataset.floorFocus))}));
+  root.querySelectorAll('[data-group]').forEach(b=>b.addEventListener('click',()=>{toggleGroup(b.dataset.group);go('layers')}));
+  root.querySelectorAll('[data-group-opacity]').forEach(r=>r.addEventListener('input',()=>{setGroupOpacity(r.dataset.group,Number(r.value)/100);const m=r.closest('.layer-row')?.querySelector('.muted');if(m){const g=state.groups.find(x=>x.id===r.dataset.group);m.textContent=`${g.visible?'顯示':'隱藏'} · ${Math.round(g.opacity*100)}%`;}}));
   document.getElementById('captureHotkey')?.addEventListener('click',()=>{capturing=true;captureStatus.textContent='請直接按下單鍵或組合鍵；Esc取消，Delete清除。'});
-  document.getElementById('addDisplay')?.addEventListener('click',()=>{state.displays.push({name:'新顯示裝置 '+(state.displays.length+1),mode:'Browser Display',resolution:'自動',state:'STANDBY'});go('display')});
+  root.querySelectorAll('[data-hotkey-toggle]').forEach(b=>b.addEventListener('click',()=>{const h=state.hotkeys[Number(b.dataset.hotkeyToggle)];h.enabled=!h.enabled;go('hotkeys')}));
+  root.querySelectorAll('[data-hotkey-delete]').forEach(b=>b.addEventListener('click',()=>{state.hotkeys.splice(Number(b.dataset.hotkeyDelete),1);go('hotkeys')}));
+  document.getElementById('addDisplay')?.addEventListener('click',()=>{state.displays.push({name:'新顯示裝置 '+(state.displays.length+1),mode:'Browser Display',view:'跟隨主控',resolution:'自動',quality:'平衡',state:'STANDBY',signals:false,hud:true});go('display')});
+  root.querySelectorAll('[data-display-mode]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayMode),{mode:x.value})));
+  root.querySelectorAll('[data-display-view]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayView),{view:x.value})));
+  root.querySelectorAll('[data-display-quality]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayQuality),{quality:x.value})));
+  root.querySelectorAll('[data-display-signals]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displaySignals),{signals:x.checked})));
+  root.querySelectorAll('[data-display-hud]').forEach(x=>x.addEventListener('change',()=>updateDisplay(Number(x.dataset.displayHud),{hud:x.checked})));
   document.getElementById('validateWire')?.addEventListener('click',()=>{const a=wireFrom.value,b=wireTo.value;wireResult.textContent=a.includes('+12V')&&b.includes('+24V')?'❌ 電壓不相容：12V 不可直接接到24V端子。':a.includes('GND')&&!b.includes('GND')?'⚠️ GND 接到非接地端子，請確認。':'✅ 接線類型相容，可建立連線。'});
   document.getElementById('addSnapshot')?.addEventListener('click',()=>{state.snapshots.push('快照 '+(state.snapshots.length+1));go('project')});
   document.getElementById('playMission')?.addEventListener('click',()=>{const steps=[...document.querySelectorAll('.step')];let i=0;missionState.textContent='任務執行中';const t=setInterval(()=>{steps.forEach((s,n)=>s.classList.toggle('active',n===i));missionState.textContent=steps[i]?.querySelector('b')?.textContent||'完成';i++;if(i>=steps.length){clearInterval(t);setTimeout(()=>{missionState.textContent='✅ 任務完成';steps.forEach(s=>s.classList.remove('active'))},500)}},650)});
   root.querySelectorAll('[data-drive]').forEach(b=>{const dir=b.dataset.drive;if(dir==='stop'){b.addEventListener('click',()=>sim3d?.stop());return;}const down=e=>{e.preventDefault();sim3d?.setDrive(dir,true)};const up=e=>{e.preventDefault();sim3d?.setDrive(dir,false)};b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,up));});
+  root.querySelectorAll('[data-editor-mode]').forEach(b=>b.addEventListener('click',()=>{setEditorMode(b.dataset.editorMode);root.querySelectorAll('[data-editor-mode]').forEach(x=>x.classList.toggle('active',x.dataset.editorMode===state.editor.mode));sim3d?.setEditorMode(state.editor.mode)}));
+  document.getElementById('toggleSnap')?.addEventListener('click',e=>{state.editor.snap=!state.editor.snap;e.currentTarget.classList.toggle('active',state.editor.snap);e.currentTarget.textContent=`Snap ${state.editor.snap?'ON':'OFF'}`;sim3d?.setSnap(state.editor.snap)});
+  document.getElementById('focusFloor')?.addEventListener('click',()=>sim3d?.focusFloor(state.editor.floorFocus));
+  document.getElementById('applyTransform')?.addEventListener('click',()=>{const id=state.selectedDevice;if(!id)return;const patch={x:Number(propX.value)||0,y:Number(propY.value)||0,z:Number(propZ.value)||0,rotationY:(Number(propRot.value)||0)*Math.PI/180,floor:propFloor.value};updateDeviceTransform(id,patch);sim3d?.applyDeviceTransform(id);syncPropertyPanel(id)});
+  document.getElementById('propFloor')?.addEventListener('change',()=>{const id=state.selectedDevice;if(!id)return;updateDeviceTransform(id,{floor:propFloor.value});sim3d?.applyDeviceTransform(id);syncPropertyPanel(id)});
+  root.querySelectorAll('[data-nudge]').forEach(b=>b.addEventListener('click',()=>{const id=state.selectedDevice;if(!id)return;const t=getDeviceTransform(id),step=state.editor.gridSize||.25;const p={};if(b.dataset.nudge==='x-')p.x=t.x-step;if(b.dataset.nudge==='x+')p.x=t.x+step;if(b.dataset.nudge==='z-')p.z=t.z-step;if(b.dataset.nudge==='z+')p.z=t.z+step;updateDeviceTransform(id,p);sim3d?.applyDeviceTransform(id);syncPropertyPanel(id)}));
+  root.querySelectorAll('[data-rotate]').forEach(b=>b.addEventListener('click',()=>{const id=state.selectedDevice;if(!id)return;const t=getDeviceTransform(id);updateDeviceTransform(id,{rotationY:(t.rotationY||0)+Number(b.dataset.rotate)*Math.PI/180});sim3d?.applyDeviceTransform(id);syncPropertyPanel(id)}));
   document.getElementById('toggleSignals')?.addEventListener('click',e=>{const on=sim3d?.toggleSignals();e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線';});
   document.getElementById('toggleZones')?.addEventListener('click',e=>{const on=sim3d?.toggleZones();e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍';});
   document.getElementById('followCar')?.addEventListener('click',e=>{state.simulator.follow=!state.simulator.follow;sim3d?.setFollow(state.simulator.follow);e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角';});
   document.getElementById('next3DView')?.addEventListener('click',()=>sim3d?.nextView());
   document.getElementById('resetCar')?.addEventListener('click',()=>sim3d?.resetCar());
   document.getElementById('saveView')?.addEventListener('click',()=>sim3d?.saveView());
+  document.getElementById('refresh3DState')?.addEventListener('click',()=>sim3d?.applyProjectState());
 }
 function safeKey(){const el=document.activeElement;return !(el&&['INPUT','TEXTAREA','SELECT'].includes(el.tagName));}
+function keyCombo(e){const keys=[];if(e.ctrlKey)keys.push('Ctrl');if(e.altKey)keys.push('Alt');if(e.shiftKey)keys.push('Shift');if(!['Control','Alt','Shift','Meta'].includes(e.key))keys.push(e.key.length===1?e.key.toUpperCase():e.key);return keys.join(' + ');}
 window.addEventListener('keydown',e=>{
-  if(capturing){e.preventDefault();if(e.key==='Escape'){capturing=false;captureStatus.textContent='已取消。';return}if(['Backspace','Delete'].includes(e.key)){capturing=false;captureStatus.textContent='已清除快捷鍵設定。';return}const keys=[];if(e.ctrlKey)keys.push('Ctrl');if(e.altKey)keys.push('Alt');if(e.shiftKey)keys.push('Shift');if(!['Control','Alt','Shift','Meta'].includes(e.key))keys.push(e.key.length===1?e.key.toUpperCase():e.key);const combo=keys.join(' + ');if(!combo)return;const reserved=['F5','F11','F12','Ctrl + R','Ctrl + W','Ctrl + P','Ctrl + F'];if(reserved.includes(combo)){captureStatus.textContent='⚠️ 此按鍵可能與瀏覽器功能衝突，請改用其他按鍵。';capturing=false;return}const conflict=state.hotkeys.find(h=>h.key===combo);if(conflict){captureStatus.textContent=`⚠️ ${combo} 已設定給 ${conflict.target} ${conflict.action}`;capturing=false;return}const a=hotkeyAction.value.split(' ');state.hotkeys.push({key:combo,target:a.slice(0,-1).join(' '),action:a.at(-1)});capturing=false;go('hotkeys');return}
-  if(!safeKey())return;
-  const combo=(e.shiftKey?'Shift + ':'')+(e.key.length===1?e.key.toUpperCase():e.key);
-  if(combo==='G'){sim3d?.setBarrier(true);state.simulator.barrier=true}
-  else if(combo==='Shift + G'){sim3d?.setBarrier(false);state.simulator.barrier=false}
-  else if(combo==='L'){sim3d?.toggleLoop()}
-  else if(combo==='E'){sim3d?.triggerEtag()}
-  else if(combo==='V'){sim3d?.nextView()}
+  if(capturing){e.preventDefault();if(e.key==='Escape'){capturing=false;captureStatus.textContent='已取消。';return}if(['Backspace','Delete'].includes(e.key)){capturing=false;captureStatus.textContent='已清除快捷鍵設定。';return}const combo=keyCombo(e);if(!combo)return;if(isReservedHotkey(combo)){captureStatus.textContent='⚠️ 此按鍵可能與瀏覽器功能衝突，請改用其他按鍵。';capturing=false;return}const conflict=hotkeyConflict(combo);if(conflict){captureStatus.textContent=`⚠️ ${combo} 已設定給 ${conflict.target} ${conflict.action}`;capturing=false;return}const parts=hotkeyAction.value.split(' ');state.hotkeys.push({key:combo,target:parts.slice(0,-1).join(' '),action:parts.at(-1),enabled:true});capturing=false;go('hotkeys');return}
+  if(!safeKey())return;const combo=keyCombo(e);const h=state.hotkeys.find(x=>x.enabled&&x.key===combo);if(!h)return;
+  if(h.action==='OPEN')sim3d?.setBarrier(true);else if(h.action==='CLOSE')sim3d?.setBarrier(false);else if(h.action==='ON/OFF')sim3d?.toggleLoop();else if(h.action==='TRIGGER')sim3d?.triggerEtag();else if(h.action==='VIEW'||h.action==='NEXT VIEW')sim3d?.nextView();
 });
-
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)go(b.dataset.route)});
 document.getElementById('presentationToggle').addEventListener('click',()=>{state.presentation=!state.presentation;document.body.classList.toggle('presentation',state.presentation);presentationToggle.textContent=state.presentation?'退出簡報':'簡報模式'});
 document.getElementById('saveBtn').addEventListener('click',()=>{state.savedAt=new Date();projectMeta.textContent='已儲存 · '+state.savedAt.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})});

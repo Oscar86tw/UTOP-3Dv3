@@ -4,34 +4,18 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f59e0b" />
-  <title>UTOP-3Dv3 V0.2.0 3D Core</title>
+  <title>UTOP-3Dv3 V0.4.0 3D Editor</title>
   <link rel="stylesheet" href="assets/css/app.css" />
 </head>
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div>
-        <div class="eyebrow">昱拓弱電</div>
-        <h1>UTOP-3Dv3</h1>
-        <div id="projectMeta" class="subtle">Three.js 3D 核心版 · V0.2.0</div>
-      </div>
-      <div class="top-actions">
-        <button id="presentationToggle" class="chip-btn">簡報模式</button>
-        <button id="saveBtn" class="primary-btn">儲存</button>
-      </div>
+      <div><div class="eyebrow">昱拓弱電</div><h1>UTOP-3Dv3</h1><div id="projectMeta" class="subtle">3D Editor · V0.4.0</div></div>
+      <div class="top-actions"><button id="presentationToggle" class="chip-btn">簡報模式</button><button id="saveBtn" class="primary-btn">儲存</button></div>
     </header>
-
     <nav class="main-tabs" id="mainTabs"></nav>
-
     <main id="viewRoot" class="content"></main>
-
-    <footer class="bottom-nav" id="bottomNav">
-      <button data-route="overview">總覽</button>
-      <button data-route="simulator">模擬</button>
-      <button data-route="scene">場景</button>
-      <button data-route="display">多螢幕</button>
-      <button data-route="project">專案</button>
-    </footer>
+    <footer class="bottom-nav" id="bottomNav"><button data-route="overview">總覽</button><button data-route="simulator">模擬</button><button data-route="scene">場景</button><button data-route="display">多螢幕</button><button data-route="project">專案</button></footer>
   </div>
   <script type="module" src="assets/js/app.js"></script>
 </body>
