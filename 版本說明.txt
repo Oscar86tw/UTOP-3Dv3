@@ -1,7 +1,8 @@
-UTOP-3Dv3 V1.7.14 Debug Audit Consistency Hotfix
+UTOP-3Dv3 V1.7.15 Vehicle Control & Timer DO Output
 
-1. 修正 Debug「版本同步」可能因 Google 儲存文字覆蓋而失敗。
-2. 修正「部署檔案一致性」在 Manifest 尚未讀取完成時的誤判。
-3. 新增 projectStatus，版本資訊與操作狀態分離。
-4. 全站 Runtime 快取版本同步至 V1.7.14。
-5. 本版先修 Debug，下一版再繼續多車輛獨立模擬。
+1. 車子更換位置：3D 工作區下方「車輛種類」直接按 🚗 汽車 或 🛵 機車；HUD 同步顯示目前車種。
+2. 倒數計時器：DI1 開始、DI2 暫停/繼續、DI3 重設；倒數到 0 後 DO1 輸出 0.45 秒 Pulse。
+3. DO1 完成輸出會在接線卡亮 ON、事件紀錄留下「倒數完成輸出」，若有 Connection 會同步觸發目標 DI。
+4. 紅綠燈倒數顯示器 DONE 也加入可視 DO Pulse。
+5. Debug 新增 Timer DI/DO 與完成輸出檢查。
+6. 本版未刪除檔案。

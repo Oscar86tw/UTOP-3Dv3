@@ -1,7 +1,7 @@
 import {state} from '../state.js';
 import {devices,moduleCatalog} from '../data.js';
 import {definitionForType,definitionForKey} from './module-definitions.js';
-import {ioSemanticLabel,terminalSemanticLabel,ioSourceNote} from './io-semantic-labels.js?v=1.7.14';
+import {ioSemanticLabel,terminalSemanticLabel,ioSourceNote} from './io-semantic-labels.js?v=1.7.15';
 
 export function templateByKey(key){
   const def=definitionForKey(key);if(!def)return null;

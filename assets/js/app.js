@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.14';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.14';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.15';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.15';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,10 +11,10 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.14';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.14';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.14';
-import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.14';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.15';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.15';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.15';
+import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.15';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -556,7 +556,9 @@ function bind(){
   root.querySelectorAll('[data-drive]').forEach(b=>{const dir=b.dataset.drive;if(dir==='stop'){b.addEventListener('click',()=>sim3d?.stop());return;}const down=e=>{e.preventDefault();sim3d?.setDrive(dir,true)},up=e=>{e.preventDefault();sim3d?.setDrive(dir,false)};b.addEventListener('pointerdown',down);['pointerup','pointercancel','pointerleave'].forEach(ev=>b.addEventListener(ev,up));});
   document.getElementById('toggleSignals')?.addEventListener('click',safeHandler('DI/DO線切換',async e=>{const on=await withSimulator('DI/DO線切換',s=>s.toggleSignals());if(on!==null)e.currentTarget.textContent=on?'隱藏 DI/DO 線':'顯示 DI/DO 線';}));
   document.getElementById('toggleZones')?.addEventListener('click',safeHandler('感應範圍切換',async e=>{const on=await withSimulator('感應範圍切換',s=>s.toggleZones());if(on!==null)e.currentTarget.textContent=on?'隱藏感應範圍':'顯示感應範圍';}));
-  byId('vehicleTypeSelect')?.addEventListener('change',safeHandler('切換車種',async e=>{state.simulator.vehicleType=e.target.value==='motorcycle'?'motorcycle':'car';await withSimulator('切換車種',sim=>sim.setVehicleType?.(state.simulator.vehicleType));}));
+  const applyVehicleType=async type=>{state.simulator.vehicleType=type==='motorcycle'?'motorcycle':'car';await withSimulator('切換車種',sim=>sim.setVehicleType?.(state.simulator.vehicleType));root.querySelectorAll('[data-vehicle-type]').forEach(x=>x.classList.toggle('active',x.dataset.vehicleType===state.simulator.vehicleType));const cur=byId('currentVehicleType');if(cur)cur.textContent='目前：'+(state.simulator.vehicleType==='motorcycle'?'機車':'汽車');const hud=byId('vehicleTypeState');if(hud)hud.textContent=state.simulator.vehicleType==='motorcycle'?'機車':'汽車';};
+  root.querySelectorAll('[data-vehicle-type]').forEach(b=>b.addEventListener('click',safeHandler('切換車種',()=>applyVehicleType(b.dataset.vehicleType))));
+  byId('vehicleTypeSelect')?.addEventListener('change',safeHandler('切換車種',e=>applyVehicleType(e.target.value)));
   byId('laneTypeSelect')?.addEventListener('change',safeHandler('切換車道類型',async e=>{const v=e.target.value;state.simulator.laneType=v==='car'||v==='motorcycle'?v:'mixed';await withSimulator('切換車道類型',sim=>sim.setLaneType?.(state.simulator.laneType));}));
   document.getElementById('followCar')?.addEventListener('click',safeHandler('跟車視角切換',async e=>{state.simulator.follow=!state.simulator.follow;await withSimulator('跟車視角切換',s=>s.setFollow(state.simulator.follow));e.currentTarget.textContent=state.simulator.follow?'自由視角':'跟車視角';}));
   document.getElementById('next3DView')?.addEventListener('click',()=>withSimulator('切換3D視野',s=>s.nextView()));document.getElementById('resetCar')?.addEventListener('click',()=>withSimulator('重設車輛',s=>s.resetCar()));document.getElementById('toggleDeviceLabels')?.addEventListener('click',e=>{const on=sim3d?.toggleLabels?.();e.currentTarget.textContent=on?'隱藏名稱牌':'顯示名稱牌'});document.getElementById('runEntryLaneDemo')?.addEventListener('click',()=>withSimulator('入口展示',s=>s.runLaneDemo?.('entry')));document.getElementById('runExitLaneDemo')?.addEventListener('click',()=>withSimulator('出口展示',s=>s.runLaneDemo?.('exit')));document.getElementById('runBothLaneDemo')?.addEventListener('click',()=>withSimulator('雙車道展示',s=>s.runLaneDemo?.('both')));document.getElementById('saveView')?.addEventListener('click',()=>withSimulator('儲存視野',s=>s.saveView()));

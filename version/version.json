@@ -1,9 +1,9 @@
 {
   "product": "UTOP-3Dv3",
-  "version": "1.7.14",
+  "version": "1.7.15",
   "schema": "6.2",
-  "title": "3D Module Reactions & Vehicle Types",
+  "title": "Vehicle Control & Timer DO Output",
   "updated": "2026-08-10",
-  "label": "Vehicle Lane & Loop Sensitivity",
-  "name": "Debug Audit Consistency Hotfix"
+  "label": "Vehicle Control & Timer DO Output",
+  "name": "Vehicle Control & Timer DO Output"
 }
