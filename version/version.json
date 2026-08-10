@@ -1,9 +1,9 @@
 {
   "product": "UTOP-3Dv3",
-  "version": "1.7.15",
+  "version": "1.7.16",
   "schema": "6.2",
-  "title": "Vehicle Control & Timer DO Output",
+  "title": "Vehicle Sensor Identity Runtime",
   "updated": "2026-08-10",
-  "label": "Vehicle Control & Timer DO Output",
-  "name": "Vehicle Control & Timer DO Output"
+  "label": "V1.7.16",
+  "name": "Vehicle Sensor Identity Runtime"
 }

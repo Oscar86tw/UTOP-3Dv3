@@ -1,12 +1,13 @@
-## V1.7.15 Vehicle Control & Timer DO Output
-- 3D 車輛控制區新增直接可見的「🚗 汽車 / 🛵 機車」切換按鈕與目前車種提示。
-- 3D HUD 新增車種狀態，切換後同步更新模型與 HUD。
-- 倒數計時器到 0 時，DO1 會真正在 Runtime / 接線卡 Pulse ON 0.45 秒後回 OFF。
-- Timer DONE 會經 Connection 傳遞至目標 DI；即使未接線，也會在事件紀錄留下倒數完成輸出。
-- LK-1045 類倒數顯示器 DONE 同步提供可視 DO Pulse。
-- Debug Function State 新增倒數計時器 DI/DO 與 DONE→DO1 驗證。
+## V1.7.16
+- Multi-vehicle sensor identity runtime for UHF/LPR/Radar/infrared.
+- Propagate VEH-ID through connection runtime.
+- Barrier safety-zone vehicle blocking and auto-close hold.
 
-## V1.7.14 Debug Audit Consistency Hotfix
+## V1.7.15 Multi Vehicle Runtime
+- 多車輛獨立ID、選擇控制、新增/刪除汽車與機車。
+- 地感偵測改為掃描全部車輛並顯示 VEH-ID。
+
+## V1.7.15 Debug Audit Consistency Hotfix
 - 修正版本同步與部署一致性 Debug 誤判。
 - 將 Google 儲存/錯誤提示與版本欄拆開。
 - build-info 非同步讀取加入 loading/error 狀態。
