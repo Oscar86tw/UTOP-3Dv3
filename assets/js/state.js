@@ -4,6 +4,7 @@ export const state = {
   editor:{mode:'unified',floorFocus:'1F',snap:true,gridSize:.25,showTransformGizmo:true},
   simulator:{
     barrier:false,loop:false,signals:true,zones:true,labels:true,follow:false,cameraPreset:0,vehicleType:'car',laneType:'mixed',loopDetectionState:'clear',
+    activeVehicleId:'VEH-001',vehicles:[{id:'VEH-001',type:'car',x:-2.05,z:15,rotation:0}],
     liveCamera:{yaw:.62,pitch:.42,radius:27,target:[0,1,0]},
     viewpoints:[
       {name:'入口車道全景',yaw:0.62,pitch:0.42,radius:27,target:[0,1,0],floor:'1F'},

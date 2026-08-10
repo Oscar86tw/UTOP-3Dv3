@@ -1,4 +1,4 @@
-# V1.7.14 Debug Audit Consistency Hotfix
+# V1.7.15 Debug Audit Consistency Hotfix
 
 - 版本同步改用 data-version 與 Runtime 版本比較。
 - projectMeta 不再被 Google 儲存/錯誤訊息改寫。

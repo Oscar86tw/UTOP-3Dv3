@@ -303,5 +303,4 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
 /* V1.7.13 vehicle/lane controls */
 .vehicle-type-control{display:inline-flex;align-items:center;gap:6px}.vehicle-type-control select{min-width:112px}
 
-/* V1.7.15 vehicle selector: visible, direct, no dropdown needed */
-.vehicle-control-toolbar{align-items:center;gap:10px;flex-wrap:wrap}.vehicle-switch-group{display:inline-flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid rgba(15,23,42,.14);border-radius:12px;background:rgba(255,255,255,.96)}.vehicle-switch-label{font-weight:800}.vehicle-type-btn{min-height:42px;padding:8px 14px;border-radius:10px;font-weight:800}.vehicle-type-btn.active{background:var(--orange,#f59e0b);color:#111827;border-color:transparent}.vehicle-current{padding:5px 8px;border-radius:999px;background:#fff4d6;border:1px solid #f2c76b;font-size:12px}.workspace-hud #vehicleTypeState{font-weight:800}@media(max-width:700px){.vehicle-switch-group{width:100%;display:grid;grid-template-columns:1fr 1fr}.vehicle-switch-label,.vehicle-current{grid-column:1/-1}.vehicle-type-btn{width:100%}}
+.vehicle-type-control select{min-width:120px}.simulation-controls .toolbar button{white-space:nowrap}

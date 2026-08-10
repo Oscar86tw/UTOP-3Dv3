@@ -1,9 +1,8 @@
 {
   "product": "UTOP-3Dv3",
-  "version": "1.7.15",
+  "version": "1.7.16",
   "build": "2026-08-10T03:58+08:00",
-  "title": "Debug Audit Consistency Hotfix",
-  "label": "Debug Audit Consistency Hotfix",
-  "name": "Vehicle Control & Timer DO Output",
+  "title": "Vehicle Sensor Identity Runtime",
+  "label": "V1.7.16",
   "updated": "2026-08-10"
 }

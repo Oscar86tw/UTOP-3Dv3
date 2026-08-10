@@ -14,6 +14,8 @@ export function activeOutputTerminals(deviceType='',action=''){
   if(t==='loopdetector'&&['clear','reset'].includes(a))return ['NC','CLEAR'];
   if(t==='infrared'&&a==='blocked')return ['OUT','NO','BLOCKED'];
   if(t==='infrared'&&a==='clear')return ['NC','CLEAR'];
+  if(t==='radar'&&a==='vehicle')return ['OUT1','VEHICLE','OUT'];
+  if(t==='radar'&&a==='clear')return ['CLEAR'];
   if(t==='uhf'&&a==='read')return ['DATA','TAG_OK','OUT'];
   if(t==='cardreader'&&a==='valid')return ['D0','VALID','OUT'];
   if(t==='lpr'&&a==='valid')return ['ALARM OUT','PLATE_OK','OUT'];
@@ -112,14 +114,16 @@ export function verifyConnectionActionChains(){
   return checks;
 }
 
-export function noteSignal(connection){
+export function noteSignal(connection,context={}){
   const from=devices.find(d=>d.id===connection.fromDevice),to=devices.find(d=>d.id===connection.toDevice);
-  const msg=`${from?.name||connection.fromDevice}.${connection.fromTerminal} → ${to?.name||connection.toDevice}.${connection.toTerminal}`;
+  const vehicleIds=[...new Set((context.vehicleIds||context.sourceVehicleIds||[]).filter(Boolean).map(String))];
+  const vehicleSuffix=vehicleIds.length?` · ${vehicleIds.join(', ')}`:'';
+  const msg=`${from?.name||connection.fromDevice}.${connection.fromTerminal} → ${to?.name||connection.toDevice}.${connection.toTerminal}${vehicleSuffix}`;
   state.eventLog=state.eventLog||[];
   state.eventLog.push(`${new Date().toLocaleTimeString('zh-TW',{hour12:false})} ${msg}`);
   if(state.eventLog.length>80)state.eventLog.splice(0,state.eventLog.length-80);
   state.activeSignals=state.activeSignals||{};const until=Date.now()+900;state.activeSignals[connection.id]=until;
   state.activePorts=state.activePorts||{};state.activePorts[`${connection.fromDevice}|DO|${connection.fromTerminal}`]=until;state.activePorts[`${connection.toDevice}|DI|${connection.toTerminal}`]=until;
-  updateRuntime(connection.toDevice,{lastSignal:msg,lastInput:connection.toTerminal});
+  updateRuntime(connection.toDevice,{lastSignal:msg,lastInput:connection.toTerminal,lastVehicleIds:vehicleIds,sourceVehicleIds:vehicleIds});
   return msg;
 }
