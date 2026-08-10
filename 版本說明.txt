@@ -1,16 +1,2 @@
-UTOP-3Dv3 V1.7.16 Vehicle Sensor Identity Runtime
-
-本版新增 UHF/LPR/Radar/紅外線 VEH-ID 感應、訊號鏈 VEH-ID 傳遞、柵欄 SAFETY 多車判斷。
-
-UTOP-3Dv3 V1.7.15 Multi Vehicle Runtime
-
-本版新增：
-1. 同一3D場景可新增多台汽車/機車。
-2. 每台車有 VEH-001、VEH-002... 獨立ID。
-3. 可選擇目前控制車輛，W/S/A/D只控制選中車。
-4. 可新增汽車、機車及刪除目前車輛，至少保留一台。
-5. 地感線圈會同時檢查所有車輛 Bounding Box，Runtime 顯示觸發車輛ID。
-6. 跟車視角跟隨目前選中車輛。
-7. 保留汽車/機車車種、車道類型、地感靈敏度與29類3D模組反應。
-
-後續追蹤：UHF/LPR/雷達與柵欄安全區將進一步把 VEH-ID 傳入 Connection Trace。
+UTOP-3Dv3 V1.7.18 3D Lamp Material Hotfix
+修正 3D 模組燈號材質 emissive 型態不相容造成 Frame 中斷。

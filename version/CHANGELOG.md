@@ -1,4 +1,11 @@
-## V1.7.16
+## V1.7.18
+- 新增每台車輛的車牌、eTag、身分類型、通行授權、可通行車道與備註。
+- UHF / eTag 依車輛資料判斷 TAG_OK / TAG_FAIL。
+- LPR 依車牌與授權判斷 PLATE_OK / PLATE_FAIL。
+- VEH-ID、車牌與授權結果保留在 Runtime，並沿 Connection 傳遞。
+- 舊專案自動補齊車輛身份欄位。
+
+## V1.7.18
 - Multi-vehicle sensor identity runtime for UHF/LPR/Radar/infrared.
 - Propagate VEH-ID through connection runtime.
 - Barrier safety-zone vehicle blocking and auto-close hold.
@@ -39,3 +46,6 @@
 - 倒數計時器 DI1/DI2/DI3 標註為開始、暫停/繼續、重設；DO1 標註倒數完成，DO2~DO4 標註可程式輸出（目前未指派）。
 - 接線卡、設備 DI/DO 頁、實體端子三處同步顯示語意名稱。
 - 新增 IO 語意標註核心 `io-semantic-labels.js`。
+
+## V1.7.18
+- 3D Lamp Material Hotfix：安全更新 color/emissive，避免 setHex 型態錯誤。

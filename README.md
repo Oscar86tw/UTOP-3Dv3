@@ -96,8 +96,12 @@
 - 部署 Manifest 未完成讀取時不誤判 FAIL；確定版本不同才失敗。
 
 
-## V1.7.16 Vehicle Sensor Identity Runtime
+## V1.7.18 Vehicle Identity & Access Profiles
 - UHF、LPR、Radar、紅外線掃描全部可見車輛並記錄 VEH-ID。
 - VEH-ID 沿 Connection Runtime 傳遞到後續設備與事件紀錄。
 - 柵欄機關閉時桿下有車觸發 SAFETY 並重新開啟。
 - 自動關閉倒數在安全區有車時暫停，車離開後繼續。
+
+
+## V1.7.18 Vehicle Identity & Access Profiles
+每台車輛可設定車牌、eTag、住戶/訪客/廠商/黑名單、允許/拒絕、可通行車道與備註。UHF 與 LPR 會依設定輸出成功或失敗訊號。

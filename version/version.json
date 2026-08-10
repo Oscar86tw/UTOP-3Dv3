@@ -1,9 +1,9 @@
 {
   "product": "UTOP-3Dv3",
-  "version": "1.7.16",
-  "schema": "6.2",
-  "title": "Vehicle Sensor Identity Runtime",
+  "version": "1.7.18",
+  "schema": "6.3",
+  "title": "3D Lamp Material Hotfix",
   "updated": "2026-08-10",
-  "label": "V1.7.16",
-  "name": "Vehicle Sensor Identity Runtime"
+  "label": "V1.7.18",
+  "name": "3D Lamp Material Hotfix"
 }
