@@ -1,8 +1,9 @@
 {
   "product": "UTOP-3Dv3",
-  "version": "1.7.13",
+  "version": "1.7.14",
   "schema": "6.2",
   "title": "3D Module Reactions & Vehicle Types",
   "updated": "2026-08-10",
-  "label": "Vehicle Lane & Loop Sensitivity"
+  "label": "Vehicle Lane & Loop Sensitivity",
+  "name": "Debug Audit Consistency Hotfix"
 }

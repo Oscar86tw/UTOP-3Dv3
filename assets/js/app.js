@@ -1,7 +1,7 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.13';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.13';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.14';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.14';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
@@ -11,10 +11,10 @@ import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
 import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.13';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.13';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.13';
-import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.13';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.14';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.14';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.14';
+import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.14';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -36,7 +36,7 @@ function reportUiError(where,err){
   window.__utopBoot?.error?.(`UI:${where}`,err);
   const toast=byId('simToast');
   if(toast){toast.textContent=`${where} 失敗：${err?.message||err}`;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2600);}
-  else {const meta=byId('projectMeta');if(meta)meta.textContent=`⚠ ${where} 失敗：${err?.message||err}`;}
+  else setHeaderStatus(`⚠ ${where} 失敗：${err?.message||err}`);
 }
 function safeHandler(where,fn){return async e=>{try{return await fn(e);}catch(err){reportUiError(where,err);}}}
 
@@ -45,10 +45,10 @@ function safeHandler(where,fn){return async e=>{try{return await fn(e);}catch(er
 window.__utopBoot?.mark('appStarted',true);window.__utopBoot?.phase('app.js MODULE EXECUTION START');
 document.documentElement.dataset.utopVersion=APP_VERSION;
 const INDEX_VERSION=document.documentElement.dataset.utopIndexVersion||window.__utopBoot?.state?.version||'';
-window.__utopBuild={indexVersion:INDEX_VERSION,runtimeVersion:APP_VERSION,manifestVersion:'',consistent:INDEX_VERSION===APP_VERSION};
-(async()=>{try{const r=await fetch(`assets/build-info.json?ts=${Date.now()}`,{cache:'no-store'});if(r.ok){const m=await r.json();window.__utopBuild.manifestVersion=String(m.version||'');window.__utopBuild.consistent=INDEX_VERSION===APP_VERSION&&window.__utopBuild.manifestVersion===APP_VERSION;if(!window.__utopBuild.consistent)window.__utopBoot?.show?.('DEPLOYMENT VERSION MISMATCH',`部署版本不一致：Index ${INDEX_VERSION||'-'} / Runtime ${APP_VERSION} / Manifest ${window.__utopBuild.manifestVersion||'-'}`,'請確認 GitHub Pages 已部署完整同一版本檔案。');}}catch(err){console.warn('[UTOP] build manifest check skipped',err);}})();
+window.__utopBuild={indexVersion:INDEX_VERSION,runtimeVersion:APP_VERSION,manifestVersion:'',manifestState:'loading',consistent:INDEX_VERSION===APP_VERSION};
+(async()=>{try{const r=await fetch(`assets/build-info.json?ts=${Date.now()}`,{cache:'no-store'});if(!r.ok)throw new Error(`build-info.json HTTP ${r.status}`);const m=await r.json();window.__utopBuild.manifestVersion=String(m.version||'');window.__utopBuild.manifestState='loaded';window.__utopBuild.consistent=INDEX_VERSION===APP_VERSION&&window.__utopBuild.manifestVersion===APP_VERSION;if(!window.__utopBuild.consistent)window.__utopBoot?.show?.('DEPLOYMENT VERSION MISMATCH',`部署版本不一致：Index ${INDEX_VERSION||'-'} / Runtime ${APP_VERSION} / Manifest ${window.__utopBuild.manifestVersion||'-'}`,'請確認 GitHub Pages 已部署完整同一版本檔案。');}catch(err){window.__utopBuild.manifestState='error';window.__utopBuild.manifestError=err?.message||String(err);window.__utopBuild.consistent=INDEX_VERSION===APP_VERSION;console.warn('[UTOP] build manifest check unavailable',err);}})();
 document.title=`UTOP-3Dv3 ${APP_VERSION_LABEL} ${APP_TITLE}`;
-const versionMeta=document.getElementById('projectMeta');if(versionMeta)versionMeta.textContent=APP_META;
+const versionMeta=document.getElementById('projectMeta');if(versionMeta){versionMeta.textContent=APP_META;versionMeta.dataset.version=APP_VERSION;}
 
 // Keep the native <select> for existing value/change logic, but render the choices
 // in our own DOM popover so floating/dock pointer events cannot collapse it.
@@ -623,7 +623,7 @@ window.addEventListener('keydown',e=>{
 
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)go(b.dataset.route)});
 byId('presentationToggle')?.addEventListener('click',()=>{state.presentation=!state.presentation;document.body.classList.toggle('presentation',state.presentation);const b=byId('presentationToggle');if(b)b.textContent=state.presentation?'退出簡報':'簡報模式'});
-byId('saveBtn')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{if(!state.cloud?.webAppUrl){state.cloud??={};state.cloud.status='請先到「專案 / Debug」設定 Google Apps Script Web App 網址';await go('project');return;}await cloudSave(false);const meta=byId('projectMeta');if(meta)meta.textContent=`Google 已儲存 · ${state.cloud.projectName}`;}));
+byId('saveBtn')?.addEventListener('click',safeHandler('Google 雲端儲存',async()=>{if(!state.cloud?.webAppUrl){state.cloud??={};state.cloud.status='請先到「專案 / Debug」設定 Google Apps Script Web App 網址';await go('project');return;}await cloudSave(false);setHeaderStatus(`Google 已儲存 · ${state.cloud.projectName}`);}));
 window.addEventListener('resize',()=>{updateDockedPanelLayout();});
 
 (async function bootApplication(){

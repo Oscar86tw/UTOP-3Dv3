@@ -1,3 +1,8 @@
+## V1.7.14 Debug Audit Consistency Hotfix
+- 修正版本同步與部署一致性 Debug 誤判。
+- 將 Google 儲存/錯誤提示與版本欄拆開。
+- build-info 非同步讀取加入 loading/error 狀態。
+
 # V1.7.13
 
 - 新增混合車道／汽車道／機車道選擇。
