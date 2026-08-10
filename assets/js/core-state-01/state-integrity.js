@@ -55,6 +55,18 @@ export function migrateProjectState(state,devices,defaultState,defaultDevices){
   state.displays=ensureArray(state.displays,defaultState.displays);state.tests=ensureArray(state.tests,defaultState.tests);
   state.photos=ensureArray(state.photos,defaultState.photos);state.scripts=ensureArray(state.scripts,defaultState.scripts);
   state.simulator.viewpoints=ensureArray(state.simulator?.viewpoints,defaultState.simulator.viewpoints);
+  state.simulator.vehicles=ensureArray(state.simulator?.vehicles,defaultState.simulator.vehicles);
+  if(!state.simulator.vehicles.length)state.simulator.vehicles=cloneValue(defaultState.simulator.vehicles);
+  state.simulator.vehicles.forEach((v,i)=>{
+    v.id=String(v.id||`VEH-${String(i+1).padStart(3,'0')}`);
+    v.type=v.type==='motorcycle'?'motorcycle':'car';
+    v.plate=String(v.plate||'');v.etag=String(v.etag||'');
+    v.identity=['resident','visitor','vendor','blacklist'].includes(v.identity)?v.identity:'visitor';
+    v.authorized=v.authorized!==false;
+    v.lanePermission=['mixed','car','motorcycle'].includes(v.lanePermission)?v.lanePermission:'mixed';
+    v.note=String(v.note||'');
+  });
+  if(!state.simulator.vehicles.some(v=>v.id===state.simulator.activeVehicleId))state.simulator.activeVehicleId=state.simulator.vehicles[0]?.id||'VEH-001';
   if(!validIds.has(state.selectedDevice))state.selectedDevice=devices[0]?.id||null;
   if(!validIds.has(state.hotkeyEditor?.deviceId))state.hotkeyEditor.deviceId=state.selectedDevice||'';
   if(!state.floors.some(f=>f.id===state.editor.floorFocus))state.editor.floorFocus=state.floors[0]?.id||'1F';

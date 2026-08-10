@@ -1,12 +1,12 @@
 import {state} from '../state.js';
-import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.16';
+import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.18';
 import {devices} from '../data.js';
 import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} from '../core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.16';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.16';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.18';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.18';
 
 let active=null;
 const THREE_SOURCES=[
@@ -215,7 +215,8 @@ function createMotorcycle(colorMat,x,z,rot=0){
   bike.position.set(x,0,z);bike.rotation.y=rot;bike.userData.layer='vehicle';bike.userData.forwardAxis='-Z';bike.userData.vehicleType='motorcycle';bike.userData.vehicleWidth=.70;bike.userData.vehicleLength=2.05;floorGroup('1F').add(bike);return bike;
 }
 
-  state.simulator.vehicles=Array.isArray(state.simulator.vehicles)&&state.simulator.vehicles.length?state.simulator.vehicles:[{id:'VEH-001',type:state.simulator.vehicleType||'car',x:-2.05,z:15,rotation:0}];
+  state.simulator.vehicles=Array.isArray(state.simulator.vehicles)&&state.simulator.vehicles.length?state.simulator.vehicles:[{id:'VEH-001',type:state.simulator.vehicleType||'car',x:-2.05,z:15,rotation:0,plate:'ABC-1234',etag:'ETAG-001',identity:'resident',authorized:true,lanePermission:'mixed',note:'住戶示範車輛'}];
+  state.simulator.vehicles.forEach((v,i)=>{v.plate=String(v.plate||'');v.etag=String(v.etag||'');v.identity=['resident','visitor','vendor','blacklist'].includes(v.identity)?v.identity:'visitor';v.authorized=v.authorized!==false;v.lanePermission=['mixed','car','motorcycle'].includes(v.lanePermission)?v.lanePermission:'mixed';v.note=String(v.note||'');});
   state.simulator.activeVehicleId=state.simulator.activeVehicleId||state.simulator.vehicles[0].id;
   const vehicleModels=new Map();
   const palette=[mats.blue,new THREE.MeshStandardMaterial({color:0xe0a000,roughness:.48,metalness:.10}),new THREE.MeshStandardMaterial({color:0x16a34a,roughness:.5,metalness:.08}),new THREE.MeshStandardMaterial({color:0xdc2626,roughness:.5,metalness:.08})];
@@ -460,18 +461,36 @@ function createMotorcycle(colorMat,x,z,rot=0){
     if(line){line.userData.signalPulseUntil=performance.now()+900;line.material.opacity=1;line.material.linewidth=3;}
   }
 
+  function materialList(material){return Array.isArray(material)?material.filter(Boolean):(material?[material]:[]);}
+  function setMaterialHex(material,key,value){
+    let changed=false;
+    materialList(material).forEach(mat=>{
+      const target=mat?.[key];
+      try{
+        if(target&&typeof target.setHex==='function'){target.setHex(value);changed=true;}
+        else if(target&&typeof target.set==='function'){target.set(value);changed=true;}
+      }catch(err){console.warn(`[UTOP-3D] material ${key} update skipped`,err,mat);}
+    });
+    return changed;
+  }
+  function setMaterialEmissive(material,value,intensity){
+    materialList(material).forEach(mat=>{
+      setMaterialHex(mat,'emissive',value);
+      if(Number.isFinite(intensity)&&'emissiveIntensity' in mat)mat.emissiveIntensity=intensity;
+    });
+  }
+
   function setTrafficVisual(root,action='off'){
     const a=String(action||'off').toLowerCase(),redOn=a==='red',greenOn=a==='green';
-    if(root.userData.trafficRed){root.userData.trafficRed.material.color.setHex(redOn?0xff3030:0x3b0808);root.userData.trafficRed.material.emissive?.setHex(redOn?0xff1010:0x000000);root.userData.trafficRed.material.emissiveIntensity=redOn?3.8:.04;}
-    if(root.userData.trafficGreen){root.userData.trafficGreen.material.color.setHex(greenOn?0x2cff72:0x063719);root.userData.trafficGreen.material.emissive?.setHex(greenOn?0x14ff60:0x000000);root.userData.trafficGreen.material.emissiveIntensity=greenOn?3.8:.04;}
+    if(root.userData.trafficRed){setMaterialHex(root.userData.trafficRed.material,'color',redOn?0xff3030:0x3b0808);setMaterialEmissive(root.userData.trafficRed.material,redOn?0xff1010:0x000000,redOn?3.8:.04);}
+    if(root.userData.trafficGreen){setMaterialHex(root.userData.trafficGreen.material,'color',greenOn?0x2cff72:0x063719);setMaterialEmissive(root.userData.trafficGreen.material,greenOn?0x14ff60:0x000000,greenOn?3.8:.04);}
     if(root.userData.trafficRedGlow)root.userData.trafficRedGlow.intensity=redOn?5.5:0;
     if(root.userData.trafficGreenGlow)root.userData.trafficGreenGlow.intensity=greenOn?5.5:0;
   }
   function setLampState(node,on,colorOn=0x39ff78,colorOff=0x153520,intensity=3.0){
     if(!node?.material)return;
-    node.material.color?.setHex(on?colorOn:colorOff);
-    node.material.emissive?.setHex(on?colorOn:0x000000);
-    node.material.emissiveIntensity=on?intensity:.04;
+    setMaterialHex(node.material,'color',on?colorOn:colorOff);
+    setMaterialEmissive(node.material,on?colorOn:0x000000,on?intensity:.04);
   }
   function setDeviceReaction(id,root,type,action,status){
     const a=String(action||'').toLowerCase();
@@ -501,7 +520,7 @@ function createMotorcycle(colorMat,x,z,rot=0){
       const ok=a==='valid',bad=a==='invalid';setLampState(root.userData.statusLed,ok||bad,bad?0xff3030:0x35ff70,0x153520,4.0);
     }else if(type==='lpr'){
       const ok=a==='valid',bad=a==='invalid';(root.userData.lprLeds||[]).forEach(x=>setLampState(x,ok||bad,bad?0xff3030:0x35ff70,0x320909,3.5));
-      if(root.userData.lprLens?.material){root.userData.lprLens.material.emissive?.setHex(ok?0x0a662a:bad?0x660909:0);root.userData.lprLens.material.emissiveIntensity=ok||bad?2.2:.05;}
+      if(root.userData.lprLens?.material){setMaterialEmissive(root.userData.lprLens.material,ok?0x0a662a:bad?0x660909:0,ok||bad?2.2:.05);}
     }else if(type==='intercom'){
       const on=['call','answer'].includes(a);setLampState(root.userData.callLed,on,a==='answer'?0x35ff70:0xff3030,0x300707,3.5);
     }else if(type==='infrared'){
@@ -509,13 +528,13 @@ function createMotorcycle(colorMat,x,z,rot=0){
     }else if(type==='radar'&&root.userData.zone){
       root.userData.zone.material.opacity=a==='clear'?.12:.30;
     }else if(type==='ipcamera'&&root.userData.cameraBody?.material){
-      root.userData.cameraBody.material.emissive?.setHex(a==='alarm'?0x660000:a==='record'?0x073b16:0);root.userData.cameraBody.material.emissiveIntensity=a==='alarm'?1.8:a==='record'?.8:0;
+      setMaterialEmissive(root.userData.cameraBody.material,a==='alarm'?0x660000:a==='record'?0x073b16:0,a==='alarm'?1.8:a==='record'?.8:0);
     }else if(type==='parkingdisplay'&&root.userData.displayPanel?.material){
-      const full=a==='full';root.userData.displayPanel.material.color.setHex(full?0xff3030:0x38ff72);root.userData.displayPanel.material.emissive?.setHex(full?0x661010:0x0a4a20);root.userData.displayPanel.material.emissiveIntensity=2.4;
+      const full=a==='full';setMaterialHex(root.userData.displayPanel.material,'color',full?0xff3030:0x38ff72);setMaterialEmissive(root.userData.displayPanel.material,full?0x661010:0x0a4a20,2.4);
     }else if(type==='heightbar'&&root.userData.heightBar?.material){
-      root.userData.heightBar.material.emissive?.setHex(a==='overheight'?0x662000:0);root.userData.heightBar.material.emissiveIntensity=a==='overheight'?2.2:0;
+      setMaterialEmissive(root.userData.heightBar.material,a==='overheight'?0x662000:0,a==='overheight'?2.2:0);
     }else if(type==='accesscontroller'&&root.userData.door?.material){
-      root.userData.door.material.emissive?.setHex(a==='alarm'?0x660000:a==='unlock'?0x084d20:0);root.userData.door.material.emissiveIntensity=a==='alarm'?1.7:a==='unlock'?.7:0;
+      setMaterialEmissive(root.userData.door.material,a==='alarm'?0x660000:a==='unlock'?0x084d20:0,a==='alarm'?1.7:a==='unlock'?.7:0);
     }else if(type==='poeswitch'||type==='powersupply'){
       const bad=a==='fault';if(root.userData.activityLamp)setLampState(root.userData.activityLamp,a!=='off',bad?0xff3030:0x35ff70,0x173d21,bad?4.5:2.8);
     }else if(type==='signal2way'||type==='signal3way'){
@@ -538,14 +557,14 @@ function createMotorcycle(colorMat,x,z,rot=0){
       else if(action==='close'||action==='reset'){barrierOpen=false;state.simulator.barrier=false;root.userData.barrierTarget=0;root.userData.barrierSeconds=Math.max(.2,Number(s.closeTime)||3);root.userData.barrierAutoCloseArmed=false;root.userData.barrierAutoCloseRemaining=null;status='CLOSING';}
       else if(action==='stop'){root.userData.barrierTarget=null;root.userData.barrierAutoCloseArmed=false;root.userData.barrierAutoCloseRemaining=null;status='STOPPED';}else if(action==='safety'){barrierOpen=true;root.userData.barrierTarget=openAngle;root.userData.barrierSeconds=Math.max(.2,Number(s.openTime)||3);root.userData.barrierAutoCloseArmed=false;root.userData.barrierAutoCloseRemaining=null;status='SAFETY → OPENING';}
     }else if(type==='loop'){if(action==='vehicle'){loopOn=true;state.simulator.loop=true;status='ON';}else if(action==='clear'){loopOn=false;state.simulator.loop=false;status='OFF';}}
-    else if(type==='uhf'){if(action==='read'){etagFlash=1;status='TAG DETECTED'+(context.vehicleIds?.length?' · '+context.vehicleIds.join(', '):'');}else status='READY';}
+    else if(type==='uhf'){if(action==='read'){etagFlash=1;status='TAG OK'+(context.vehicleIds?.length?' · '+accessVehicleText(context.vehicleIds):'');}else if(['invalid','reject','fail'].includes(action)){status='TAG FAIL'+(context.vehicleIds?.length?' · '+accessVehicleText(context.vehicleIds):'');}else status='READY';}
     else if(type==='radar'){status=action==='vehicle'?('VEHICLE'+(context.vehicleIds?.length?' · '+context.vehicleIds.join(', '):'')):action==='person'?'PERSON':'READY';}
     else if(type==='traffic'||type==='ledpanel'){
       setTrafficVisual(root,action);
       root.userData.trafficFlashRed=type==='ledpanel'&&action==='red'&&String(getSettings(id).redMode||'steady')==='flash';
       status=action==='off'?'OFF':action.toUpperCase();
     }else if(type==='infrared'){if(root.userData.beam)root.userData.beam.visible=action!=='blocked';status=action==='blocked'?('BLOCKED'+(context.vehicleIds?.length?' · '+context.vehicleIds.join(', '):'')):'CLEAR';}
-    else if(type==='beacon'){root.userData.flash=action==='flash';if(root.userData.beaconLamp){root.userData.beaconLamp.visible=action!=='off';root.userData.beaconLamp.material.emissive?.setHex(action==='off'?0x000000:0x553000);}status=action.toUpperCase();}
+    else if(type==='beacon'){root.userData.flash=action==='flash';if(root.userData.beaconLamp){root.userData.beaconLamp.visible=action!=='off';setMaterialEmissive(root.userData.beaconLamp.material,action==='off'?0x000000:0x553000,action==='off'?.04:2.8);}status=action.toUpperCase();}
     else if(type==='bollard'){root.userData.bollardTarget=action==='up'?0.30:action==='down'?-0.20:(root.userData.bollard?.position.y??0.30);status=action.toUpperCase();}
     else if(type==='shutter'){const s=getSettings(id),h=Math.max(.5,Number(s.height)||2.6);if(action==='open'){root.userData.shutterTarget=h*.93;root.userData.shutterSeconds=Math.max(.2,Number(s.openTime)||6);status='OPENING';}else if(action==='close'){root.userData.shutterTarget=0;root.userData.shutterSeconds=Math.max(.2,Number(s.closeTime)||6);status='CLOSING';}else if(action==='stop'){root.userData.shutterTarget=null;status='STOPPED';}else if(action==='safety'){root.userData.shutterTarget=h*.93;root.userData.shutterSeconds=Math.max(.2,Number(s.openTime)||6);status='SAFETY → OPENING';}else status=action.toUpperCase();}
     else if(type==='relay'){if(root.userData.statusLamp)root.userData.statusLamp.material=action==='on'?mats.green:mats.gray;status=action==='on'?'NO CLOSED':'NC CLOSED';}
@@ -554,7 +573,7 @@ function createMotorcycle(colorMat,x,z,rot=0){
     else if(type==='parkingdisplay'){status=action==='full'?'FULL':action==='available'?'AVAILABLE':action.toUpperCase();}
     else if(type==='timer'||type.includes('delay')){const s=getSettings(id);if(action==='start'||action==='on'){root.userData.timerRemaining=Math.max(.1,Number(s.seconds)||5);root.userData.timerRunning=true;status='RUNNING';}else if(action==='pause'){root.userData.timerRunning=!root.userData.timerRunning;status=root.userData.timerRunning?'RUNNING':'PAUSED';}else if(action==='reset'){root.userData.timerRunning=false;root.userData.timerRemaining=Math.max(.1,Number(s.seconds)||5);status='IDLE';}else status=action.toUpperCase();}
     else if(type==='cardreader'){status=action==='valid'?'VALID CARD':action==='invalid'?'INVALID CARD':'READY';}
-    else if(type==='lpr'){status=action==='valid'?('PLATE OK'+(context.vehicleIds?.length?' · '+context.vehicleIds.join(', '):'')):action==='invalid'?'PLATE FAIL':'READY';}
+    else if(type==='lpr'){status=action==='valid'?('PLATE OK'+(context.vehicleIds?.length?' · '+accessVehicleText(context.vehicleIds):'')):action==='invalid'?('PLATE FAIL'+(context.vehicleIds?.length?' · '+accessVehicleText(context.vehicleIds):'')):'READY';}
     else if(type==='ipcamera'){status=action==='record'?'RECORDING':action==='alarm'?'ALARM':'ONLINE';}
     else if(type==='accesscontroller'){status=action==='unlock'?'UNLOCKED':action==='lock'?'LOCKED':action==='alarm'?'ALARM':'ONLINE';}
     else if(type==='poeswitch'||type==='powersupply'){status=action==='on'?'ONLINE':action==='off'?'OFF':action==='fault'?'FAULT':'READY';}
@@ -596,6 +615,19 @@ function simulateIo(id,direction,signal){
   return true;
 }
 
+
+function vehicleProfile(id){return (state.simulator.vehicles||[]).find(v=>v.id===id)||null;}
+function identityLabel(v){return v?.identity==='resident'?'住戶':v?.identity==='vendor'?'廠商':v?.identity==='blacklist'?'黑名單':'訪客';}
+function vehicleAccessDecision(id,kind='generic'){
+  const v=vehicleProfile(id);if(!v)return {allowed:false,reason:'UNKNOWN VEHICLE',vehicle:null};
+  if(v.identity==='blacklist')return {allowed:false,reason:'BLACKLIST',vehicle:v};
+  if(v.authorized===false)return {allowed:false,reason:'ACCESS DENIED',vehicle:v};
+  if(kind==='uhf'&&!String(v.etag||'').trim())return {allowed:false,reason:'NO ETAG',vehicle:v};
+  if(kind==='lpr'&&!String(v.plate||'').trim())return {allowed:false,reason:'NO PLATE',vehicle:v};
+  const lane=state.simulator.laneType||'mixed';if(lane!=='mixed'&&v.lanePermission!=='mixed'&&v.lanePermission!==lane)return {allowed:false,reason:'LANE DENIED',vehicle:v};
+  return {allowed:true,reason:'AUTHORIZED',vehicle:v};
+}
+function accessVehicleText(ids){return ids.map(id=>{const v=vehicleProfile(id);return v?`${id}${v.plate?' · '+v.plate:''} · ${identityLabel(v)}`:id;}).join(', ');}
 
 function vehicleIdentityList(){
   return [...vehicleModels.values()].filter(v=>v&&v.visible!==false).map(v=>({
@@ -644,6 +676,15 @@ function setSensorVehicleState(id,root,vehicleIds,activeAction,clearAction,{puls
   else if(prev.length&&clearAction){executeDeviceAction(id,clearAction,new Set(),{pulse:false,source:'VEHICLE_SENSOR',vehicleIds:[]});}
 }
 
+function setAccessSensorVehicleState(id,root,vehicleIds,kind='uhf'){
+  const next=[...new Set(vehicleIds)].sort(),prev=Array.isArray(root.userData.sensorVehicleIds)?root.userData.sensorVehicleIds:[];
+  const prevKey=prev.join('|'),nextKey=next.join('|');root.userData.sensorVehicleIds=next;if(prevKey===nextKey)return;
+  const accepted=[],rejected=[];next.forEach(vid=>(vehicleAccessDecision(vid,kind).allowed?accepted:rejected).push(vid));
+  const rt=getRuntime(id)||{};updateRuntime(id,{...rt,detectedVehicleIds:next,authorizedVehicleIds:accepted,rejectedVehicleIds:rejected,lastVehicleIds:next,accessSummary:next.map(vid=>{const d=vehicleAccessDecision(vid,kind);return {vehicleId:vid,allowed:d.allowed,reason:d.reason,plate:d.vehicle?.plate||'',etag:d.vehicle?.etag||''};})});
+  if(accepted.length)executeDeviceAction(id,kind==='lpr'?'valid':'read',new Set(),{pulse:true,source:'VEHICLE_ACCESS',vehicleIds:accepted,access:'ALLOW'});
+  if(rejected.length)executeDeviceAction(id,'invalid',new Set(),{pulse:true,source:'VEHICLE_ACCESS',vehicleIds:rejected,access:'DENY'});
+  if(!next.length&&prev.length)executeDeviceAction(id,'clear',new Set(),{pulse:false,source:'VEHICLE_ACCESS',vehicleIds:[]});
+}
 
 function disposeVehicleModel(obj){
   if(!obj)return;
@@ -664,7 +705,7 @@ const controllerApi={
     triggerEtag(){etagFlash=1;showToast('ETAG DETECTED');setText('etagState','DETECTED');setTimeout(()=>setText('etagState','READY'),1200);},
     toggleSignals(){state.simulator.signals=!state.simulator.signals;signalGroup.visible=state.simulator.signals;return state.simulator.signals;},
     toggleZones(){state.simulator.zones=!state.simulator.zones;Object.values(deviceRoots).forEach(root=>{if(root.userData.zone)root.userData.zone.visible=state.simulator.zones;if(root.userData.zoneEdges)root.userData.zoneEdges.visible=state.simulator.zones;});return state.simulator.zones;},
-    resetCar(){if(car){car.position.set(-2.05,0,15);car.rotation.y=0;syncVehicleState(car);}exitCar.position.set(2.05,0,-15);exitCar.rotation.y=Math.PI;exitCar.visible=false;speed=0;keys.clear();showToast((car?.userData.vehicleId||'車輛')+' 已重設');},setVehicleType(type){return setVehicleType(type);},selectVehicle(id){const m=vehicleModels.get(id);if(!m)return false;syncVehicleState(car);car=m;state.simulator.activeVehicleId=id;state.simulator.vehicleType=m.userData.vehicleType||'car';speed=0;keys.clear();showToast('控制車輛：'+id);return true;},addVehicle(type='car'){const id=nextVehicleId(),idx=state.simulator.vehicles.length,v={id,type:type==='motorcycle'?'motorcycle':'car',x:-2.05+(idx%3)*1.5,z:15+Math.floor(idx/3)*2.5,rotation:0};state.simulator.vehicles.push(v);const m=spawnVehicle(v,idx);car=m;state.simulator.activeVehicleId=id;state.simulator.vehicleType=v.type;showToast('新增 '+id+' · '+(v.type==='motorcycle'?'機車':'汽車'));return id;},removeVehicle(id){if(state.simulator.vehicles.length<=1){showToast('至少保留一台車輛');return false;}const m=vehicleModels.get(id);disposeVehicleModel(m);vehicleModels.delete(id);state.simulator.vehicles=state.simulator.vehicles.filter(v=>v.id!==id);const next=state.simulator.vehicles[0];car=vehicleModels.get(next.id);state.simulator.activeVehicleId=next.id;state.simulator.vehicleType=next.type;speed=0;keys.clear();showToast('已刪除 '+id);return true;},setLaneType(type){state.simulator.laneType=(type==='car'||type==='motorcycle')?type:'mixed';showToast('車道類型：'+(state.simulator.laneType==='car'?'汽車道':state.simulator.laneType==='motorcycle'?'機車道':'混合車道'));return state.simulator.laneType;},
+    resetCar(){if(car){car.position.set(-2.05,0,15);car.rotation.y=0;syncVehicleState(car);}exitCar.position.set(2.05,0,-15);exitCar.rotation.y=Math.PI;exitCar.visible=false;speed=0;keys.clear();showToast((car?.userData.vehicleId||'車輛')+' 已重設');},setVehicleType(type){return setVehicleType(type);},selectVehicle(id){const m=vehicleModels.get(id);if(!m)return false;syncVehicleState(car);car=m;state.simulator.activeVehicleId=id;state.simulator.vehicleType=m.userData.vehicleType||'car';speed=0;keys.clear();showToast('控制車輛：'+id);return true;},addVehicle(type='car'){const id=nextVehicleId(),idx=state.simulator.vehicles.length,v={id,type:type==='motorcycle'?'motorcycle':'car',x:-2.05+(idx%3)*1.5,z:15+Math.floor(idx/3)*2.5,rotation:0,plate:'',etag:'',identity:'visitor',authorized:true,lanePermission:'mixed',note:''};state.simulator.vehicles.push(v);const m=spawnVehicle(v,idx);car=m;state.simulator.activeVehicleId=id;state.simulator.vehicleType=v.type;showToast('新增 '+id+' · '+(v.type==='motorcycle'?'機車':'汽車'));return id;},updateVehicleProfile(id,profile={}){const v=state.simulator.vehicles.find(x=>x.id===id);if(!v)return false;Object.assign(v,{plate:String(profile.plate??v.plate??'').toUpperCase(),etag:String(profile.etag??v.etag??'').toUpperCase(),identity:['resident','visitor','vendor','blacklist'].includes(profile.identity)?profile.identity:(v.identity||'visitor'),authorized:profile.authorized!==undefined?!!profile.authorized:v.authorized!==false,lanePermission:['mixed','car','motorcycle'].includes(profile.lanePermission)?profile.lanePermission:(v.lanePermission||'mixed'),note:String(profile.note??v.note??'')});showToast(`${id} · ${v.plate||'未設定車牌'} · ${identityLabel(v)} · ${v.authorized===false?'拒絕':'允許'}`);return true;},removeVehicle(id){if(state.simulator.vehicles.length<=1){showToast('至少保留一台車輛');return false;}const m=vehicleModels.get(id);disposeVehicleModel(m);vehicleModels.delete(id);state.simulator.vehicles=state.simulator.vehicles.filter(v=>v.id!==id);const next=state.simulator.vehicles[0];car=vehicleModels.get(next.id);state.simulator.activeVehicleId=next.id;state.simulator.vehicleType=next.type;speed=0;keys.clear();showToast('已刪除 '+id);return true;},setLaneType(type){state.simulator.laneType=(type==='car'||type==='motorcycle')?type:'mixed';showToast('車道類型：'+(state.simulator.laneType==='car'?'汽車道':state.simulator.laneType==='motorcycle'?'機車道':'混合車道'));return state.simulator.laneType;},
     setDrive(dir,on=true){const code={forward:'KeyW',back:'KeyS',left:'KeyA',right:'KeyD'}[dir];if(!code)return;if(on)keys.add(code);else keys.delete(code);},
     stop(){keys.clear();speed=0;},
     setFollow(v){follow=!!v;state.simulator.follow=follow;},
@@ -748,8 +789,8 @@ const controllerApi={
     // preserves VEH-ID in runtime, and propagates that identity through connections.
     Object.entries(deviceRoots).forEach(([id,root])=>{
       const dev=devices.find(d=>d.id===id);if(!dev)return;const type=String(dev.type||'').toLowerCase(),settings=getSettings(id);
-      if(type==='uhf')setSensorVehicleState(id,root,vehicleIdsInDirectionalZone(root,settings,'uhf'),'read','clear',{pulse:true});
-      else if(type==='lpr')setSensorVehicleState(id,root,vehicleIdsInDirectionalZone(root,settings,'lpr'),'valid','clear',{pulse:true});
+      if(type==='uhf')setAccessSensorVehicleState(id,root,vehicleIdsInDirectionalZone(root,settings,'uhf'),'uhf');
+      else if(type==='lpr')setAccessSensorVehicleState(id,root,vehicleIdsInDirectionalZone(root,settings,'lpr'),'lpr');
       else if(type==='radar')setSensorVehicleState(id,root,vehicleIdsInDirectionalZone(root,settings,'radar'),'vehicle','clear',{pulse:true});
       else if(type==='infrared')setSensorVehicleState(id,root,vehicleIdsBlockingInfrared(root,settings),'blocked','clear',{pulse:false});
       else if(type==='barrier'){
@@ -761,7 +802,7 @@ const controllerApi={
         }else if(!blockers.length)root.userData.vehicleSafetyActive=false;
       }
     });
-    Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.reactionPulseUntil>now&&root.userData.activityLamp){const q=.96+.10*(.5+.5*Math.sin(now*.035));root.userData.activityLamp.scale.setScalar(q);}else if(root.userData.activityLamp)root.userData.activityLamp.scale.setScalar(1);if(root.userData.barrierPivot&&root.userData.barrierTarget!==null&&root.userData.barrierTarget!==undefined){const cur=root.userData.barrierPivot.rotation.z,targetAngle=root.userData.barrierTarget,secs=Math.max(.2,root.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){root.userData.barrierPivot.rotation.z=targetAngle;root.userData.barrierTarget=null;const bd=getRuntime(id),settings=getSettings(id);const opened=Math.abs(targetAngle)>0.01;updateRuntime(id,{...(bd||{}),status:opened?'OPEN':'CLOSED',active:opened});if(opened&&root.userData.barrierAutoCloseArmed&&settings.autoCloseEnabled){root.userData.barrierAutoCloseRemaining=Math.max(1,Number(settings.autoCloseSeconds)||5);root.userData.barrierAutoCloseArmed=false;}else if(targetAngle>=0){root.userData.barrierAutoCloseRemaining=null;}}else root.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}if(root.userData.barrierAutoCloseRemaining!==null&&root.userData.barrierAutoCloseRemaining!==undefined){const safetyHeld=Array.isArray(root.userData.safetyVehicleIds)&&root.userData.safetyVehicleIds.length>0;if(!safetyHeld)root.userData.barrierAutoCloseRemaining=Math.max(0,root.userData.barrierAutoCloseRemaining-dt);const remain=root.userData.barrierAutoCloseRemaining,rt=getRuntime(id);const held=Array.isArray(root.userData.safetyVehicleIds)&&root.userData.safetyVehicleIds.length>0;updateRuntime(id,{...(rt||{}),status:held?`OPEN · SAFETY HOLD · ${root.userData.safetyVehicleIds.join(', ')}`:`OPEN · AUTO CLOSE ${Math.ceil(remain)}s`,active:true});if(remain<=0){root.userData.barrierAutoCloseRemaining=null;executeDeviceAction(id,'close',new Set());}}if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.trafficRed&&root.userData.trafficFlashRed){root.userData.trafficRed.visible=Math.floor(now/350)%2===0;if(root.userData.trafficRedGlow)root.userData.trafficRedGlow.intensity=root.userData.trafficRed.visible?5.5:0;}else if(root.userData.trafficRed)root.userData.trafficRed.visible=true;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id),devType=String(devices.find(d=>d.id===id)?.type||'').toLowerCase();updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(devType==='ledpanel'&&getSettings(id).lastFiveFlash!==false&&remain<=5&&remain>0&&root.userData.displayPanel)root.userData.displayPanel.visible=Math.floor(now/300)%2===0;else if(root.userData.displayPanel)root.userData.displayPanel.visible=true;if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));root.userData.displayPanel.material.emissive?.setHex(0x550000);root.userData.displayPanel.material.emissiveIntensity=pulse;}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
+    Object.entries(deviceRoots).forEach(([id,root])=>{if(root.userData.reactionPulseUntil>now&&root.userData.activityLamp){const q=.96+.10*(.5+.5*Math.sin(now*.035));root.userData.activityLamp.scale.setScalar(q);}else if(root.userData.activityLamp)root.userData.activityLamp.scale.setScalar(1);if(root.userData.barrierPivot&&root.userData.barrierTarget!==null&&root.userData.barrierTarget!==undefined){const cur=root.userData.barrierPivot.rotation.z,targetAngle=root.userData.barrierTarget,secs=Math.max(.2,root.userData.barrierSeconds||3),step=(Math.PI/2)/secs*dt,diff=targetAngle-cur;if(Math.abs(diff)<=step){root.userData.barrierPivot.rotation.z=targetAngle;root.userData.barrierTarget=null;const bd=getRuntime(id),settings=getSettings(id);const opened=Math.abs(targetAngle)>0.01;updateRuntime(id,{...(bd||{}),status:opened?'OPEN':'CLOSED',active:opened});if(opened&&root.userData.barrierAutoCloseArmed&&settings.autoCloseEnabled){root.userData.barrierAutoCloseRemaining=Math.max(1,Number(settings.autoCloseSeconds)||5);root.userData.barrierAutoCloseArmed=false;}else if(targetAngle>=0){root.userData.barrierAutoCloseRemaining=null;}}else root.userData.barrierPivot.rotation.z+=Math.sign(diff)*step;}if(root.userData.barrierAutoCloseRemaining!==null&&root.userData.barrierAutoCloseRemaining!==undefined){const safetyHeld=Array.isArray(root.userData.safetyVehicleIds)&&root.userData.safetyVehicleIds.length>0;if(!safetyHeld)root.userData.barrierAutoCloseRemaining=Math.max(0,root.userData.barrierAutoCloseRemaining-dt);const remain=root.userData.barrierAutoCloseRemaining,rt=getRuntime(id);const held=Array.isArray(root.userData.safetyVehicleIds)&&root.userData.safetyVehicleIds.length>0;updateRuntime(id,{...(rt||{}),status:held?`OPEN · SAFETY HOLD · ${root.userData.safetyVehicleIds.join(', ')}`:`OPEN · AUTO CLOSE ${Math.ceil(remain)}s`,active:true});if(remain<=0){root.userData.barrierAutoCloseRemaining=null;executeDeviceAction(id,'close',new Set());}}if(root.userData.beaconLamp&&root.userData.flash)root.userData.beaconLamp.visible=Math.floor(now/250)%2===0;if(root.userData.trafficRed&&root.userData.trafficFlashRed){root.userData.trafficRed.visible=Math.floor(now/350)%2===0;if(root.userData.trafficRedGlow)root.userData.trafficRedGlow.intensity=root.userData.trafficRed.visible?5.5:0;}else if(root.userData.trafficRed)root.userData.trafficRed.visible=true;if(root.userData.bollard&&root.userData.bollardTarget!==undefined&&root.userData.bollardTarget!==null)root.userData.bollard.position.y+=(root.userData.bollardTarget-root.userData.bollard.position.y)*Math.min(1,dt*5);if(root.userData.shutterDoor&&root.userData.shutterTarget!==undefined&&root.userData.shutterTarget!==null){const cur=root.userData.shutterDoor.position.y,tg=root.userData.shutterTarget,secs=Math.max(.2,root.userData.shutterSeconds||6),travel=Math.max(.5,Number(getSettings(id).height)||2.6),step=travel/secs*dt,diff=tg-cur;if(Math.abs(diff)<=step){root.userData.shutterDoor.position.y=tg;root.userData.shutterTarget=null;const rt=getRuntime(id);updateRuntime(id,{...(rt||{}),status:tg>0?'OPEN':'CLOSED',active:tg>0});}else root.userData.shutterDoor.position.y+=Math.sign(diff)*step;}if(root.userData.timerRunning){root.userData.timerRemaining=Math.max(0,(root.userData.timerRemaining||0)-dt);const remain=root.userData.timerRemaining,rt=getRuntime(id),devType=String(devices.find(d=>d.id===id)?.type||'').toLowerCase();updateRuntime(id,{...(rt||{}),status:`RUNNING ${Math.ceil(remain)}s`,active:true});updateCountdownLabel(id,root,Math.ceil(remain));if(devType==='ledpanel'&&getSettings(id).lastFiveFlash!==false&&remain<=5&&remain>0&&root.userData.displayPanel)root.userData.displayPanel.visible=Math.floor(now/300)%2===0;else if(root.userData.displayPanel)root.userData.displayPanel.visible=true;if(root.userData.displayPanel){const pulse=.45+.35*(.5+.5*Math.sin(now*.012));setMaterialEmissive(root.userData.displayPanel.material,0x550000,pulse);}if(remain<=0){root.userData.timerRunning=false;updateCountdownLabel(id,root,'0');updateRuntime(id,{...(rt||{}),status:'DONE',lastAction:'DONE',active:false});executeDeviceAction(id,'done',new Set());}}else if(root.userData.timerRemaining!==undefined){updateCountdownLabel(id,root,Math.ceil(root.userData.timerRemaining));}const dev=devices.find(d=>d.id===id);if(dev)updateDeviceLabel(dev,root);});
     if(state.signalTrace?.enabled)applyTraceFocus();else signalGroup.children.forEach(l=>{const pulsing=(l.userData.signalPulseUntil||0)>now;l.material.opacity=pulsing?1:.22;if(pulsing&&l.material.color){const base=l.userData.baseColor;if(base===undefined)l.userData.baseColor=l.material.color.getHex();l.material.color.setHex(0xfff176);}else if(l.userData.baseColor!==undefined&&l.material.color)l.material.color.setHex(l.userData.baseColor);});
     if(etagRoot?.userData.reader){if(etagFlash>0){etagFlash=Math.max(0,etagFlash-dt*1.7);etagRoot.userData.reader.scale.setScalar(1+etagFlash*.18);}else etagRoot.userData.reader.scale.setScalar(1);}
     const laneType=state.simulator.laneType||'mixed',vehicleType=(car?.userData.vehicleType||state.simulator.vehicleType)==='motorcycle'?'motorcycle':'car',laneMismatch=laneType!=='mixed'&&laneType!==vehicleType;const loopText=state.simulator.loopDetectionState==='weak'?'感應不足':loopOn?'ON':'OFF';setText('simStatus',laneMismatch?'⚠ 車種與車道不符':state.simulator.loopDetectionState==='weak'?'⚠ 機車/車輛感應不足':loopOn?'LOOP ON':barrierOpen?'Barrier OPEN':'3D EDIT READY');setText('loopState',loopText+(state.simulator.loopVehicleIds?.length?' · '+state.simulator.loopVehicleIds.join(', '):''));setText('laneTypeState',laneType==='car'?'汽車道':laneType==='motorcycle'?'機車道':'混合車道');setText('barrierState3d',barrierOpen?'OPEN':'CLOSED');

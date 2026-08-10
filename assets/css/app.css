@@ -304,3 +304,11 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
 .vehicle-type-control{display:inline-flex;align-items:center;gap:6px}.vehicle-type-control select{min-width:112px}
 
 .vehicle-type-control select{min-width:120px}.simulation-controls .toolbar button{white-space:nowrap}
+
+/* V1.7.18 Vehicle identity / access profile */
+.vehicle-profile-panel{margin-top:10px;padding:12px;border:1px solid #f2c58a;border-radius:14px;background:rgba(255,248,238,.96)}
+.vehicle-profile-grid{display:grid;grid-template-columns:repeat(4,minmax(140px,1fr));gap:10px;align-items:end}
+.vehicle-profile-grid label{display:grid;gap:5px;font-weight:700}.vehicle-profile-grid input,.vehicle-profile-grid select{width:100%;min-height:40px;border:1px solid #d7b17f;border-radius:10px;padding:7px 9px;background:#fff;color:#222}
+.vehicle-profile-note{grid-column:span 2}.vehicle-profile-grid button{min-height:42px}
+@media(max-width:900px){.vehicle-profile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.vehicle-profile-grid{grid-template-columns:1fr}.vehicle-profile-note{grid-column:auto}}

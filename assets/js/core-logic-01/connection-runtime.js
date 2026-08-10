@@ -17,8 +17,10 @@ export function activeOutputTerminals(deviceType='',action=''){
   if(t==='radar'&&a==='vehicle')return ['OUT1','VEHICLE','OUT'];
   if(t==='radar'&&a==='clear')return ['CLEAR'];
   if(t==='uhf'&&a==='read')return ['DATA','TAG_OK','OUT'];
+  if(t==='uhf'&&['invalid','reject','fail'].includes(a))return ['TAG_FAIL'];
   if(t==='cardreader'&&a==='valid')return ['D0','VALID','OUT'];
   if(t==='lpr'&&a==='valid')return ['ALARM OUT','PLATE_OK','OUT'];
+  if(t==='lpr'&&['invalid','reject','fail'].includes(a))return ['PLATE_FAIL'];
   if(t==='relay'&&a==='on')return ['NO','OUT'];
   if(t==='relay'&&a==='off')return ['NC'];
   if(t==='accesscontroller'&&['di1','on','unlock'].includes(a))return ['DO1','LOCK'];
