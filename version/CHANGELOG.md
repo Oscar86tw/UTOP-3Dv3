@@ -1,3 +1,18 @@
+# Changelog
+
+## V1.7.20 — 3D Signal Graph
+- 新增設備主節點、DI/DO 分支與空間式 Connection Graph。
+- Active Connection 顯示發光與流動光點。
+- VEH-ID 與 Runtime 狀態整合至 Graph。
+- 支援 Trace / Live 篩選與節點反查 3D。
+
+## V1.7.20 Full Access Decision Chain
+- 新增標準車輛通行決策鏈建立器：UHF / LPR → Controller → Relay → Barrier。
+- TAG_FAIL / PLATE_FAIL 獨立送至 Controller DI2，再由 DO2 驅動警示燈／紅燈，不會誤開柵欄。
+- VEH-ID、車牌、身份、ALLOW / DENY 與原因會沿 Connection Runtime / Signal Trace 保留。
+- 門禁控制器 DI1 / DI2 在 3D Runtime 分別顯示 ACCESS ALLOW 與 ACCESS DENY / ALARM。
+- Debug 新增「車輛通行決策鏈」完整性檢查。
+
 ## V1.7.18
 - 新增每台車輛的車牌、eTag、身分類型、通行授權、可通行車道與備註。
 - UHF / eTag 依車輛資料判斷 TAG_OK / TAG_FAIL。

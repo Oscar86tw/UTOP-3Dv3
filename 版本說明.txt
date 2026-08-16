@@ -1,2 +1,11 @@
-UTOP-3Dv3 V1.7.18 3D Lamp Material Hotfix
-修正 3D 模組燈號材質 emissive 型態不相容造成 Frame 中斷。
+UTOP-3Dv3 V1.7.20 3D Signal Graph
+
+1. 新增 3D Signal Graph 系統關聯視圖。
+2. 設備主節點＋DI/DO 分支節點。
+3. 即時 Connection 發光與訊號流動光點。
+4. 顯示 VEH-ID。
+5. 支援全部／Trace／Live 三種篩選。
+6. 點節點選取設備，雙擊可定位回 3D 場景。
+7. 保留既有卡片接線圖與 Signal Trace。
+
+本版未刪除檔案。
