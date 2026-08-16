@@ -1,12 +1,12 @@
 import {state} from '../state.js';
-import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.18';
+import {APP_VERSION_LABEL,APP_TITLE} from '../core-version-01/version-info.js?v=1.7.20';
 import {devices} from '../data.js';
 import {getSceneProfile,floorVisible,groupVisible,groupOpacity,addViewpoint} from '../core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,floorElevation,selectDevice,setFloorFocus,setEditorMode as saveEditorMode} from '../core-editor-01/editor-commands.js';
 import {getSettings,defaultSettings,updateRuntime,getRuntime} from '../core-module-01/module-manager.js';
 import {traceNetwork} from '../core-signal-01/signal-trace.js';
-import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.18';
-import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.18';
+import {createRealisticDeviceModel} from './device-model-factory.js?v=1.7.20';
+import {connectionsTriggeredBy,actionForTargetTerminal,noteSignal} from '../core-logic-01/connection-runtime.js?v=1.7.20';
 
 let active=null;
 const THREE_SOURCES=[
@@ -575,11 +575,16 @@ function createMotorcycle(colorMat,x,z,rot=0){
     else if(type==='cardreader'){status=action==='valid'?'VALID CARD':action==='invalid'?'INVALID CARD':'READY';}
     else if(type==='lpr'){status=action==='valid'?('PLATE OK'+(context.vehicleIds?.length?' · '+accessVehicleText(context.vehicleIds):'')):action==='invalid'?('PLATE FAIL'+(context.vehicleIds?.length?' · '+accessVehicleText(context.vehicleIds):'')):'READY';}
     else if(type==='ipcamera'){status=action==='record'?'RECORDING':action==='alarm'?'ALARM':'ONLINE';}
-    else if(type==='accesscontroller'){status=action==='unlock'?'UNLOCKED':action==='lock'?'LOCKED':action==='alarm'?'ALARM':'ONLINE';}
+    else if(type==='accesscontroller'){
+      if(['di1','unlock','on'].includes(action))status='ACCESS ALLOW'+(context.vehicleIds?.length?' · '+accessVehicleText(context.vehicleIds):'');
+      else if(['di2','alarm'].includes(action))status='ACCESS DENY / ALARM'+(context.vehicleIds?.length?' · '+accessVehicleText(context.vehicleIds):'');
+      else if(action==='lock')status='LOCKED';else if(action==='reset')status='ONLINE';else status='ONLINE';
+    }
     else if(type==='poeswitch'||type==='powersupply'){status=action==='on'?'ONLINE':action==='off'?'OFF':action==='fault'?'FAULT':'READY';}
     else if(type==='heightbar'){status=action==='overheight'?'OVERHEIGHT ALARM':action==='normal'?'NORMAL':'READY';}
     else status=action.toUpperCase();
-    setDeviceReaction(id,root,type,action,status);
+    const reactionAction=type==='accesscontroller'&&action==='di1'?'unlock':type==='accesscontroller'&&action==='di2'?'alarm':action;
+    setDeviceReaction(id,root,type,reactionAction,status);
     const vehicleIds=[...new Set((context.vehicleIds||context.sourceVehicleIds||[]).filter(Boolean).map(String))];
     updateRuntime(id,{status,lastAction:action,active:!['off','clear','reset','close'].includes(action),vehicleIds,lastVehicleIds:vehicleIds,sourceVehicleIds:vehicleIds});dev.state=status;
     const triggered=connectionsTriggeredBy(id,action);
@@ -681,8 +686,10 @@ function setAccessSensorVehicleState(id,root,vehicleIds,kind='uhf'){
   const prevKey=prev.join('|'),nextKey=next.join('|');root.userData.sensorVehicleIds=next;if(prevKey===nextKey)return;
   const accepted=[],rejected=[];next.forEach(vid=>(vehicleAccessDecision(vid,kind).allowed?accepted:rejected).push(vid));
   const rt=getRuntime(id)||{};updateRuntime(id,{...rt,detectedVehicleIds:next,authorizedVehicleIds:accepted,rejectedVehicleIds:rejected,lastVehicleIds:next,accessSummary:next.map(vid=>{const d=vehicleAccessDecision(vid,kind);return {vehicleId:vid,allowed:d.allowed,reason:d.reason,plate:d.vehicle?.plate||'',etag:d.vehicle?.etag||''};})});
-  if(accepted.length)executeDeviceAction(id,kind==='lpr'?'valid':'read',new Set(),{pulse:true,source:'VEHICLE_ACCESS',vehicleIds:accepted,access:'ALLOW'});
-  if(rejected.length)executeDeviceAction(id,'invalid',new Set(),{pulse:true,source:'VEHICLE_ACCESS',vehicleIds:rejected,access:'DENY'});
+  const decisionRows=next.map(vid=>{const d=vehicleAccessDecision(vid,kind);return {vehicleId:vid,allowed:d.allowed,reason:d.reason,plate:d.vehicle?.plate||'',etag:d.vehicle?.etag||'',identity:d.vehicle?.identity||''};});
+  const allowRows=decisionRows.filter(x=>x.allowed),denyRows=decisionRows.filter(x=>!x.allowed);
+  if(accepted.length)executeDeviceAction(id,kind==='lpr'?'valid':'read',new Set(),{pulse:true,source:'VEHICLE_ACCESS',vehicleIds:accepted,access:'ALLOW',accessDecisions:allowRows});
+  if(rejected.length)executeDeviceAction(id,'invalid',new Set(),{pulse:true,source:'VEHICLE_ACCESS',vehicleIds:rejected,access:'DENY',accessDecisions:denyRows});
   if(!next.length&&prev.length)executeDeviceAction(id,'clear',new Set(),{pulse:false,source:'VEHICLE_ACCESS',vehicleIds:[]});
 }
 

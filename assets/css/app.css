@@ -312,3 +312,10 @@ body[data-route]:not([data-route="simulator"]) .persistent-workspace .three-stag
 .vehicle-profile-note{grid-column:span 2}.vehicle-profile-grid button{min-height:42px}
 @media(max-width:900px){.vehicle-profile-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.vehicle-profile-grid{grid-template-columns:1fr}.vehicle-profile-note{grid-column:auto}}
+
+/* V1.7.20 Full Access Decision Chain */
+.access-decision-card .badge.ok{background:#e8f6e8;color:#176b2c}.access-chain-list{display:grid;gap:7px}.access-chain-row{display:grid;grid-template-columns:22px 58px 1fr;align-items:center;gap:8px;padding:8px 10px;border:1px solid #e4ddd1;border-radius:10px;background:#fff}.access-chain-row.ok{border-color:#b9dfbf;background:#f4fbf5}.access-chain-row.missing{border-color:#efc8a4;background:#fff8f1}.access-chain-row b{font-size:12px}.access-chain-row.ok>span:first-child{color:#198754}.access-chain-row.missing>span:first-child{color:#d97706}
+
+/* V1.7.20 3D Signal Graph */
+.signal-graph-card{overflow:hidden}.signal-graph-card .neural-toolbar{flex-wrap:wrap}.signal-graph-filters{display:flex;gap:8px;flex-wrap:wrap}.signal-graph-filters button.active{background:#f59e0b;color:#17120a;border-color:#f59e0b}.signal-graph-legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:8px 0 10px;color:var(--muted);font-size:12px}.signal-graph-legend span{display:inline-flex;align-items:center;gap:6px}.signal-graph-legend i{width:10px;height:10px;border-radius:50%;display:inline-block;box-shadow:0 0 10px currentColor}.signal-graph-legend i.di{background:#4b8dff;color:#4b8dff}.signal-graph-legend i.do{background:#ff9d32;color:#ff9d32}.signal-graph-legend i.live{background:#ffd84d;color:#ffd84d}.signal-graph-card .neural-canvas{background:#070a10;border-color:#2b3448;min-height:460px}.signal-graph-card #neuralGraphStatus{background:#111827;color:#dbe7ff;border-color:#28344d}
+@media(max-width:600px){.signal-graph-card .neural-canvas{min-height:360px}.signal-graph-card .neural-toolbar{align-items:stretch}.signal-graph-filters{width:100%}.signal-graph-filters button{flex:1 1 auto}}

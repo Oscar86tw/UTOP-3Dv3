@@ -1,20 +1,21 @@
 import {categories,devices} from './data.js';
 import {state} from './state.js';
-import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.18';
-import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.18';
+import {render,renderDeviceInspector,renderQuick3DControls,renderModuleLibrary} from './views.js?v=1.7.20';
+import {mountSimulator3D,unmountSimulator3D} from './core-3d-01/simulator3d.js?v=1.7.20';
 import {toggleFloor,toggleGroup,setGroupOpacity,renameViewpoint,deleteViewpoint,updateDisplay,isReservedHotkey} from './core-project-01/project-controls.js';
 import {getDeviceTransform,updateDeviceTransform,setFloorFocus,setEditorMode,selectDevice} from './core-editor-01/editor-commands.js';
 import {addModule,removeModule,updateSettings,getSettings,controlsFor} from './core-module-01/module-manager.js';
 import {deleteConnection,selectTerminalForBuilder,resetWiringBuilder} from './core-wiring-01/wiring-manager.js';
+import {buildStandardAccessDecisionChain,inspectAccessDecisionChain} from './core-logic-01/access-decision-runtime.js?v=1.7.20';
 import {setTraceFocus,clearTraceFocus} from './core-signal-01/signal-trace.js';
 import {applyScenePreset} from './core-scene-01/scene-library.js';
 import {addRoadMarking,updateRoadMarking,deleteRoadMarking} from './core-road-01/road-markings.js';
-import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js';
+import {mountNeuralView,unmountNeuralView} from './core-neural-01/neural-view.js?v=1.7.20';
 import {runDebugAudit} from './core-debug-01/debug-center.js';
-import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.18';
-import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.18';
-import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.18';
-import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.18';
+import {cloneDefaults,migrateProjectState} from './core-state-01/state-integrity.js?v=1.7.20';
+import {runFunctionStateAudit} from './core-validation-01/function-state-validator.js?v=1.7.20';
+import {pingCloud,selfTestCloud,verifyCloudWrite,repairCloudIndex,listCloudProjects,saveCloudProject,loadCloudProject,deleteCloudProject} from './core-cloud-01/google-cloud-projects.js?v=1.7.20';
+import {APP_VERSION,APP_VERSION_LABEL,APP_TITLE,APP_META} from './core-version-01/version-info.js?v=1.7.20';
 
 const workspaceRoot=document.getElementById('workspaceRoot'),toolPanelLayer=document.getElementById('toolPanelLayer'),tabs=document.getElementById('mainTabs'),bottom=document.getElementById('bottomNav');
 let root=workspaceRoot;
@@ -362,7 +363,7 @@ function refreshToolPanelBody(panel,route){
   if(route==='diagrams')unmountNeuralView();
   const body=panel.querySelector('.floating-tool-body');if(!body)return;
   body.innerHTML=render(route);const prev=root;root=body;bind();root=prev;enhanceStableSelects(body);
-  if(route==='diagrams')mountNeuralView();
+  if(route==='diagrams')window.__utopNeural=mountNeuralView();
 }
 function refreshAllToolPanels(){
   for(const panel of toolPanelLayer.querySelectorAll('.floating-tool-window')){
@@ -402,7 +403,7 @@ async function openToolPanel(route){
   toolPanelLayer.insertAdjacentHTML('beforeend',`<section class="floating-tool-window" data-tool-route="${route}"><header class="floating-tool-header"><div><b>${toolTitle(route)}</b><small>工作區保持運作，不重新載入 3D</small></div><div class="floating-tool-actions"><button data-tool-minimize title="最小化">—</button><button data-tool-dock title="吸附位置">▣</button><button data-tool-close title="關閉">×</button></div></header><div id="${bodyId}" class="floating-tool-body">${render(route)}</div></section>`);
   toolPanelLayer.classList.add('open');panel=toolPanelLayer.querySelector(`.floating-tool-window[data-tool-route="${CSS.escape(route)}"]`);restorePanelLayout(panel,route,count);enableFloatingPanelDrag(panel);updateDockedPanelLayout();const dockBtn=panel.querySelector('[data-tool-dock]');if(dockBtn)dockBtn.title='吸附：'+dockLabel(panel.dataset.dockEdge||'');bringPanelToFront(panel);
   const body=panel.querySelector(`#${bodyId}`),prev=root;root=body;bind();root=prev;enhanceStableSelects(body);
-  if(route==='diagrams')mountNeuralView();rememberPanelOpen(route);return panel;
+  if(route==='diagrams')window.__utopNeural=mountNeuralView();rememberPanelOpen(route);return panel;
 }
 function nav(){
   tabs.innerHTML=categories.map(c=>`<button data-route="${c.id}" class="${state.route===c.id?'active':''}">${c.label}</button>`).join('');
@@ -594,6 +595,8 @@ function bind(){
   root.querySelectorAll('[data-delete-connection]').forEach(b=>b.addEventListener('click',()=>{deleteConnection(b.dataset.deleteConnection);go('engineering')}));
   document.getElementById('resetWiringBuilder')?.addEventListener('click',()=>{resetWiringBuilder();go('engineering')});
   document.getElementById('showAllWiring3D')?.addEventListener('click',()=>{clearTraceFocus();state.workspace.mode='3d';go('simulator').then(()=>sim3d?.applyProjectState())});
+  document.getElementById('inspectAccessChain')?.addEventListener('click',()=>{const a=inspectAccessDecisionChain();state.accessDecision??={};state.accessDecision.lastMessage=a.summary;go('engineering');});
+  document.getElementById('buildAccessChain')?.addEventListener('click',safeHandler('建立通行決策鏈',async()=>{const r=buildStandardAccessDecisionChain();state.accessDecision.lastMessage=`${r.complete?'✅':'⚠'} 標準通行鏈：新增 ${r.createdDevices.length} 個模組、${r.addedConnections.length} 條接線；目前 ${r.expected.filter(x=>x.present).length}/${r.expected.length} 完成。`;await ensurePersistentWorkspace();sim3d?.applyProjectState?.();await go('engineering');}));
   root.querySelectorAll('[data-focus-wiring-3d]').forEach(b=>b.addEventListener('click',()=>{setTraceFocus(b.dataset.focusWiring3d,'full');state.selectedDevice=b.dataset.focusWiring3d;state.workspace.mode='3d';go('simulator').then(()=>sim3d?.applyTraceFocus())}));
   root.querySelectorAll('[data-trace-device]').forEach(b=>b.addEventListener('click',()=>{setTraceFocus(b.dataset.traceDevice,'full');state.selectedDevice=b.dataset.traceDevice;go('diagrams')}));
   byId('applyTrace')?.addEventListener('click',safeHandler('開始 Signal Trace',()=>{setTraceFocus(val('traceDevice'),val('traceMode','full'));return go('diagrams')}));byId('showTrace3D')?.addEventListener('click',safeHandler('3D 顯示 Signal Trace',async()=>{const deviceId=val('traceDevice'),mode=val('traceMode','full');setTraceFocus(deviceId,mode);state.selectedDevice=deviceId;state.workspace.mode='3d';await go('simulator');sim3d?.applyTraceFocus();}));byId('clearTraceFromDiagram')?.addEventListener('click',()=>{clearTraceFocus();go('diagrams')});
@@ -620,9 +623,14 @@ function bind(){
   document.getElementById('runDebugAudit')?.addEventListener('click',()=>{runDebugAudit();go('project');});
   document.getElementById('repairProjectState')?.addEventListener('click',()=>{migrateProjectState(state,devices,DEFAULTS.state,DEFAULTS.devices);runFunctionStateAudit();syncDirtyFlag();go('project');});
   document.getElementById('runFunctionStateAudit')?.addEventListener('click',()=>{runFunctionStateAudit();go('project');});
-  document.getElementById('neuralReset')?.addEventListener('click',()=>{unmountNeuralView();mountNeuralView();});
+  document.getElementById('neuralReset')?.addEventListener('click',()=>{window.__utopNeural?.reset?.();});
+  root.querySelectorAll('[data-neural-filter]').forEach(b=>b.addEventListener('click',()=>{root.querySelectorAll('[data-neural-filter]').forEach(x=>x.classList.toggle('active',x===b));window.__utopNeural?.setFilter?.(b.dataset.neuralFilter);}));
+  document.getElementById('neuralFocus3D')?.addEventListener('click',async()=>{if(!state.selectedDevice)return;state.workspace.mode='3d';await go('simulator');sim3d?.selectDevice?.(state.selectedDevice);});
   document.getElementById('docDevice')?.addEventListener('change',e=>{state.docsDevice=e.target.value;go('field')});root.querySelectorAll('[data-script-jump]').forEach(b=>b.addEventListener('click',()=>{state.field.scriptIndex=Number(b.dataset.scriptJump);go('field')}));
 }
+
+window.addEventListener('utop:signalGraphSelect',e=>{const id=e.detail?.deviceId;if(!id)return;state.selectedDevice=id;window.__utopNeural?.focusDevice?.(id);});
+window.addEventListener('utop:signalGraphFocus3D',async e=>{const id=e.detail?.deviceId;if(!id)return;state.selectedDevice=id;state.workspace.mode='3d';await go('simulator');sim3d?.selectDevice?.(id);});
 
 window.addEventListener('keydown',e=>{
   if(capturing){

@@ -1,6 +1,7 @@
 import {state} from '../state.js';
 import {devices} from '../data.js';
 import {updateRuntime} from '../core-module-01/module-manager.js';
+import {accessDecisionRuntimeText} from './access-decision-runtime.js?v=1.7.20';
 
 const uniq=a=>[...new Set(a.filter(Boolean).map(x=>String(x).toUpperCase()))];
 const upper=v=>String(v||'').toUpperCase();
@@ -120,12 +121,14 @@ export function noteSignal(connection,context={}){
   const from=devices.find(d=>d.id===connection.fromDevice),to=devices.find(d=>d.id===connection.toDevice);
   const vehicleIds=[...new Set((context.vehicleIds||context.sourceVehicleIds||[]).filter(Boolean).map(String))];
   const vehicleSuffix=vehicleIds.length?` · ${vehicleIds.join(', ')}`:'';
-  const msg=`${from?.name||connection.fromDevice}.${connection.fromTerminal} → ${to?.name||connection.toDevice}.${connection.toTerminal}${vehicleSuffix}`;
+  const accessText=accessDecisionRuntimeText(context);
+  const accessSuffix=accessText?` · ${accessText}`:'';
+  const msg=`${from?.name||connection.fromDevice}.${connection.fromTerminal} → ${to?.name||connection.toDevice}.${connection.toTerminal}${vehicleSuffix}${accessSuffix}`;
   state.eventLog=state.eventLog||[];
   state.eventLog.push(`${new Date().toLocaleTimeString('zh-TW',{hour12:false})} ${msg}`);
   if(state.eventLog.length>80)state.eventLog.splice(0,state.eventLog.length-80);
   state.activeSignals=state.activeSignals||{};const until=Date.now()+900;state.activeSignals[connection.id]=until;
   state.activePorts=state.activePorts||{};state.activePorts[`${connection.fromDevice}|DO|${connection.fromTerminal}`]=until;state.activePorts[`${connection.toDevice}|DI|${connection.toTerminal}`]=until;
-  updateRuntime(connection.toDevice,{lastSignal:msg,lastInput:connection.toTerminal,lastVehicleIds:vehicleIds,sourceVehicleIds:vehicleIds});
+  updateRuntime(connection.toDevice,{lastSignal:msg,lastInput:connection.toTerminal,lastVehicleIds:vehicleIds,sourceVehicleIds:vehicleIds,lastAccess:context.access||'',accessDecisions:Array.isArray(context.accessDecisions)?context.accessDecisions:[]});
   return msg;
 }

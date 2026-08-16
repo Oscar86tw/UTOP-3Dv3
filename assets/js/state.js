@@ -58,6 +58,7 @@ export const state = {
   docsDevice:'',moduleLibrary:{search:'',group:'全部'},
   connections:[],
   signalTrace:{enabled:false,focusDevice:'',mode:'full'},
+  accessDecision:{mode:'OR',lastBuiltAt:'',lastMessage:'尚未建立標準通行決策鏈。'},
   wiringBuilder:{fromDevice:'',fromTerminal:'',toDevice:'',toTerminal:'',step:'from',message:'請先點選一個模組的來源端子，再點另一個模組的目標端子。'}
 ,
   sceneLibrary:{activePreset:'community-day'},
